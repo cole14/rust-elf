@@ -1,5 +1,9 @@
 extern crate elf;
 
+use std::default;
+
 fn main() {
-    println!("EI_NIDENT: {}!", elf::EI_NIDENT);
+    let ehdr: elf::Elf32Ehdr = default::Default::default();
+    println!("{:?}", ehdr);
+    println!("{}", ehdr);
 }
