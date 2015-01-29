@@ -3,16 +3,50 @@
 use std::fmt;
 use std::default;
 
-pub type Elf32Addr = u32;
-pub type Elf32Off = u32;
+#[derive(Copy)]
+pub struct Elf32Addr(pub u32);
 
+impl fmt::Debug for Elf32Addr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for Elf32Addr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+#[derive(Copy)]
+pub struct Elf32Off(pub u32);
+
+impl fmt::Debug for Elf32Off {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for Elf32Off {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+///
+/// Values and locations for parsing elf header ident byte array
+///
 pub const EI_NIDENT: usize = 16;
 pub const ELFMAGIC: [u8;4] = [0x7f, 0x45, 0x4c, 0x46];
+pub const EI_CLASS: usize = 4;
+pub const EI_DATA: usize = 5;
+pub const EI_VERSION: usize = 6;
+pub const EI_OSABI: usize = 7;
 
 ///
 /// Wrapper type for Class
 ///
-#[derive(Copy)]
+#[derive(Copy, PartialEq)]
 pub struct Class(pub u8);
 pub const ELFCLASSNONE : Class = Class(0);
 pub const ELFCLASS32 : Class = Class(1);
@@ -39,7 +73,7 @@ impl fmt::Display for Class {
 ///
 /// Wrapper type for Data
 ///
-#[derive(Copy)]
+#[derive(Copy, PartialEq)]
 pub struct Data(pub u8);
 pub const ELFDATANONE : Data = Data(0);
 pub const ELFDATA2LSB : Data = Data(1);
@@ -360,31 +394,30 @@ pub struct Elf32Ehdr {
 impl default::Default for Elf32Ehdr {
     fn default() -> Elf32Ehdr {
         Elf32Ehdr { e_class : ELFCLASSNONE, e_data : ELFDATANONE, e_type : ET_NONE, e_machine : EM_NONE,
-        e_version : EV_NONE, e_osabi : ELFOSABI_NONE, e_entry : 0, e_phoff : 0, e_shoff : 0,
-        e_flags : 0, e_ehsize : 0, e_phentsize : 0,
+        e_version : EV_NONE, e_osabi : ELFOSABI_NONE, e_entry : Elf32Addr(0), e_phoff : Elf32Off(0),
+        e_shoff : Elf32Off(0), e_flags : 0, e_ehsize : 0, e_phentsize : 0,
         e_phnum : 0, e_shentsize : 0, e_shnum : 0, e_shstrndx : 0 }
     }
 }
 
-#[allow(unused_must_use)]
 impl fmt::Display for Elf32Ehdr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Elf Header:\n");
-        write!(f, "  Class: {}\n", self.e_class);
-        write!(f, "  Data: {}\n", self.e_data);
-        write!(f, "  OS/ABI: {}\n", self.e_osabi);
-        write!(f, "  Type: {}\n", self.e_type);
-        write!(f, "  Machine: {}\n", self.e_machine);
-        write!(f, "  Version: {}\n", self.e_version);
-        write!(f, "  Entry point address: {}\n", self.e_entry);
-        write!(f, "  Start of program headers: {}\n", self.e_phoff);
-        write!(f, "  Start of section headers: {}\n", self.e_shoff);
-        write!(f, "  Flags: {}\n", self.e_flags);
-        write!(f, "  Size of this header: {}\n", self.e_ehsize);
-        write!(f, "  Size of program headers: {}\n", self.e_phentsize);
-        write!(f, "  Number of program headers: {}\n", self.e_phnum);
-        write!(f, "  Size of section headers: {}\n", self.e_shentsize);
-        write!(f, "  Number of section headers: {}\n", self.e_shnum);
+        try!(write!(f, "Elf Header:\n"));
+        try!(write!(f, "  Class: {}\n", self.e_class));
+        try!(write!(f, "  Data: {}\n", self.e_data));
+        try!(write!(f, "  OS/ABI: {}\n", self.e_osabi));
+        try!(write!(f, "  Type: {}\n", self.e_type));
+        try!(write!(f, "  Machine: {}\n", self.e_machine));
+        try!(write!(f, "  Version: {}\n", self.e_version));
+        try!(write!(f, "  Entry point address: {}\n", self.e_entry));
+        try!(write!(f, "  Start of program headers: {}\n", self.e_phoff));
+        try!(write!(f, "  Start of section headers: {}\n", self.e_shoff));
+        try!(write!(f, "  Flags: {}\n", self.e_flags));
+        try!(write!(f, "  Size of this header: {}\n", self.e_ehsize));
+        try!(write!(f, "  Size of program headers: {}\n", self.e_phentsize));
+        try!(write!(f, "  Number of program headers: {}\n", self.e_phnum));
+        try!(write!(f, "  Size of section headers: {}\n", self.e_shentsize));
+        try!(write!(f, "  Number of section headers: {}\n", self.e_shnum));
         write!(f, "  Section header string table index: {}", self.e_shstrndx)
     }
 }

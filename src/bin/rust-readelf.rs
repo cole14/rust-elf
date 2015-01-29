@@ -1,9 +1,16 @@
 extern crate elf;
 
-use std::default;
+use std::path::Path;
 
 fn main() {
-    let ehdr: elf::types::Elf32Ehdr = default::Default::default();
-    println!("{:?}", ehdr);
-    println!("{}", ehdr);
+    let path = Path::new("stress");
+    let file = match elf::File::open(&path) {
+        Ok(f) => f,
+        Err(e) => panic!("Error: {:?}", e),
+    };
+    println!("Debug-print ELF file:");
+    println!("{:?}", file);
+    println!("");
+    println!("Pretty-print ELF file:");
+    println!("{}", file);
 }
