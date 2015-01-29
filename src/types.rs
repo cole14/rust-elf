@@ -66,12 +66,10 @@ impl fmt::Display for Data {
 ///
 /// Wrapper type for Version
 /// This field represents the values both found in the e_ident byte array
-/// and the e_version field. While e_version is represented as a u32, the spec
-/// only defines it as 0 (invalid) or 1 (current), so I'm opting for a u8
-/// representation here.
+/// and the e_version field.
 ///
 #[derive(Copy)]
-pub struct Version(pub u8);
+pub struct Version(pub u32);
 pub const EV_NONE : Version = Version(0);
 pub const EV_CURRENT : Version = Version(1);
 
