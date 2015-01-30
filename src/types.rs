@@ -370,7 +370,7 @@ impl fmt::Display for Machine {
 ///
 /// ELF File Header
 ///
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 pub struct Elf32Ehdr {
     pub e_class:     Class,
     pub e_data:      Data,

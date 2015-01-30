@@ -20,7 +20,7 @@ impl std::fmt::Display for File {
     }
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub enum ParseError {
     IoError,
     InvalidMagic,
