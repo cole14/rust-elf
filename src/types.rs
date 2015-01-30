@@ -1,4 +1,3 @@
-#![allow(unstable)]
 
 use std::fmt;
 use std::default;

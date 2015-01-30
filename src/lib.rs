@@ -1,4 +1,5 @@
-#![allow(unstable)]
+#![feature(io)]
+#![feature(core)]
 
 pub mod types;
 

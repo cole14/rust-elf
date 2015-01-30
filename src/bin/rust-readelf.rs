@@ -1,3 +1,5 @@
+#![feature(path)]
+
 extern crate elf;
 
 use std::path::Path;
