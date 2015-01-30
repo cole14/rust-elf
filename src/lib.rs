@@ -3,9 +3,12 @@
 
 pub mod types;
 
+#[macro_use]
+pub mod utils;
+
 pub struct File {
     file: std::old_io::File,
-    pub ehdr: types::Elf32Ehdr,
+    pub ehdr: types::FileHeader,
 }
 
 impl std::fmt::Debug for File {
@@ -55,55 +58,37 @@ impl File {
 
         // Fill in file header values from ident bytes
         let mut elf_f = File::new(io_file);
-        elf_f.ehdr.e_class = types::Class(ident[types::EI_CLASS]);
-        elf_f.ehdr.e_data = types::Data(ident[types::EI_DATA]);
-        elf_f.ehdr.e_osabi = types::OSABI(ident[types::EI_OSABI]);
+        elf_f.ehdr.class = types::Class(ident[types::EI_CLASS]);
+        elf_f.ehdr.data = types::Data(ident[types::EI_DATA]);
+        elf_f.ehdr.osabi = types::OSABI(ident[types::EI_OSABI]);
+        elf_f.ehdr.abiversion = ident[types::EI_ABIVERSION];
+        elf_f.ehdr.elftype = types::Type(try!(read_u16!(elf_f)));
+        elf_f.ehdr.machine = types::Machine(try!(read_u16!(elf_f)));
+        elf_f.ehdr.version = types::Version(try!(read_u32!(elf_f)));
 
-        // Parse the platform-dependent file header
-        if elf_f.ehdr.e_class == types::ELFCLASS32 {
-            try!(elf_f.parse_ehdr32());
+        let mut phoff = 0u64;
+        let mut shoff = 0u64;
+
+        // Parse the platform-dependent file fields
+        if elf_f.ehdr.class == types::ELFCLASS32 {
+            elf_f.ehdr.entry = try!(read_u32!(elf_f)) as u64;
+            phoff = try!(read_u32!(elf_f)) as u64;
+            shoff = try!(read_u32!(elf_f)) as u64;
         } else {
-            try!(elf_f.parse_ehdr64());
+            elf_f.ehdr.entry = try!(read_u64!(elf_f));
+            phoff = try!(read_u64!(elf_f));
+            shoff = try!(read_u64!(elf_f));
         }
+
+        let flags = try!(read_u32!(elf_f));
+        let ehsize = try!(read_u16!(elf_f));
+        let phentsize = try!(read_u16!(elf_f));
+        let phnum = try!(read_u16!(elf_f));
+        let shentsize = try!(read_u16!(elf_f));
+        let shnum = try!(read_u16!(elf_f));
+        let shstrndx = try!(read_u16!(elf_f));
 
         Ok(elf_f)
-    }
-
-    fn parse_ehdr32(self: &mut Self) -> Result<(), ParseError> {
-        if self.ehdr.e_data == types::ELFDATA2LSB {
-            self.ehdr.e_type = types::Type(try!(self.file.read_le_u16()));
-            self.ehdr.e_machine = types::Machine(try!(self.file.read_le_u16()));
-            self.ehdr.e_version = types::Version(try!(self.file.read_le_u32()));
-            self.ehdr.e_entry = types::Elf32Addr(try!(self.file.read_le_u32()));
-            self.ehdr.e_phoff = types::Elf32Off(try!(self.file.read_le_u32()));
-            self.ehdr.e_shoff = types::Elf32Off(try!(self.file.read_le_u32()));
-            self.ehdr.e_flags = try!(self.file.read_le_u32());
-            self.ehdr.e_ehsize = try!(self.file.read_le_u16());
-            self.ehdr.e_phentsize = try!(self.file.read_le_u16());
-            self.ehdr.e_phnum = try!(self.file.read_le_u16());
-            self.ehdr.e_shentsize = try!(self.file.read_le_u16());
-            self.ehdr.e_shnum = try!(self.file.read_le_u16());
-            self.ehdr.e_shstrndx = try!(self.file.read_le_u16());
-        } else {
-            self.ehdr.e_type = types::Type(try!(self.file.read_be_u16()));
-            self.ehdr.e_machine = types::Machine(try!(self.file.read_be_u16()));
-            self.ehdr.e_version = types::Version(try!(self.file.read_be_u32()));
-            self.ehdr.e_entry = types::Elf32Addr(try!(self.file.read_be_u32()));
-            self.ehdr.e_phoff = types::Elf32Off(try!(self.file.read_be_u32()));
-            self.ehdr.e_shoff = types::Elf32Off(try!(self.file.read_be_u32()));
-            self.ehdr.e_flags = try!(self.file.read_be_u32());
-            self.ehdr.e_ehsize = try!(self.file.read_be_u16());
-            self.ehdr.e_phentsize = try!(self.file.read_be_u16());
-            self.ehdr.e_phnum = try!(self.file.read_be_u16());
-            self.ehdr.e_shentsize = try!(self.file.read_be_u16());
-            self.ehdr.e_shnum = try!(self.file.read_be_u16());
-            self.ehdr.e_shstrndx = try!(self.file.read_be_u16());
-        }
-        Ok(())
-    }
-
-    fn parse_ehdr64(&mut self) -> Result<(), ParseError> {
-        Err(ParseError::NotImplemented)
     }
 
     fn new(io_file: std::old_io::File) -> File {

@@ -2,36 +2,6 @@
 use std::fmt;
 use std::default;
 
-#[derive(Copy)]
-pub struct Elf32Addr(pub u32);
-
-impl fmt::Debug for Elf32Addr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl fmt::Display for Elf32Addr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-#[derive(Copy)]
-pub struct Elf32Off(pub u32);
-
-impl fmt::Debug for Elf32Off {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl fmt::Display for Elf32Off {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
 ///
 /// Values and locations for parsing elf header ident byte array
 ///
@@ -41,6 +11,7 @@ pub const EI_CLASS: usize = 4;
 pub const EI_DATA: usize = 5;
 pub const EI_VERSION: usize = 6;
 pub const EI_OSABI: usize = 7;
+pub const EI_ABIVERSION: usize = 8;
 
 ///
 /// Wrapper type for Class
@@ -371,53 +342,29 @@ impl fmt::Display for Machine {
 /// ELF File Header
 ///
 #[derive(Copy, Debug)]
-pub struct Elf32Ehdr {
-    pub e_class:     Class,
-    pub e_data:      Data,
-    pub e_version:   Version,
-    pub e_osabi:     OSABI,
-    pub e_type:      Type,
-    pub e_machine:   Machine,
-    pub e_entry:     Elf32Addr,
-    pub e_phoff:     Elf32Off,
-    pub e_shoff:     Elf32Off,
-    pub e_flags:     u32,
-    pub e_ehsize:    u16,
-    pub e_phentsize: u16,
-    pub e_phnum:     u16,
-    pub e_shentsize: u16,
-    pub e_shnum:     u16,
-    pub e_shstrndx:  u16,
+pub struct FileHeader {
+    pub class:      Class,
+    pub data:       Data,
+    pub version:    Version,
+    pub osabi:      OSABI,
+    pub abiversion: u8,
+    pub elftype:    Type,
+    pub machine:    Machine,
+    pub entry:      u64,
 }
 
-impl default::Default for Elf32Ehdr {
-    fn default() -> Elf32Ehdr {
-        Elf32Ehdr { e_class : ELFCLASSNONE, e_data : ELFDATANONE, e_type : ET_NONE, e_machine : EM_NONE,
-        e_version : EV_NONE, e_osabi : ELFOSABI_NONE, e_entry : Elf32Addr(0), e_phoff : Elf32Off(0),
-        e_shoff : Elf32Off(0), e_flags : 0, e_ehsize : 0, e_phentsize : 0,
-        e_phnum : 0, e_shentsize : 0, e_shnum : 0, e_shstrndx : 0 }
+impl default::Default for FileHeader {
+    fn default() -> FileHeader {
+        FileHeader { class : ELFCLASSNONE, data : ELFDATANONE, version : EV_NONE,
+            elftype : ET_NONE, machine : EM_NONE, osabi : ELFOSABI_NONE,
+            abiversion : 0, entry : 0 }
     }
 }
 
-impl fmt::Display for Elf32Ehdr {
+impl fmt::Display for FileHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "Elf Header:\n"));
-        try!(write!(f, "  Class: {}\n", self.e_class));
-        try!(write!(f, "  Data: {}\n", self.e_data));
-        try!(write!(f, "  OS/ABI: {}\n", self.e_osabi));
-        try!(write!(f, "  Type: {}\n", self.e_type));
-        try!(write!(f, "  Machine: {}\n", self.e_machine));
-        try!(write!(f, "  Version: {}\n", self.e_version));
-        try!(write!(f, "  Entry point address: {}\n", self.e_entry));
-        try!(write!(f, "  Start of program headers: {}\n", self.e_phoff));
-        try!(write!(f, "  Start of section headers: {}\n", self.e_shoff));
-        try!(write!(f, "  Flags: {}\n", self.e_flags));
-        try!(write!(f, "  Size of this header: {}\n", self.e_ehsize));
-        try!(write!(f, "  Size of program headers: {}\n", self.e_phentsize));
-        try!(write!(f, "  Number of program headers: {}\n", self.e_phnum));
-        try!(write!(f, "  Size of section headers: {}\n", self.e_shentsize));
-        try!(write!(f, "  Number of section headers: {}\n", self.e_shnum));
-        write!(f, "  Section header string table index: {}", self.e_shstrndx)
+        write!(f, "File Header for {} {} Elf {} for {} {}\n", self.class, self.data,
+            self.elftype, self.osabi, self.machine)
     }
 }
 
