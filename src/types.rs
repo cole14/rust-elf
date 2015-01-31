@@ -368,3 +368,83 @@ impl fmt::Display for FileHeader {
     }
 }
 
+///
+/// Wrapper type for ProgFlag
+///
+#[derive(Copy, PartialEq)]
+pub struct ProgFlag(pub u32);
+pub const PF_NONE : ProgFlag = ProgFlag(0);
+pub const PF_X : ProgFlag = ProgFlag(1);
+pub const PF_W : ProgFlag = ProgFlag(2);
+pub const PF_R : ProgFlag = ProgFlag(4);
+
+impl fmt::Debug for ProgFlag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for ProgFlag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let str = match *self {
+            PF_X => "X",
+            PF_W => "W",
+            PF_R => "R",
+            _ => "Unknown",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+///
+/// Wrapper type for ProgType
+///
+#[derive(Copy, PartialEq)]
+pub struct ProgType(pub u32);
+pub const PT_NULL : ProgType = ProgType(0);
+pub const PT_LOAD : ProgType = ProgType(1);
+pub const PT_DYNAMIC : ProgType = ProgType(2);
+pub const PT_INTERP : ProgType = ProgType(3);
+pub const PT_NOTE : ProgType = ProgType(4);
+pub const PT_SHLIB : ProgType = ProgType(5);
+pub const PT_PHDR : ProgType = ProgType(6);
+pub const PT_TLS : ProgType = ProgType(7);
+
+impl fmt::Debug for ProgType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for ProgType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let str = match *self {
+            PT_NULL => "Null",
+            PT_LOAD => "Loadable Segment",
+            PT_DYNAMIC => "Dynamic Linking Information",
+            PT_INTERP => "Interpreter",
+            PT_NOTE => "Auxiliary Information",
+            PT_SHLIB => "Reserved",
+            PT_PHDR => "Program Header",
+            PT_TLS => "Thread-local Storage",
+            _ => "Unknown",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+///
+/// ELF Program Header
+///
+#[derive(Copy, Debug)]
+pub struct ProgramHeader {
+    pub progtype: ProgType,
+    pub offset:   u64,
+    pub vaddr:    u64,
+    pub paddr:    u64,
+    pub filesz:   u64,
+    pub memsz:    u64,
+    pub flags:    ProgFlag,
+    pub align:    u64,
+}
+
