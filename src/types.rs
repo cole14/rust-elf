@@ -363,7 +363,7 @@ impl default::Default for FileHeader {
 
 impl fmt::Display for FileHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File Header for {} {} Elf {} for {} {}\n", self.class, self.data,
+        write!(f, "File Header for {} {} Elf {} for {} {}", self.class, self.data,
             self.elftype, self.osabi, self.machine)
     }
 }
@@ -386,13 +386,21 @@ impl fmt::Debug for ProgFlag {
 
 impl fmt::Display for ProgFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let str = match *self {
-            PF_X => "X",
-            PF_W => "W",
-            PF_R => "R",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
+        if (self.0 & PF_R.0) != 0 {
+            try!(write!(f, "R"));
+        } else {
+            try!(write!(f, " "));
+        }
+        if (self.0 & PF_W.0) != 0 {
+            try!(write!(f, "W"));
+        } else {
+            try!(write!(f, " "));
+        }
+        if (self.0 & PF_X.0) != 0 {
+            write!(f, "E")
+        } else {
+            write!(f, " ")
+        }
     }
 }
 
@@ -409,6 +417,9 @@ pub const PT_NOTE : ProgType = ProgType(4);
 pub const PT_SHLIB : ProgType = ProgType(5);
 pub const PT_PHDR : ProgType = ProgType(6);
 pub const PT_TLS : ProgType = ProgType(7);
+pub const PT_GNU_EH_FRAME : ProgType = ProgType(0x6474e550);
+pub const PT_GNU_STACK : ProgType = ProgType(0x6474e551);
+pub const PT_GNU_RELRO : ProgType = ProgType(0x6474e552);
 
 impl fmt::Debug for ProgType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -419,14 +430,17 @@ impl fmt::Debug for ProgType {
 impl fmt::Display for ProgType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let str = match *self {
-            PT_NULL => "Null",
-            PT_LOAD => "Loadable Segment",
-            PT_DYNAMIC => "Dynamic Linking Information",
-            PT_INTERP => "Interpreter",
-            PT_NOTE => "Auxiliary Information",
-            PT_SHLIB => "Reserved",
-            PT_PHDR => "Program Header",
-            PT_TLS => "Thread-local Storage",
+            PT_NULL => "NULL",
+            PT_LOAD => "LOAD",
+            PT_DYNAMIC => "DYNAMIC",
+            PT_INTERP => "INTERP",
+            PT_NOTE => "NOTE",
+            PT_SHLIB => "SHLIB",
+            PT_PHDR => "PHDR",
+            PT_TLS => "TLS",
+            PT_GNU_EH_FRAME => "GNU_EH_FRAME",
+            PT_GNU_STACK => "GNU_STACK",
+            PT_GNU_RELRO => "GNU_RELRO",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -446,5 +460,13 @@ pub struct ProgramHeader {
     pub memsz:    u64,
     pub flags:    ProgFlag,
     pub align:    u64,
+}
+
+impl fmt::Display for ProgramHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Program Header: Type: {} Offset: {:#010x} VirtAddr: {:#010x} PhysAddr: {:#010x} FileSize: {:#06x} MemSize: {:#06x} Flags: {} Align: {:#x}",
+            self.progtype, self.offset, self.vaddr, self.paddr, self.filesz,
+            self.memsz, self.flags, self.align)
+    }
 }
 

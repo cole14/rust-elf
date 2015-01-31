@@ -9,17 +9,23 @@ pub mod utils;
 pub struct File {
     file: std::old_io::File,
     pub ehdr: types::FileHeader,
+    pub phdrs: Vec<types::ProgramHeader>,
 }
 
 impl std::fmt::Debug for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.ehdr)
+        write!(f, "{:?} {:?}", self.ehdr, self.phdrs)
     }
 }
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.ehdr)
+        try!(write!(f, "{{ {} }}", self.ehdr));
+        try!(write!(f, "{{ "));
+        for phdr in self.phdrs.iter() {
+            try!(write!(f, "{}", phdr));
+        }
+        write!(f, " }}")
     }
 }
 
@@ -32,7 +38,7 @@ pub enum ParseError {
 }
 
 impl std::error::FromError<std::old_io::IoError> for ParseError {
-    fn from_error(err: std::old_io::IoError) -> Self {
+    fn from_error(_: std::old_io::IoError) -> Self {
         ParseError::IoError
     }
 }
@@ -66,8 +72,8 @@ impl File {
         elf_f.ehdr.machine = types::Machine(try!(read_u16!(elf_f)));
         elf_f.ehdr.version = types::Version(try!(read_u32!(elf_f)));
 
-        let mut phoff = 0u64;
-        let mut shoff = 0u64;
+        let mut phoff: u64;
+        let mut shoff: u64;
 
         // Parse the platform-dependent file fields
         if elf_f.ehdr.class == types::ELFCLASS32 {
@@ -88,11 +94,58 @@ impl File {
         let shnum = try!(read_u16!(elf_f));
         let shstrndx = try!(read_u16!(elf_f));
 
+        // Parse the program headers
+        try!(elf_f.file.seek(phoff as i64, std::old_io::SeekStyle::SeekSet));
+        for _ in 0..phnum {
+            let mut progtype: types::ProgType;
+            let mut offset: u64;
+            let mut vaddr: u64;
+            let mut paddr: u64;
+            let mut filesz: u64;
+            let mut memsz: u64;
+            let mut flags: types::ProgFlag;
+            let mut align: u64;
+
+
+            progtype = types::ProgType(try!(read_u32!(elf_f)));
+            if elf_f.ehdr.class == types::ELFCLASS32 {
+                offset = try!(read_u32!(elf_f)) as u64;
+                vaddr = try!(read_u32!(elf_f)) as u64;
+                paddr = try!(read_u32!(elf_f)) as u64;
+                filesz = try!(read_u32!(elf_f)) as u64;
+                memsz = try!(read_u32!(elf_f)) as u64;
+                flags = types::ProgFlag(try!(read_u32!(elf_f)));
+                align = try!(read_u32!(elf_f)) as u64;
+            } else {
+                flags = types::ProgFlag(try!(read_u32!(elf_f)));
+                offset = try!(read_u64!(elf_f));
+                vaddr = try!(read_u64!(elf_f));
+                paddr = try!(read_u64!(elf_f));
+                filesz = try!(read_u64!(elf_f));
+                memsz = try!(read_u64!(elf_f));
+                align = try!(read_u64!(elf_f));
+            }
+
+            elf_f.phdrs.push(types::ProgramHeader {
+                    progtype: progtype,
+                    offset:   offset,
+                    vaddr:    vaddr,
+                    paddr:    paddr,
+                    filesz:   filesz,
+                    memsz:    memsz,
+                    flags:    flags,
+                    align:    align,
+                });
+        }
+
         Ok(elf_f)
     }
 
     fn new(io_file: std::old_io::File) -> File {
-        File { file: io_file, ehdr: std::default::Default::default() }
+        File { file: io_file,
+            ehdr: std::default::Default::default(),
+            phdrs: Vec::new()
+        }
     }
 }
 
