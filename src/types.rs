@@ -470,3 +470,126 @@ impl fmt::Display for ProgramHeader {
     }
 }
 
+///
+/// Wrapper type for SectionType
+///
+#[derive(Copy, PartialEq)]
+pub struct SectionType(pub u32);
+pub const SHT_NULL : SectionType = SectionType(0);
+pub const SHT_PROGBITS : SectionType = SectionType(1);
+pub const SHT_SYMTAB : SectionType = SectionType(2);
+pub const SHT_STRTAB : SectionType = SectionType(3);
+pub const SHT_RELA : SectionType = SectionType(4);
+pub const SHT_HASH : SectionType = SectionType(5);
+pub const SHT_DYNAMIC : SectionType = SectionType(6);
+pub const SHT_NOTE : SectionType = SectionType(7);
+pub const SHT_NOBITS : SectionType = SectionType(8);
+pub const SHT_REL : SectionType = SectionType(9);
+pub const SHT_SHLIB : SectionType = SectionType(10);
+pub const SHT_DYNSYM : SectionType = SectionType(11);
+pub const SHT_INIT_ARRAY : SectionType = SectionType(14);
+pub const SHT_FINI_ARRAY : SectionType = SectionType(15);
+pub const SHT_PREINIT_ARRAY : SectionType = SectionType(16);
+pub const SHT_GROUP : SectionType = SectionType(17);
+pub const SHT_SYMTAB_SHNDX : SectionType = SectionType(18);
+pub const SHT_NUM : SectionType = SectionType(19);
+pub const SHT_GNU_ATTRIBUTES : SectionType = SectionType(0x6ffffff5);
+pub const SHT_GNU_HASH : SectionType = SectionType(0x6ffffff6);
+pub const SHT_GNU_LIBLIST : SectionType = SectionType(0x6ffffff7);
+pub const SHT_GNU_VERDEF : SectionType = SectionType(0x6ffffffd);
+pub const SHT_GNU_VERNEED : SectionType = SectionType(0x6ffffffe);
+pub const SHT_GNU_VERSYM : SectionType = SectionType(0x6fffffff);
+
+impl fmt::Debug for SectionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for SectionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let str = match *self {
+            SHT_NULL => "SHT_NULL",
+            SHT_PROGBITS => "SHT_PROGBITS",
+            SHT_SYMTAB => "SHT_SYMTAB",
+            SHT_STRTAB => "SHT_STRTAB",
+            SHT_RELA => "SHT_RELA",
+            SHT_HASH => "SHT_HASH",
+            SHT_DYNAMIC => "SHT_DYNAMIC",
+            SHT_NOTE => "SHT_NOTE",
+            SHT_NOBITS => "SHT_NOBITS",
+            SHT_REL => "SHT_REL",
+            SHT_SHLIB => "SHT_SHLIB",
+            SHT_DYNSYM => "SHT_DYNSYM",
+            SHT_INIT_ARRAY => "SHT_INIT_ARRAY",
+            SHT_FINI_ARRAY => "SHT_FINI_ARRAY",
+            SHT_PREINIT_ARRAY => "SHT_PREINIT_ARRAY",
+            SHT_GROUP => "SHT_GROUP",
+            SHT_SYMTAB_SHNDX => "SHT_SYMTAB_SHNDX",
+            SHT_NUM => "SHT_NUM",
+            SHT_GNU_ATTRIBUTES => "SHT_GNU_ATTRIBUTES",
+            SHT_GNU_HASH => "SHT_GNU_HASH",
+            SHT_GNU_LIBLIST => "SHT_GNU_LIBLIST",
+            SHT_GNU_VERDEF => "SHT_GNU_VERDEF",
+            SHT_GNU_VERNEED => "SHT_GNU_VERNEED",
+            SHT_GNU_VERSYM => "SHT_GNU_VERSYM",
+            _ => "Unknown",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+///
+/// Wrapper type for SectionFlag
+///
+#[derive(Copy, PartialEq)]
+pub struct SectionFlag(pub u64);
+pub const SHF_NONE : SectionFlag = SectionFlag(0);
+pub const SHF_WRITE : SectionFlag = SectionFlag(1);
+pub const SHF_ALLOC : SectionFlag = SectionFlag(2);
+pub const SHF_EXECINSTR : SectionFlag = SectionFlag(4);
+pub const SHF_MERGE : SectionFlag = SectionFlag(16);
+pub const SHF_STRINGS : SectionFlag = SectionFlag(32);
+pub const SHF_INFO_LINK : SectionFlag = SectionFlag(64);
+pub const SHF_LINK_ORDER : SectionFlag = SectionFlag(128);
+pub const SHF_OS_NONCONFORMING : SectionFlag = SectionFlag(256);
+pub const SHF_GROUP : SectionFlag = SectionFlag(512);
+pub const SHF_TLS : SectionFlag = SectionFlag(1024);
+
+impl fmt::Debug for SectionFlag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+impl fmt::Display for SectionFlag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
+///
+/// ELF Program Header
+///
+#[derive(Debug)]
+pub struct SectionHeader {
+    pub name:      String,
+    pub shtype:    SectionType,
+    pub flags:     SectionFlag,
+    pub addr:      u64,
+    pub offset:    u64,
+    pub size:      u64,
+    pub link:      u32,
+    pub info:      u32,
+    pub addralign: u64,
+    pub entsize:   u64,
+}
+
+impl fmt::Display for SectionHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Section Header: Name: {} Type: {} Flags: {} Addr: {:#010x} Offset: {:#06x} Size: {:#06x} Link: {} Info: {:#x} AddrAlign: {} EntSize: {}",
+            self.name, self.shtype, self.flags, self.addr, self.offset,
+            self.size, self.link, self.info, self.addralign, self.entsize)
+    }
+}
+
