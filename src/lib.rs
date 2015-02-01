@@ -1,5 +1,6 @@
 #![feature(io)]
 #![feature(core)]
+#![feature(collections)]
 
 pub mod types;
 
@@ -10,11 +11,12 @@ pub struct File {
     file: std::old_io::File,
     pub ehdr: types::FileHeader,
     pub phdrs: Vec<types::ProgramHeader>,
+    pub shdrs: Vec<types::SectionHeader>,
 }
 
 impl std::fmt::Debug for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?} {:?}", self.ehdr, self.phdrs)
+        write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.shdrs)
     }
 }
 
@@ -24,6 +26,10 @@ impl std::fmt::Display for File {
         try!(write!(f, "{{ "));
         for phdr in self.phdrs.iter() {
             try!(write!(f, "{}", phdr));
+        }
+        try!(write!(f, " }} {{ "));
+        for shdr in self.shdrs.iter() {
+            try!(write!(f, "{}", shdr));
         }
         write!(f, " }}")
     }
@@ -40,6 +46,12 @@ pub enum ParseError {
 impl std::error::FromError<std::old_io::IoError> for ParseError {
     fn from_error(_: std::old_io::IoError) -> Self {
         ParseError::IoError
+    }
+}
+
+impl std::error::FromError<std::string::FromUtf8Error> for ParseError {
+    fn from_error(_: std::string::FromUtf8Error) -> Self {
+        ParseError::InvalidFormat
     }
 }
 
@@ -106,7 +118,6 @@ impl File {
             let mut flags: types::ProgFlag;
             let mut align: u64;
 
-
             progtype = types::ProgType(try!(read_u32!(elf_f)));
             if elf_f.ehdr.class == types::ELFCLASS32 {
                 offset = try!(read_u32!(elf_f)) as u64;
@@ -138,13 +149,77 @@ impl File {
                 });
         }
 
+        // Parse the section headers
+        let mut name_idxs: Vec<u32> = Vec::new();
+        try!(elf_f.file.seek(shoff as i64, std::old_io::SeekStyle::SeekSet));
+        for _ in 0..shnum {
+            let name: String = String::new();
+            let mut shtype: types::SectionType;
+            let mut flags: types::SectionFlag;
+            let mut addr: u64;
+            let mut offset: u64;
+            let mut size: u64;
+            let mut link: u32;
+            let mut info: u32;
+            let mut addralign: u64;
+            let mut entsize: u64;
+
+            name_idxs.push(try!(read_u32!(elf_f)));
+            shtype = types::SectionType(try!(read_u32!(elf_f)));
+            if elf_f.ehdr.class == types::ELFCLASS32 {
+                flags = types::SectionFlag(try!(read_u32!(elf_f)) as u64);
+                addr = try!(read_u32!(elf_f)) as u64;
+                offset = try!(read_u32!(elf_f)) as u64;
+                size = try!(read_u32!(elf_f)) as u64;
+                link = try!(read_u32!(elf_f));
+                info = try!(read_u32!(elf_f));
+                addralign = try!(read_u32!(elf_f)) as u64;
+                entsize = try!(read_u32!(elf_f)) as u64;
+            } else {
+                flags = types::SectionFlag(try!(read_u64!(elf_f)));
+                addr = try!(read_u64!(elf_f));
+                offset = try!(read_u64!(elf_f));
+                size = try!(read_u64!(elf_f));
+                link = try!(read_u32!(elf_f));
+                info = try!(read_u32!(elf_f));
+                addralign = try!(read_u64!(elf_f));
+                entsize = try!(read_u64!(elf_f));
+            }
+
+            elf_f.shdrs.push(types::SectionHeader {
+                    name:      name,
+                    shtype:    shtype,
+                    flags:     flags,
+                    addr:      addr,
+                    offset:    offset,
+                    size:      size,
+                    link:      link,
+                    info:      info,
+                    addralign: addralign,
+                    entsize:   entsize,
+                });
+        }
+
+        // Read section names from the string header string table
+        try!(elf_f.file.seek(elf_f.shdrs[shstrndx as usize].offset as i64,
+                std::old_io::SeekStyle::SeekSet));
+        let shstr_data = try!(elf_f.file.read_exact(
+                elf_f.shdrs[shstrndx as usize].size as usize));
+
+        for s_i in 0..shnum {
+            elf_f.shdrs[s_i as usize].name = try!(utils::get_string(shstr_data.clone(),
+                    name_idxs[s_i as usize] as usize));
+
+        }
+
         Ok(elf_f)
     }
 
     fn new(io_file: std::old_io::File) -> File {
         File { file: io_file,
             ehdr: std::default::Default::default(),
-            phdrs: Vec::new()
+            phdrs: Vec::new(),
+            shdrs: Vec::new(),
         }
     }
 }
