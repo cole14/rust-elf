@@ -11,12 +11,12 @@ pub struct File {
     file: std::old_io::File,
     pub ehdr: types::FileHeader,
     pub phdrs: Vec<types::ProgramHeader>,
-    pub shdrs: Vec<types::SectionHeader>,
+    pub sections: Vec<Section>,
 }
 
 impl std::fmt::Debug for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.shdrs)
+        write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
     }
 }
 
@@ -28,7 +28,7 @@ impl std::fmt::Display for File {
             try!(write!(f, "{}", phdr));
         }
         try!(write!(f, " }} {{ "));
-        for shdr in self.shdrs.iter() {
+        for shdr in self.sections.iter() {
             try!(write!(f, "{}", shdr));
         }
         write!(f, " }}")
@@ -186,41 +186,68 @@ impl File {
                 entsize = try!(read_u64!(elf_f));
             }
 
-            elf_f.shdrs.push(types::SectionHeader {
-                    name:      name,
-                    shtype:    shtype,
-                    flags:     flags,
-                    addr:      addr,
-                    offset:    offset,
-                    size:      size,
-                    link:      link,
-                    info:      info,
-                    addralign: addralign,
-                    entsize:   entsize,
+            elf_f.sections.push(Section {
+                    shdr: types::SectionHeader {
+                        name:      name,
+                        shtype:    shtype,
+                        flags:     flags,
+                        addr:      addr,
+                        offset:    offset,
+                        size:      size,
+                        link:      link,
+                        info:      info,
+                        addralign: addralign,
+                        entsize:   entsize,
+                    },
+                    data: Vec::new(),
                 });
         }
 
-        // Read section names from the string header string table
-        try!(elf_f.file.seek(elf_f.shdrs[shstrndx as usize].offset as i64,
-                std::old_io::SeekStyle::SeekSet));
-        let shstr_data = try!(elf_f.file.read_exact(
-                elf_f.shdrs[shstrndx as usize].size as usize));
-
+        // Read the section data
         for s_i in 0..shnum {
-            elf_f.shdrs[s_i as usize].name = try!(utils::get_string(shstr_data.clone(),
-                    name_idxs[s_i as usize] as usize));
+            let off = elf_f.sections[s_i as usize].shdr.offset;
+            let size = elf_f.sections[s_i as usize].shdr.size;
+            try!(elf_f.file.seek(off as i64, std::old_io::SeekStyle::SeekSet));
+            elf_f.sections[s_i as usize].data = try!(elf_f.file.read_exact(size as usize));
+        }
 
+        // Parse the section names from the string header string table
+        for s_i in 0..shnum {
+            elf_f.sections[s_i as usize].shdr.name = try!(utils::get_string(
+                    elf_f.sections[shstrndx as usize].data.clone(),
+                    name_idxs[s_i as usize] as usize));
         }
 
         Ok(elf_f)
     }
 
-    fn new(io_file: std::old_io::File) -> File {
+    pub fn get_section(&self, name: String) -> Option<&Section> {
+        for s_i in 0..self.sections.len() {
+            if self.sections[s_i].shdr.name == name {
+                return Some(&self.sections[s_i])
+            }
+        }
+        None
+    }
+
+    pub fn new(io_file: std::old_io::File) -> File {
         File { file: io_file,
             ehdr: std::default::Default::default(),
             phdrs: Vec::new(),
-            shdrs: Vec::new(),
+            sections: Vec::new(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Section {
+    pub shdr: types::SectionHeader,
+    pub data: Vec<u8>,
+}
+
+impl std::fmt::Display for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.shdr)
     }
 }
 

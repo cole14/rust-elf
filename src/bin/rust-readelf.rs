@@ -1,4 +1,5 @@
 #![feature(path)]
+#![feature(collections)]
 
 extern crate elf;
 
@@ -15,4 +16,11 @@ fn main() {
     println!("");
     println!("Pretty-print ELF file:");
     println!("{}", file);
+
+    println!("Getting the .text section");
+    let text = file.get_section(String::from_str(".text"));
+    match text {
+        Some(s) => println!("shdr: {}", s),
+        None => println!("Failed to look up .text section!"),
+    }
 }

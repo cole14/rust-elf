@@ -569,7 +569,7 @@ impl fmt::Display for SectionFlag {
 }
 
 ///
-/// ELF Program Header
+/// ELF Section Header
 ///
 #[derive(Debug)]
 pub struct SectionHeader {
