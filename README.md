@@ -14,4 +14,12 @@ let file = match elf::File::open(&path) {
     Ok(f) => f,
     Err(e) => panic!("Error: {:?}", e),
 };
+
+let text_scn = match file.get_section(String::from_str(".text")) {
+    Some(s) => s,
+    None => panic!("Failed to look up .text section"),
+};
+
+println!("{}", text_scn.data);
+
 ```
