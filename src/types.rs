@@ -194,9 +194,7 @@ impl fmt::Display for Type {
     }
 }
 
-///
-/// Wrapper type for Machine
-///
+/// Represents the ELF file machine architecture
 #[derive(Copy)]
 pub struct Machine(pub u16);
 pub const EM_NONE : Machine = Machine(0);
@@ -371,18 +369,29 @@ impl fmt::Display for Machine {
     }
 }
 
+/// Encapsulates the contents of the ELF File Header
 ///
-/// ELF File Header
-///
+/// The ELF File Header starts off every ELF file and both identifies the
+/// file contents and informs how to interpret said contents. This includes
+/// the width of certain fields (32-bit vs 64-bit), the data endianness, the
+/// file type, and more.
 #[derive(Copy, Debug)]
 pub struct FileHeader {
+    /// 32-bit vs 64-bit
     pub class:      Class,
+    /// little vs big endian
     pub data:       Data,
+    /// elf version
     pub version:    Version,
+    /// OS ABI
     pub osabi:      OSABI,
+    /// Version of the OS ABI
     pub abiversion: u8,
+    /// ELF file type
     pub elftype:    Type,
+    /// Target machine architecture
     pub machine:    Machine,
+    /// Virtual address of program entry point
     pub entry:      u64,
 }
 
