@@ -531,34 +531,56 @@ impl fmt::Display for ProgramHeader {
     }
 }
 
-///
-/// Wrapper type for SectionType
-///
+/// Represens ELF Section type
 #[derive(Copy, PartialEq)]
 pub struct SectionType(pub u32);
+/// Inactive section with undefined values
 pub const SHT_NULL : SectionType = SectionType(0);
+/// Information defined by the program, includes executable code and data
 pub const SHT_PROGBITS : SectionType = SectionType(1);
+/// Section data contains a symbol table
 pub const SHT_SYMTAB : SectionType = SectionType(2);
+/// Section data contains a string table
 pub const SHT_STRTAB : SectionType = SectionType(3);
+/// Section data contains relocation entries with explicit addends
 pub const SHT_RELA : SectionType = SectionType(4);
+/// Section data contains a symbol hash table. Must be present for dynamic linking
 pub const SHT_HASH : SectionType = SectionType(5);
+/// Section data contains information for dynamic linking
 pub const SHT_DYNAMIC : SectionType = SectionType(6);
+/// Section data contains information that marks the file in some way
 pub const SHT_NOTE : SectionType = SectionType(7);
+/// Section data occupies no space in the file but otherwise resembles SHT_PROGBITS
 pub const SHT_NOBITS : SectionType = SectionType(8);
+/// Section data contains relocation entries without explicit addends
 pub const SHT_REL : SectionType = SectionType(9);
+/// Section is reserved but has unspecified semantics
 pub const SHT_SHLIB : SectionType = SectionType(10);
+/// Section data contains a minimal set of dynamic linking symbols
 pub const SHT_DYNSYM : SectionType = SectionType(11);
+/// Section data contains an array of constructors
 pub const SHT_INIT_ARRAY : SectionType = SectionType(14);
+/// Section data contains an array of destructors
 pub const SHT_FINI_ARRAY : SectionType = SectionType(15);
+/// Section data contains an array of pre-constructors
 pub const SHT_PREINIT_ARRAY : SectionType = SectionType(16);
+/// Section group
 pub const SHT_GROUP : SectionType = SectionType(17);
+/// Extended symbol table section index
 pub const SHT_SYMTAB_SHNDX : SectionType = SectionType(18);
+/// Number of reserved SHT_* values
 pub const SHT_NUM : SectionType = SectionType(19);
+/// Object attributes
 pub const SHT_GNU_ATTRIBUTES : SectionType = SectionType(0x6ffffff5);
+/// GNU-style hash section
 pub const SHT_GNU_HASH : SectionType = SectionType(0x6ffffff6);
+/// Pre-link library list
 pub const SHT_GNU_LIBLIST : SectionType = SectionType(0x6ffffff7);
+/// Version definition section
 pub const SHT_GNU_VERDEF : SectionType = SectionType(0x6ffffffd);
+/// Version needs section
 pub const SHT_GNU_VERNEED : SectionType = SectionType(0x6ffffffe);
+/// Version symbol table
 pub const SHT_GNU_VERSYM : SectionType = SectionType(0x6fffffff);
 
 impl fmt::Debug for SectionType {
@@ -605,16 +627,27 @@ impl fmt::Display for SectionType {
 ///
 #[derive(Copy, PartialEq)]
 pub struct SectionFlag(pub u64);
+/// Empty flags
 pub const SHF_NONE : SectionFlag = SectionFlag(0);
+/// Writable
 pub const SHF_WRITE : SectionFlag = SectionFlag(1);
+/// Occupies memory during execution
 pub const SHF_ALLOC : SectionFlag = SectionFlag(2);
+/// Executable
 pub const SHF_EXECINSTR : SectionFlag = SectionFlag(4);
+/// Might be merged
 pub const SHF_MERGE : SectionFlag = SectionFlag(16);
+/// Contains nul-terminated strings
 pub const SHF_STRINGS : SectionFlag = SectionFlag(32);
+/// `sh_info' contains SHT index
 pub const SHF_INFO_LINK : SectionFlag = SectionFlag(64);
+/// Preserve order after combining
 pub const SHF_LINK_ORDER : SectionFlag = SectionFlag(128);
+/// Non-standard OS specific handling required
 pub const SHF_OS_NONCONFORMING : SectionFlag = SectionFlag(256);
+/// Section is member of a group
 pub const SHF_GROUP : SectionFlag = SectionFlag(512);
+/// Section hold thread-local data
 pub const SHF_TLS : SectionFlag = SectionFlag(1024);
 
 impl fmt::Debug for SectionFlag {
@@ -629,20 +662,28 @@ impl fmt::Display for SectionFlag {
     }
 }
 
-///
-/// ELF Section Header
-///
+/// Encapsulates the contents of an ELF Section Header
 #[derive(Debug)]
 pub struct SectionHeader {
+    /// Section Name
     pub name:      String,
+    /// Section Type
     pub shtype:    SectionType,
+    /// Section Flags
     pub flags:     SectionFlag,
+    /// in-memory address where this section is loaded
     pub addr:      u64,
+    /// Byte-offset into the file where this section starts
     pub offset:    u64,
+    /// Section size in bytes
     pub size:      u64,
+    /// Defined by section type
     pub link:      u32,
+    /// Defined by section type
     pub info:      u32,
+    /// address alignment
     pub addralign: u64,
+    /// size of an entry if section data is an array of entries
     pub entsize:   u64,
 }
 
