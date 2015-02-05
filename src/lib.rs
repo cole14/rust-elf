@@ -69,8 +69,8 @@ impl File {
         }
 
         // Verify the magic number
-        if ident[0] != types::ELFMAGIC[0] || ident[1] != types::ELFMAGIC[1]
-                || ident[2] != types::ELFMAGIC[2] || ident[3] != types::ELFMAGIC[3] {
+        if ident[0] != types::ELFMAG0 || ident[1] != types::ELFMAG1
+                || ident[2] != types::ELFMAG2 || ident[3] != types::ELFMAG3 {
             return Err(ParseError::InvalidMagic);
         }
 

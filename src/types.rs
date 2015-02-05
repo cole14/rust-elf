@@ -2,24 +2,35 @@
 use std::fmt;
 use std::default;
 
-///
-/// Values and locations for parsing elf header ident byte array
-///
+/// Length of ELF file header platform-independent identification fields
 pub const EI_NIDENT: usize = 16;
-pub const ELFMAGIC: [u8;4] = [0x7f, 0x45, 0x4c, 0x46];
+/// ELF magic number byte 1
+pub const ELFMAG0: u8 = 0x7f;
+/// ELF magic number byte 2
+pub const ELFMAG1: u8 = 0x45;
+/// ELF magic number byte 3
+pub const ELFMAG2: u8 = 0x4c;
+/// ELF magic number byte 4
+pub const ELFMAG3: u8 = 0x46;
+/// Location of ELF class field in ELF file header ident array
 pub const EI_CLASS: usize = 4;
+/// Location of data format field in ELF file header ident array
 pub const EI_DATA: usize = 5;
+/// Location of ELF version field in ELF file header ident array
 pub const EI_VERSION: usize = 6;
+/// Location of OS ABI field in ELF file header ident array
 pub const EI_OSABI: usize = 7;
+/// Location of ABI version field in ELF file header ident array
 pub const EI_ABIVERSION: usize = 8;
 
-///
-/// Wrapper type for Class
-///
+/// Represents the ELF file class (32-bit vs 64-bit)
 #[derive(Copy, PartialEq)]
 pub struct Class(pub u8);
+/// Invalid ELF file class
 pub const ELFCLASSNONE : Class = Class(0);
+/// 32-bit ELF file
 pub const ELFCLASS32 : Class = Class(1);
+/// 64-bit ELF file
 pub const ELFCLASS64 : Class = Class(2);
 
 impl fmt::Debug for Class {
@@ -40,13 +51,14 @@ impl fmt::Display for Class {
     }
 }
 
-///
-/// Wrapper type for Data
-///
+/// Represents the ELF file data format (little-endian vs big-endian)
 #[derive(Copy, PartialEq)]
 pub struct Data(pub u8);
+/// Invalid ELF data format
 pub const ELFDATANONE : Data = Data(0);
+/// little-endian ELF file
 pub const ELFDATA2LSB : Data = Data(1);
+/// big-endian ELF file
 pub const ELFDATA2MSB : Data = Data(2);
 
 impl fmt::Debug for Data {
@@ -67,14 +79,14 @@ impl fmt::Display for Data {
     }
 }
 
+/// Represents the ELF file version
 ///
-/// Wrapper type for Version
-/// This field represents the values both found in the e_ident byte array
-/// and the e_version field.
-///
+/// This field represents the values both found in the e_ident byte array and the e_version field.
 #[derive(Copy)]
 pub struct Version(pub u32);
+/// Invalid version
 pub const EV_NONE : Version = Version(0);
+/// Current version
 pub const EV_CURRENT : Version = Version(1);
 
 impl fmt::Debug for Version {
@@ -94,22 +106,32 @@ impl fmt::Display for Version {
     }
 }
 
-///
-/// Wrapper type for OSABI
-///
+/// Represents the ELF file OS ABI
 #[derive(Copy)]
 pub struct OSABI(pub u8);
+/// Defaults to Unix System V
 pub const ELFOSABI_NONE : OSABI = OSABI(0);
+/// Unix System V
 pub const ELFOSABI_SYSV : OSABI = OSABI(0);
+/// HP-UX
 pub const ELFOSABI_HPUX : OSABI = OSABI(1);
+/// NetBSD
 pub const ELFOSABI_NETBSD : OSABI = OSABI(2);
+/// Linux with GNU extensions
 pub const ELFOSABI_LINUX : OSABI = OSABI(3);
+/// Solaris
 pub const ELFOSABI_SOLARIS : OSABI = OSABI(6);
+/// AIX
 pub const ELFOSABI_AIX : OSABI = OSABI(7);
+/// SGI Irix
 pub const ELFOSABI_IRIX : OSABI = OSABI(8);
+/// FreeBSD
 pub const ELFOSABI_FREEBSD : OSABI = OSABI(9);
+/// Compaq TRU64 UNIX
 pub const ELFOSABI_TRU64 : OSABI = OSABI(10);
+/// Novell Modesto
 pub const ELFOSABI_MODESTO : OSABI = OSABI(11);
+/// OpenBSD
 pub const ELFOSABI_OPENBSD : OSABI = OSABI(12);
 
 impl fmt::Debug for OSABI {
@@ -124,21 +146,32 @@ impl fmt::Display for OSABI {
             ELFOSABI_SYSV => "UNIX System V",
             ELFOSABI_HPUX => "HP-UX",
             ELFOSABI_NETBSD => "NetBSD",
+            ELFOSABI_LINUX => "Linux with GNU extensions",
+            ELFOSABI_SOLARIS => "Solaris",
+            ELFOSABI_AIX => "AIX",
+            ELFOSABI_IRIX => "SGI Irix",
+            ELFOSABI_FREEBSD => "FreeBSD",
+            ELFOSABI_TRU64 => "Compaq TRU64 UNIX",
+            ELFOSABI_MODESTO => "Novell Modesto",
+            ELFOSABI_OPENBSD => "OpenBSD",
             _ => "Unknown",
         };
         write!(f, "{}", str)
     }
 }
 
-///
-/// Wrapper type for Type
-///
+/// Represents the ELF file type (object, executable, shared lib, core)
 #[derive(Copy)]
 pub struct Type(pub u16);
+/// No file type
 pub const ET_NONE : Type = Type(0);
+/// Relocatable object file
 pub const ET_REL : Type = Type(1);
+/// Executable file
 pub const ET_EXEC : Type = Type(2);
+/// Shared library
 pub const ET_DYN : Type = Type(3);
+/// Core file
 pub const ET_CORE : Type = Type(4);
 
 impl fmt::Debug for Type {
