@@ -410,14 +410,15 @@ impl fmt::Display for FileHeader {
     }
 }
 
-///
-/// Wrapper type for ProgFlag
-///
+/// Represents ELF Program Header flags
 #[derive(Copy, PartialEq)]
 pub struct ProgFlag(pub u32);
 pub const PF_NONE : ProgFlag = ProgFlag(0);
+/// Executable program segment
 pub const PF_X : ProgFlag = ProgFlag(1);
+/// Writable program segment
 pub const PF_W : ProgFlag = ProgFlag(2);
+/// Readable program segment
 pub const PF_R : ProgFlag = ProgFlag(4);
 
 impl fmt::Debug for ProgFlag {
@@ -446,21 +447,30 @@ impl fmt::Display for ProgFlag {
     }
 }
 
-///
-/// Wrapper type for ProgType
-///
+/// Represents ELF Program Header type
 #[derive(Copy, PartialEq)]
 pub struct ProgType(pub u32);
+/// Program header table entry unused
 pub const PT_NULL : ProgType = ProgType(0);
+/// Loadable program segment
 pub const PT_LOAD : ProgType = ProgType(1);
+/// Dynamic linking information
 pub const PT_DYNAMIC : ProgType = ProgType(2);
+/// Program interpreter
 pub const PT_INTERP : ProgType = ProgType(3);
+/// Auxiliary information
 pub const PT_NOTE : ProgType = ProgType(4);
+/// Unused
 pub const PT_SHLIB : ProgType = ProgType(5);
+/// The program header table
 pub const PT_PHDR : ProgType = ProgType(6);
+/// Thread-local storage segment
 pub const PT_TLS : ProgType = ProgType(7);
+/// GCC .eh_frame_hdr segment
 pub const PT_GNU_EH_FRAME : ProgType = ProgType(0x6474e550);
+/// Indicates stack executability
 pub const PT_GNU_STACK : ProgType = ProgType(0x6474e551);
+/// Read-only after relocation
 pub const PT_GNU_RELRO : ProgType = ProgType(0x6474e552);
 
 impl fmt::Debug for ProgType {
@@ -489,18 +499,27 @@ impl fmt::Display for ProgType {
     }
 }
 
+/// Encapsulates the contents of an ELF Program Header
 ///
-/// ELF Program Header
-///
+/// The program header table is an array of program header structures describing
+/// the various segments for program execution.
 #[derive(Copy, Debug)]
 pub struct ProgramHeader {
+    /// Program segment type
     pub progtype: ProgType,
+    /// Offset into the ELF file where this segment begins
     pub offset:   u64,
+    /// Virtual adress where this segment should be loaded
     pub vaddr:    u64,
+    /// Physical address where this segment should be loaded
     pub paddr:    u64,
+    /// Size of this segment in the file
     pub filesz:   u64,
+    /// Size of this segment in memory
     pub memsz:    u64,
+    /// Flags for this segment
     pub flags:    ProgFlag,
+    /// file and memory alignment
     pub align:    u64,
 }
 
