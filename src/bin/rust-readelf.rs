@@ -3,7 +3,7 @@
 
 extern crate elf;
 
-use std::path::Path;
+use std::old_path::Path;
 
 fn main() {
     let path = Path::new("stress");

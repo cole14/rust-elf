@@ -56,7 +56,7 @@ impl std::error::FromError<std::string::FromUtf8Error> for ParseError {
 }
 
 impl File {
-    pub fn open(path: &std::path::Path) -> Result<File, ParseError> {
+    pub fn open(path: &std::old_path::Path) -> Result<File, ParseError> {
         // Open the file for reading
         let mut io_file = try!(std::old_io::File::open(path));
 
