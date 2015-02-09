@@ -8,7 +8,6 @@ pub mod types;
 pub mod utils;
 
 pub struct File {
-    file: std::old_io::File,
     pub ehdr: types::FileHeader,
     pub phdrs: Vec<types::ProgramHeader>,
     pub sections: Vec<Section>,
@@ -75,7 +74,7 @@ impl File {
         }
 
         // Fill in file header values from ident bytes
-        let mut elf_f = File::new(io_file);
+        let mut elf_f = File::new();
         elf_f.ehdr.class = types::Class(ident[types::EI_CLASS]);
         elf_f.ehdr.data = types::Data(ident[types::EI_DATA]);
         elf_f.ehdr.osabi = types::OSABI(ident[types::EI_OSABI]);
@@ -230,9 +229,9 @@ impl File {
         None
     }
 
-    pub fn new(io_file: std::old_io::File) -> File {
-        File { file: io_file,
-            ehdr: std::default::Default::default(),
+    pub fn new() -> File {
+        File {
+            ehdr: types::FileHeader::new(),
             phdrs: Vec::new(),
             sections: Vec::new(),
         }

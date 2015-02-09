@@ -1,6 +1,5 @@
 
 use std::fmt;
-use std::default;
 
 /// Length of ELF file header platform-independent identification fields
 pub const EI_NIDENT: usize = 16;
@@ -395,8 +394,8 @@ pub struct FileHeader {
     pub entry:      u64,
 }
 
-impl default::Default for FileHeader {
-    fn default() -> FileHeader {
+impl FileHeader {
+    pub fn new() -> FileHeader {
         FileHeader { class : ELFCLASSNONE, data : ELFDATANONE, version : EV_NONE,
             elftype : ET_NONE, machine : EM_NONE, osabi : ELFOSABI_NONE,
             abiversion : 0, entry : 0 }
