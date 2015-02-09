@@ -213,7 +213,7 @@ impl File {
         // Parse the section names from the string header string table
         for s_i in 0..shnum {
             elf_f.sections[s_i as usize].shdr.name = try!(utils::get_string(
-                    elf_f.sections[shstrndx as usize].data.clone(),
+                    &elf_f.sections[shstrndx as usize].data,
                     name_idxs[s_i as usize] as usize));
         }
 

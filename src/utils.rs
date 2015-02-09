@@ -48,16 +48,18 @@ pub macro_rules! read_u64 {
 }
 
 use std;
-pub fn get_string(mut data: Vec<u8>, start: usize) -> Result<String, std::string::FromUtf8Error> {
-    let mut str_data = data.split_off(start);
+pub fn get_string(data: &Vec<u8>, start: usize) -> Result<String, std::string::FromUtf8Error> {
     let mut end: usize = 0;
-    for i in 0..str_data.len() {
-        if str_data[i] == 0u8 {
+    for i in start..data.len() {
+        if data[i] == 0u8 {
             end = i;
             break;
         }
     }
-    str_data.truncate(end);
-    String::from_utf8(str_data)
+    let mut rtn = String::with_capacity(end - start);
+    for i in start..end {
+        rtn.push(data[i] as char);
+    }
+    Ok(rtn)
 }
 
