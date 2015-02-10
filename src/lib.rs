@@ -1,6 +1,5 @@
 #![feature(io)]
 #![feature(core)]
-#![feature(collections)]
 
 pub mod types;
 
