@@ -3,6 +3,8 @@
 # rust-elf
 Pure-Rust library for parsing ELF files
 
+[Documentation](http://cole14.github.io/rust-elf/)
+
 ## Example:
 ```rust
 extern crate elf;
