@@ -1,6 +1,6 @@
 
 #[macro_export]
-pub macro_rules! read_u8 {
+macro_rules! read_u8 {
     ($elf:ident, $io:ident) => (
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_le_u8() }
@@ -12,7 +12,7 @@ pub macro_rules! read_u8 {
 }
 
 #[macro_export]
-pub macro_rules! read_u16 {
+macro_rules! read_u16 {
     ($elf:ident, $io:ident) => (
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_le_u16() }
@@ -24,7 +24,7 @@ pub macro_rules! read_u16 {
 }
 
 #[macro_export]
-pub macro_rules! read_u32 {
+macro_rules! read_u32 {
     ($elf:ident, $io:ident) => (
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_le_u32() }
@@ -36,7 +36,7 @@ pub macro_rules! read_u32 {
 }
 
 #[macro_export]
-pub macro_rules! read_u64 {
+macro_rules! read_u64 {
     ($elf:ident, $io:ident) => (
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_le_u64() }

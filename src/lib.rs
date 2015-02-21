@@ -1,5 +1,5 @@
-#![feature(io)]
-#![feature(core)]
+#![feature(old_io)]
+#![feature(old_path)]
 
 pub mod types;
 
