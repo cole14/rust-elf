@@ -95,11 +95,14 @@ impl std::convert::From<byteorder::Error> for ParseError {
 }
 
 impl File {
-    pub fn open<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
-        use std::io::{Read, Seek};
+    pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
         // Open the file for reading
         let mut io_file = try!(fs::File::open(path));
 
+        File::open_stream(&mut io_file)
+    }
+
+    pub fn open_stream<T: io::Read + io::Seek>(io_file: &mut T) -> Result<File, ParseError> {
         // Read the platform-independent ident bytes
         let mut ident = [0u8; types::EI_NIDENT];
         let nread = try!(io_file.read(ident.as_mut()));

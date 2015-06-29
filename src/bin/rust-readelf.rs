@@ -6,7 +6,7 @@ use std::path::Path;
 
 fn main() {
     let path = Path::new("stress");
-    let file = match elf::File::open(&path) {
+    let file = match elf::File::open_path(&path) {
         Ok(f) => f,
         Err(e) => panic!("Error: {:?}", e),
     };
