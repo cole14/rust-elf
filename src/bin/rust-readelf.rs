@@ -1,9 +1,8 @@
-#![feature(old_path)]
 #![feature(collections)]
 
 extern crate elf;
 
-use std::old_path::Path;
+use std::path::Path;
 
 fn main() {
     let path = Path::new("stress");
@@ -18,7 +17,7 @@ fn main() {
     println!("{}", file);
 
     println!("Getting the .text section");
-    let text = file.get_section(String::from_str(".text"));
+    let text = file.get_section(".text");
     match text {
         Some(s) => println!("shdr: {}", s),
         None => println!("Failed to look up .text section!"),

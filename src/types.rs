@@ -23,7 +23,7 @@ pub const EI_OSABI: usize = 7;
 pub const EI_ABIVERSION: usize = 8;
 
 /// Represents the ELF file class (32-bit vs 64-bit)
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Class(pub u8);
 /// Invalid ELF file class
 pub const ELFCLASSNONE : Class = Class(0);
@@ -51,7 +51,7 @@ impl fmt::Display for Class {
 }
 
 /// Represents the ELF file data format (little-endian vs big-endian)
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Data(pub u8);
 /// Invalid ELF data format
 pub const ELFDATANONE : Data = Data(0);
@@ -81,7 +81,7 @@ impl fmt::Display for Data {
 /// Represents the ELF file version
 ///
 /// This field represents the values both found in the e_ident byte array and the e_version field.
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Version(pub u32);
 /// Invalid version
 pub const EV_NONE : Version = Version(0);
@@ -106,7 +106,7 @@ impl fmt::Display for Version {
 }
 
 /// Represents the ELF file OS ABI
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct OSABI(pub u8);
 /// Defaults to Unix System V
 pub const ELFOSABI_NONE : OSABI = OSABI(0);
@@ -160,7 +160,7 @@ impl fmt::Display for OSABI {
 }
 
 /// Represents the ELF file type (object, executable, shared lib, core)
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Type(pub u16);
 /// No file type
 pub const ET_NONE : Type = Type(0);
@@ -194,7 +194,7 @@ impl fmt::Display for Type {
 }
 
 /// Represents the ELF file machine architecture
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Machine(pub u16);
 pub const EM_NONE : Machine = Machine(0);
 pub const EM_M32 : Machine = Machine(1);
@@ -374,7 +374,7 @@ impl fmt::Display for Machine {
 /// file contents and informs how to interpret said contents. This includes
 /// the width of certain fields (32-bit vs 64-bit), the data endianness, the
 /// file type, and more.
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct FileHeader {
     /// 32-bit vs 64-bit
     pub class:      Class,
@@ -410,7 +410,7 @@ impl fmt::Display for FileHeader {
 }
 
 /// Represents ELF Program Header flags
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct ProgFlag(pub u32);
 pub const PF_NONE : ProgFlag = ProgFlag(0);
 /// Executable program segment
@@ -447,7 +447,7 @@ impl fmt::Display for ProgFlag {
 }
 
 /// Represents ELF Program Header type
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct ProgType(pub u32);
 /// Program header table entry unused
 pub const PT_NULL : ProgType = ProgType(0);
@@ -502,7 +502,7 @@ impl fmt::Display for ProgType {
 ///
 /// The program header table is an array of program header structures describing
 /// the various segments for program execution.
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ProgramHeader {
     /// Program segment type
     pub progtype: ProgType,
@@ -531,7 +531,7 @@ impl fmt::Display for ProgramHeader {
 }
 
 /// Represens ELF Section type
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct SectionType(pub u32);
 /// Inactive section with undefined values
 pub const SHT_NULL : SectionType = SectionType(0);
@@ -624,7 +624,7 @@ impl fmt::Display for SectionType {
 ///
 /// Wrapper type for SectionFlag
 ///
-#[derive(Copy, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct SectionFlag(pub u64);
 /// Empty flags
 pub const SHF_NONE : SectionFlag = SectionFlag(0);
@@ -694,7 +694,7 @@ impl fmt::Display for SectionHeader {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct SymbolType(pub u8);
 /// Unspecified symbol type
 pub const STT_NOTYPE : SymbolType = SymbolType(0);
@@ -730,7 +730,7 @@ impl fmt::Display for SymbolType {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct SymbolBind(pub u8);
 /// Local symbol
 pub const STB_LOCAL : SymbolBind = SymbolBind(0);
@@ -754,7 +754,7 @@ impl fmt::Display for SymbolBind {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct SymbolVis(pub u8);
 /// Default symbol visibility
 pub const STV_DEFAULT : SymbolVis = SymbolVis(0);
@@ -802,4 +802,3 @@ impl Symbol {
         SymbolVis(self.other & 0x3)
     }
 }
-
