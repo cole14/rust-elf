@@ -1,4 +1,3 @@
-#![feature(collections)]
 
 extern crate elf;
 
