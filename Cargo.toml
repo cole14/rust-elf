@@ -16,4 +16,5 @@ name = "rust-readelf"
 [lib]
 name = "elf"
 
-
+[dependencies]
+byteorder = "*"

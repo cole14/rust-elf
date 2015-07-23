@@ -1,5 +1,9 @@
-#![feature(old_io)]
-#![feature(old_path)]
+
+use std::fs;
+use std::io;
+use std::path::Path;
+
+extern crate byteorder;
 
 pub mod types;
 
@@ -10,6 +14,31 @@ pub struct File {
     pub ehdr: types::FileHeader,
     pub phdrs: Vec<types::ProgramHeader>,
     pub sections: Vec<Section>,
+}
+
+pub trait ReadExact {
+    fn read_exact(&mut self, len: usize) -> io::Result<Vec<u8>>;
+}
+impl<T> ReadExact for T
+    where T: io::Read
+{
+    fn read_exact(&mut self, len: usize) -> io::Result<Vec<u8>> {
+        use std::io::{Error, ErrorKind};
+        let mut buf = Vec::with_capacity(len);
+        loop {
+            if buf.len() >= len { break; }
+
+            let current_len = buf.len();
+
+            let read = try!(self.read(&mut buf[current_len..]));
+            if read == 0 {
+                return Err(Error::new(ErrorKind::Other,
+                                      "EOF"));
+            }
+        }
+
+        return Ok(buf);
+    }
 }
 
 impl std::fmt::Debug for File {
@@ -35,35 +64,51 @@ impl std::fmt::Display for File {
 
 #[derive(Debug)]
 pub enum ParseError {
-    IoError,
+    IoError(io::Error),
     InvalidMagic,
-    InvalidFormat,
+    InvalidFormat(Option<std::string::FromUtf8Error>),
     NotImplemented,
 }
 
-impl std::error::FromError<std::old_io::IoError> for ParseError {
-    fn from_error(_: std::old_io::IoError) -> Self {
-        ParseError::IoError
+impl std::convert::From<std::io::Error> for ParseError {
+    fn from(e: std::io::Error) -> Self {
+        ParseError::IoError(e)
     }
 }
 
-impl std::error::FromError<std::string::FromUtf8Error> for ParseError {
-    fn from_error(_: std::string::FromUtf8Error) -> Self {
-        ParseError::InvalidFormat
+impl std::convert::From<std::string::FromUtf8Error> for ParseError {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        ParseError::InvalidFormat(Some(e))
+    }
+}
+impl std::convert::From<byteorder::Error> for ParseError {
+    fn from(e: byteorder::Error) -> Self {
+        match e {
+            byteorder::Error::UnexpectedEOF => {
+                ParseError::InvalidFormat(None)
+            },
+            byteorder::Error::Io(e) => {
+                From::from(e)
+            },
+        }
     }
 }
 
 impl File {
-    pub fn open(path: &std::old_path::Path) -> Result<File, ParseError> {
+    pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
         // Open the file for reading
-        let mut io_file = try!(std::old_io::File::open(path));
+        let mut io_file = try!(fs::File::open(path));
 
+        File::open_stream(&mut io_file)
+    }
+
+    pub fn open_stream<T: io::Read + io::Seek>(io_file: &mut T) -> Result<File, ParseError> {
         // Read the platform-independent ident bytes
         let mut ident = [0u8; types::EI_NIDENT];
-        let nread = try!(io_file.read(&mut ident));
+        let nread = try!(io_file.read(ident.as_mut()));
 
         if nread != types::EI_NIDENT {
-            return Err(ParseError::InvalidFormat);
+            return Err(ParseError::InvalidFormat(None));
         }
 
         // Verify the magic number
@@ -105,7 +150,7 @@ impl File {
         let shstrndx = try!(read_u16!(elf_f, io_file));
 
         // Parse the program headers
-        try!(io_file.seek(phoff as i64, std::old_io::SeekStyle::SeekSet));
+        try!(io_file.seek(io::SeekFrom::Start(phoff)));
         for _ in 0..phnum {
             let mut progtype: types::ProgType;
             let mut offset: u64;
@@ -149,7 +194,7 @@ impl File {
 
         // Parse the section headers
         let mut name_idxs: Vec<u32> = Vec::new();
-        try!(io_file.seek(shoff as i64, std::old_io::SeekStyle::SeekSet));
+        try!(io_file.seek(io::SeekFrom::Start(phoff)));
         for _ in 0..shnum {
             let name: String = String::new();
             let mut shtype: types::SectionType;
@@ -202,30 +247,37 @@ impl File {
         }
 
         // Read the section data
-        for s_i in 0..shnum {
-            let off = elf_f.sections[s_i as usize].shdr.offset;
-            let size = elf_f.sections[s_i as usize].shdr.size;
-            try!(io_file.seek(off as i64, std::old_io::SeekStyle::SeekSet));
-            elf_f.sections[s_i as usize].data = try!(io_file.read_exact(size as usize));
+        let mut s_i: usize = 0;
+        loop {
+            if s_i == shnum as usize { break; }
+
+            let off = elf_f.sections[s_i].shdr.offset;
+            let size = elf_f.sections[s_i].shdr.size;
+            try!(io_file.seek(io::SeekFrom::Start(off)));
+            elf_f.sections[s_i].data = try!(io_file.read_exact(size as usize));
+
+            s_i += 1;
         }
 
         // Parse the section names from the string header string table
-        for s_i in 0..shnum {
-            elf_f.sections[s_i as usize].shdr.name = try!(utils::get_string(
-                    &elf_f.sections[shstrndx as usize].data,
-                    name_idxs[s_i as usize] as usize));
+        s_i = 0;
+        loop {
+            if s_i == shnum as usize { break; }
+
+            elf_f.sections[s_i].shdr.name = try!(utils::get_string(
+                &elf_f.sections[shstrndx as usize].data,
+                name_idxs[s_i] as usize));
+
+            s_i += 1;
         }
 
         Ok(elf_f)
     }
 
-    pub fn get_section(&self, name: String) -> Option<&Section> {
-        for s_i in 0..self.sections.len() {
-            if self.sections[s_i].shdr.name == name {
-                return Some(&self.sections[s_i])
-            }
-        }
-        None
+    pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&Section> {
+        self.sections
+            .iter()
+            .find(|section| section.shdr.name == name.as_ref() )
     }
 
     pub fn new() -> File {
@@ -248,4 +300,3 @@ impl std::fmt::Display for Section {
         write!(f, "{}", self.shdr)
     }
 }
-
