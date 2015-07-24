@@ -2,6 +2,7 @@
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::io::Read;
 
 extern crate byteorder;
 
@@ -17,26 +18,16 @@ pub struct File {
 }
 
 pub trait ReadExact {
-    fn read_exact(&mut self, len: usize) -> io::Result<Vec<u8>>;
+    fn read_exact(&mut self, len: u64) -> io::Result<Vec<u8>>;
 }
 impl<T> ReadExact for T
     where T: io::Read
 {
-    fn read_exact(&mut self, len: usize) -> io::Result<Vec<u8>> {
+    fn read_exact(&mut self, len: u64) -> io::Result<Vec<u8>> {
         use std::io::{Error, ErrorKind};
-        let mut buf = Vec::with_capacity(len);
-        loop {
-            if buf.len() >= len { break; }
-
-            let current_len = buf.len();
-
-            let read = try!(self.read(&mut buf[current_len..]));
-            if read == 0 {
-                return Err(Error::new(ErrorKind::Other,
-                                      "EOF"));
-            }
-        }
-
+        let mut buf = Vec::with_capacity(len as usize);
+        let mut chunk = self.take(len);
+        try!(chunk.read_to_end(&mut buf));
         return Ok(buf);
     }
 }
@@ -254,7 +245,7 @@ impl File {
             let off = elf_f.sections[s_i].shdr.offset;
             let size = elf_f.sections[s_i].shdr.size;
             try!(io_file.seek(io::SeekFrom::Start(off)));
-            elf_f.sections[s_i].data = try!(io_file.read_exact(size as usize));
+            elf_f.sections[s_i].data = try!(io_file.read_exact(size));
 
             s_i += 1;
         }
