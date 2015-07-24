@@ -185,7 +185,7 @@ impl File {
 
         // Parse the section headers
         let mut name_idxs: Vec<u32> = Vec::new();
-        try!(io_file.seek(io::SeekFrom::Start(phoff)));
+        try!(io_file.seek(io::SeekFrom::Start(shoff)));
         for _ in 0..shnum {
             let name: String = String::new();
             let mut shtype: types::SectionType;
