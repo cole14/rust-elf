@@ -1,4 +1,3 @@
-
 extern crate elf;
 
 use std::env;
