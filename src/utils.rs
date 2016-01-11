@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! read_u8 {
     ($elf:ident, $io:ident) => ({

@@ -1,4 +1,3 @@
-
 use std::fmt;
 
 /// Length of ELF file header platform-independent identification fields
