@@ -2,7 +2,7 @@
 name = "elf"
 version = "0.0.5"
 authors = ["Christopher Cole <chris.cole.09@gmail.com>"]
-license = "Apache-2.0"
+license = "MIT/Apache-2.0"
 homepage = "https://github.com/cole14/rust-elf/"
 repository = "https://github.com/cole14/rust-elf/"
 documentation = "http://cole14.github.io/rust-elf/"
