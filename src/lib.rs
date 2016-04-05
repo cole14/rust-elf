@@ -71,18 +71,6 @@ impl std::convert::From<std::string::FromUtf8Error> for ParseError {
         ParseError::InvalidFormat(Some(e))
     }
 }
-impl std::convert::From<byteorder::Error> for ParseError {
-    fn from(e: byteorder::Error) -> Self {
-        match e {
-            byteorder::Error::UnexpectedEOF => {
-                ParseError::InvalidFormat(None)
-            },
-            byteorder::Error::Io(e) => {
-                From::from(e)
-            },
-        }
-    }
-}
 
 impl File {
     pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
