@@ -23,7 +23,6 @@ impl<T> ReadExact for T
     where T: io::Read
 {
     fn read_exactly(&mut self, len: u64) -> io::Result<Vec<u8>> {
-        use std::io::{Error, ErrorKind};
         let mut buf = Vec::with_capacity(len as usize);
         let mut chunk = self.take(len);
         try!(chunk.read_to_end(&mut buf));
@@ -105,8 +104,8 @@ impl File {
         elf_f.ehdr.machine = types::Machine(try!(read_u16!(elf_f, io_file)));
         elf_f.ehdr.version = types::Version(try!(read_u32!(elf_f, io_file)));
 
-        let mut phoff: u64;
-        let mut shoff: u64;
+        let phoff: u64;
+        let shoff: u64;
 
         // Parse the platform-dependent file fields
         if elf_f.ehdr.class == types::ELFCLASS32 {
@@ -130,14 +129,14 @@ impl File {
         // Parse the program headers
         try!(io_file.seek(io::SeekFrom::Start(phoff)));
         for _ in 0..phnum {
-            let mut progtype: types::ProgType;
-            let mut offset: u64;
-            let mut vaddr: u64;
-            let mut paddr: u64;
-            let mut filesz: u64;
-            let mut memsz: u64;
-            let mut flags: types::ProgFlag;
-            let mut align: u64;
+            let progtype: types::ProgType;
+            let offset: u64;
+            let vaddr: u64;
+            let paddr: u64;
+            let filesz: u64;
+            let memsz: u64;
+            let flags: types::ProgFlag;
+            let align: u64;
 
             progtype = types::ProgType(try!(read_u32!(elf_f, io_file)));
             if elf_f.ehdr.class == types::ELFCLASS32 {
@@ -175,15 +174,15 @@ impl File {
         try!(io_file.seek(io::SeekFrom::Start(shoff)));
         for _ in 0..shnum {
             let name: String = String::new();
-            let mut shtype: types::SectionType;
-            let mut flags: types::SectionFlag;
-            let mut addr: u64;
-            let mut offset: u64;
-            let mut size: u64;
-            let mut link: u32;
-            let mut info: u32;
-            let mut addralign: u64;
-            let mut entsize: u64;
+            let shtype: types::SectionType;
+            let flags: types::SectionFlag;
+            let addr: u64;
+            let offset: u64;
+            let size: u64;
+            let link: u32;
+            let info: u32;
+            let addralign: u64;
+            let entsize: u64;
 
             name_idxs.push(try!(read_u32!(elf_f, io_file)));
             shtype = types::SectionType(try!(read_u32!(elf_f, io_file)));
