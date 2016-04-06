@@ -1,17 +1,4 @@
 #[macro_export]
-macro_rules! read_u8 {
-    ($elf:ident, $io:ident) => ({
-        use byteorder::{LittleEndian, BigEndian, ReadBytesExt};
-        match $elf.ehdr.data {
-            types::ELFDATA2LSB => { $io.read_u8::<LittleEndian>() }
-            types::ELFDATA2MSB => { $io.read_u8::<BigEndian>() }
-            types::ELFDATANONE => { panic!("Unable to resolve file endianness"); }
-            _ => { panic!("Unable to resolve file endianness"); }
-        }
-    });
-}
-
-#[macro_export]
 macro_rules! read_u16 {
     ($elf:ident, $io:ident) => ({
         use byteorder::{LittleEndian, BigEndian, ReadBytesExt};
