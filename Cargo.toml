@@ -10,9 +10,6 @@ description = "A pure-rust library for parsing ELF files"
 keywords = ["elf"]
 readme = "README.md"
 
-[[bin]]
-name = "rust-readelf"
-
 [lib]
 name = "elf"
 
