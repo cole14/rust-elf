@@ -16,20 +16,6 @@ pub struct File {
     pub sections: Vec<Section>,
 }
 
-pub trait ReadExact {
-    fn read_exactly(&mut self, len: u64) -> io::Result<Vec<u8>>;
-}
-impl<T> ReadExact for T
-    where T: io::Read
-{
-    fn read_exactly(&mut self, len: u64) -> io::Result<Vec<u8>> {
-        let mut buf = Vec::with_capacity(len as usize);
-        let mut chunk = self.take(len);
-        try!(chunk.read_to_end(&mut buf));
-        return Ok(buf);
-    }
-}
-
 impl std::fmt::Debug for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
@@ -231,7 +217,9 @@ impl File {
             let off = elf_f.sections[s_i].shdr.offset;
             let size = elf_f.sections[s_i].shdr.size;
             try!(io_file.seek(io::SeekFrom::Start(off)));
-            elf_f.sections[s_i].data = try!(io_file.read_exactly(size));
+            let mut data = vec![0; size as usize];
+            try!(io_file.read_exact(&mut data));
+            elf_f.sections[s_i].data = data;
 
             s_i += 1;
         }
