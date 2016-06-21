@@ -239,6 +239,54 @@ impl File {
         Ok(elf_f)
     }
 
+    pub fn get_symbols(&self, section: &Section) -> Result<Vec<types::Symbol>, ParseError> {
+        let mut symbols = Vec::new();
+        if section.shdr.shtype == types::SHT_SYMTAB || section.shdr.shtype == types::SHT_DYNSYM {
+            let link = &self.sections[section.shdr.link as usize].data;
+            let mut io_section = io::Cursor::new(&section.data);
+            while (io_section.position() as usize) < section.data.len() {
+                try!(self.parse_symbol(&mut io_section, &mut symbols, link));
+            }
+        }
+        Ok(symbols)
+    }
+
+    fn parse_symbol(&self, io_section: &mut Read, symbols: &mut Vec<types::Symbol>, link: &[u8]) -> Result<(), ParseError> {
+        let name: u32;
+        let value: u64;
+        let size: u64;
+        let shndx: u16;
+        let mut info = [0u8];
+        let mut other = [0u8];
+
+        if self.ehdr.class == types::ELFCLASS32 {
+            name = try!(read_u32!(self, io_section));
+            value = try!(read_u32!(self, io_section)) as u64;
+            size = try!(read_u32!(self, io_section)) as u64;
+            try!(io_section.read_exact(&mut info));
+            try!(io_section.read_exact(&mut other));
+            shndx = try!(read_u16!(self, io_section));
+        } else {
+            name = try!(read_u32!(self, io_section));
+            try!(io_section.read_exact(&mut info));
+            try!(io_section.read_exact(&mut other));
+            shndx = try!(read_u16!(self, io_section));
+            value = try!(read_u64!(self, io_section));
+            size = try!(read_u64!(self, io_section));
+        }
+
+        symbols.push(types::Symbol {
+                name:    try!(utils::get_string(link, name as usize)),
+                value:   value,
+                size:    size,
+                shndx:   shndx,
+                symtype: types::SymbolType(info[0] & 0xf),
+                bind:    types::SymbolBind(info[0] >> 4),
+                vis:     types::SymbolVis(other[0] & 0x3),
+            });
+        Ok(())
+    }
+
     pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&Section> {
         self.sections
             .iter()
