@@ -38,7 +38,7 @@ macro_rules! read_u64 {
 }
 
 use std;
-pub fn get_string(data: &Vec<u8>, start: usize) -> Result<String, std::string::FromUtf8Error> {
+pub fn get_string(data: &[u8], start: usize) -> Result<String, std::string::FromUtf8Error> {
     let mut end: usize = 0;
     for i in start..data.len() {
         if data[i] == 0u8 {

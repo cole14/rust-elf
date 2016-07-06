@@ -785,20 +785,19 @@ pub struct Symbol {
     pub value: u64,
     /// Symbol size
     pub size: u64,
-    info: u8,
-    other: u8,
+    /// Section index
+    pub shndx: u16,
+    /// Symbol type
+    pub symtype: SymbolType,
+    /// Symbol binding
+    pub bind: SymbolBind,
+    /// Symbol visibility
+    pub vis: SymbolVis,
 }
 
-impl Symbol {
-    pub fn sym_type(&self) -> SymbolType {
-        SymbolType(self.info & 0xf)
-    }
-
-    pub fn sym_bind(&self) -> SymbolBind {
-        SymbolBind(self.info >> 4)
-    }
-
-    pub fn sym_vis(&self) -> SymbolVis {
-        SymbolVis(self.other & 0x3)
+impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
+            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name)
     }
 }
