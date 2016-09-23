@@ -218,7 +218,9 @@ impl File {
             let size = elf_f.sections[s_i].shdr.size;
             try!(io_file.seek(io::SeekFrom::Start(off)));
             let mut data = vec![0; size as usize];
-            try!(io_file.read_exact(&mut data));
+            if elf_f.sections[s_i].shdr.shtype != types::SHT_NOBITS {
+                try!(io_file.read_exact(&mut data));
+            }
             elf_f.sections[s_i].data = data;
 
             s_i += 1;
@@ -311,5 +313,19 @@ pub struct Section {
 impl std::fmt::Display for Section {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.shdr)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use File;
+
+    #[test]
+    fn test_open_path() {
+        let file = File::open_path(PathBuf::from("tests/samples/test1"))
+            .expect("Open test1");
+        let bss = file.get_section(".bss").expect("Get .bss section");
+        assert!(bss.data.iter().all(|&b| b == 0));
     }
 }
