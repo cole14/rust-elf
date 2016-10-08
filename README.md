@@ -23,6 +23,6 @@ let text_scn = match file.get_section(".text") {
     None => panic!("Failed to look up .text section"),
 };
 
-println!("{}", text_scn.data);
+println!("{:?}", text_scn.data);
 
 ```
