@@ -273,6 +273,7 @@ pub const EM_AARCH64 : Machine = Machine(183);
 pub const EM_TILEPRO : Machine = Machine(188);
 pub const EM_MICROBLAZE : Machine = Machine(189);
 pub const EM_TILEGX : Machine = Machine(191);
+pub const EM_RISCV : Machine = Machine(243);
 
 impl fmt::Debug for Machine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
