@@ -9,9 +9,10 @@ documentation = "http://cole14.github.io/rust-elf/"
 description = "A pure-rust library for parsing ELF files"
 keywords = ["elf"]
 readme = "README.md"
+edition = "2018"
 
 [lib]
 name = "elf"
 
 [dependencies]
-byteorder = "0.*"
+byteorder = "1.*"

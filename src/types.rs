@@ -25,11 +25,11 @@ pub const EI_ABIVERSION: usize = 8;
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Class(pub u8);
 /// Invalid ELF file class
-pub const ELFCLASSNONE : Class = Class(0);
+pub const ELFCLASSNONE: Class = Class(0);
 /// 32-bit ELF file
-pub const ELFCLASS32 : Class = Class(1);
+pub const ELFCLASS32: Class = Class(1);
 /// 64-bit ELF file
-pub const ELFCLASS64 : Class = Class(2);
+pub const ELFCLASS64: Class = Class(2);
 
 impl fmt::Debug for Class {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -53,11 +53,11 @@ impl fmt::Display for Class {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Data(pub u8);
 /// Invalid ELF data format
-pub const ELFDATANONE : Data = Data(0);
+pub const ELFDATANONE: Data = Data(0);
 /// little-endian ELF file
-pub const ELFDATA2LSB : Data = Data(1);
+pub const ELFDATA2LSB: Data = Data(1);
 /// big-endian ELF file
-pub const ELFDATA2MSB : Data = Data(2);
+pub const ELFDATA2MSB: Data = Data(2);
 
 impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -83,9 +83,9 @@ impl fmt::Display for Data {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Version(pub u32);
 /// Invalid version
-pub const EV_NONE : Version = Version(0);
+pub const EV_NONE: Version = Version(0);
 /// Current version
-pub const EV_CURRENT : Version = Version(1);
+pub const EV_CURRENT: Version = Version(1);
 
 impl fmt::Debug for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -108,29 +108,29 @@ impl fmt::Display for Version {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OSABI(pub u8);
 /// Defaults to Unix System V
-pub const ELFOSABI_NONE : OSABI = OSABI(0);
+pub const ELFOSABI_NONE: OSABI = OSABI(0);
 /// Unix System V
-pub const ELFOSABI_SYSV : OSABI = OSABI(0);
+pub const ELFOSABI_SYSV: OSABI = OSABI(0);
 /// HP-UX
-pub const ELFOSABI_HPUX : OSABI = OSABI(1);
+pub const ELFOSABI_HPUX: OSABI = OSABI(1);
 /// NetBSD
-pub const ELFOSABI_NETBSD : OSABI = OSABI(2);
+pub const ELFOSABI_NETBSD: OSABI = OSABI(2);
 /// Linux with GNU extensions
-pub const ELFOSABI_LINUX : OSABI = OSABI(3);
+pub const ELFOSABI_LINUX: OSABI = OSABI(3);
 /// Solaris
-pub const ELFOSABI_SOLARIS : OSABI = OSABI(6);
+pub const ELFOSABI_SOLARIS: OSABI = OSABI(6);
 /// AIX
-pub const ELFOSABI_AIX : OSABI = OSABI(7);
+pub const ELFOSABI_AIX: OSABI = OSABI(7);
 /// SGI Irix
-pub const ELFOSABI_IRIX : OSABI = OSABI(8);
+pub const ELFOSABI_IRIX: OSABI = OSABI(8);
 /// FreeBSD
-pub const ELFOSABI_FREEBSD : OSABI = OSABI(9);
+pub const ELFOSABI_FREEBSD: OSABI = OSABI(9);
 /// Compaq TRU64 UNIX
-pub const ELFOSABI_TRU64 : OSABI = OSABI(10);
+pub const ELFOSABI_TRU64: OSABI = OSABI(10);
 /// Novell Modesto
-pub const ELFOSABI_MODESTO : OSABI = OSABI(11);
+pub const ELFOSABI_MODESTO: OSABI = OSABI(11);
 /// OpenBSD
-pub const ELFOSABI_OPENBSD : OSABI = OSABI(12);
+pub const ELFOSABI_OPENBSD: OSABI = OSABI(12);
 
 impl fmt::Debug for OSABI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -162,15 +162,15 @@ impl fmt::Display for OSABI {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Type(pub u16);
 /// No file type
-pub const ET_NONE : Type = Type(0);
+pub const ET_NONE: Type = Type(0);
 /// Relocatable object file
-pub const ET_REL : Type = Type(1);
+pub const ET_REL: Type = Type(1);
 /// Executable file
-pub const ET_EXEC : Type = Type(2);
+pub const ET_EXEC: Type = Type(2);
 /// Shared library
-pub const ET_DYN : Type = Type(3);
+pub const ET_DYN: Type = Type(3);
 /// Core file
-pub const ET_CORE : Type = Type(4);
+pub const ET_CORE: Type = Type(4);
 
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -195,84 +195,84 @@ impl fmt::Display for Type {
 /// Represents the ELF file machine architecture
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Machine(pub u16);
-pub const EM_NONE : Machine = Machine(0);
-pub const EM_M32 : Machine = Machine(1);
-pub const EM_SPARC : Machine = Machine(2);
-pub const EM_386 : Machine = Machine(3);
-pub const EM_68K : Machine = Machine(4);
-pub const EM_88K : Machine = Machine(5);
-pub const EM_860 : Machine = Machine(7);
-pub const EM_MIPS : Machine = Machine(8);
-pub const EM_S370 : Machine = Machine(9);
-pub const EM_MIPS_RS3_LE : Machine = Machine(10);
-pub const EM_PARISC : Machine = Machine(15);
-pub const EM_VPP500 : Machine = Machine(17);
-pub const EM_SPARC32PLUS : Machine = Machine(18);
-pub const EM_960 : Machine = Machine(19);
-pub const EM_PPC : Machine = Machine(20);
-pub const EM_PPC64 : Machine = Machine(21);
-pub const EM_S390 : Machine = Machine(22);
-pub const EM_V800 : Machine = Machine(36);
-pub const EM_FR20 : Machine = Machine(37);
-pub const EM_RH32 : Machine = Machine(38);
-pub const EM_RCE : Machine = Machine(39);
-pub const EM_ARM : Machine = Machine(40);
-pub const EM_FAKE_ALPHA : Machine = Machine(41);
-pub const EM_SH : Machine = Machine(42);
-pub const EM_SPARCV9 : Machine = Machine(43);
-pub const EM_TRICORE : Machine = Machine(44);
-pub const EM_ARC : Machine = Machine(45);
-pub const EM_H8_300 : Machine = Machine(46);
-pub const EM_H8_300H : Machine = Machine(47);
-pub const EM_H8S : Machine = Machine(48);
-pub const EM_H8_500 : Machine = Machine(49);
-pub const EM_IA_64 : Machine = Machine(50);
-pub const EM_MIPS_X : Machine = Machine(51);
-pub const EM_COLDFIRE : Machine = Machine(52);
-pub const EM_68HC12 : Machine = Machine(53);
-pub const EM_MMA : Machine = Machine(54);
-pub const EM_PCP : Machine = Machine(55);
-pub const EM_NCPU : Machine = Machine(56);
-pub const EM_NDR1 : Machine = Machine(57);
-pub const EM_STARCORE : Machine = Machine(58);
-pub const EM_ME16 : Machine = Machine(59);
-pub const EM_ST100 : Machine = Machine(60);
-pub const EM_TINYJ : Machine = Machine(61);
-pub const EM_X86_64 : Machine = Machine(62);
-pub const EM_PDSP : Machine = Machine(63);
-pub const EM_FX66 : Machine = Machine(66);
-pub const EM_ST9PLUS : Machine = Machine(67);
-pub const EM_ST7 : Machine = Machine(68);
-pub const EM_68HC16 : Machine = Machine(69);
-pub const EM_68HC11 : Machine = Machine(70);
-pub const EM_68HC08 : Machine = Machine(71);
-pub const EM_68HC05 : Machine = Machine(72);
-pub const EM_SVX : Machine = Machine(73);
-pub const EM_ST19 : Machine = Machine(74);
-pub const EM_VAX : Machine = Machine(75);
-pub const EM_CRIS : Machine = Machine(76);
-pub const EM_JAVELIN : Machine = Machine(77);
-pub const EM_FIREPATH : Machine = Machine(78);
-pub const EM_ZSP : Machine = Machine(79);
-pub const EM_MMIX : Machine = Machine(80);
-pub const EM_HUANY : Machine = Machine(81);
-pub const EM_PRISM : Machine = Machine(82);
-pub const EM_AVR : Machine = Machine(83);
-pub const EM_FR30 : Machine = Machine(84);
-pub const EM_D10V : Machine = Machine(85);
-pub const EM_D30V : Machine = Machine(86);
-pub const EM_V850 : Machine = Machine(87);
-pub const EM_M32R : Machine = Machine(88);
-pub const EM_MN10300 : Machine = Machine(89);
-pub const EM_MN10200 : Machine = Machine(90);
-pub const EM_PJ : Machine = Machine(91);
-pub const EM_OPENRISC : Machine = Machine(92);
-pub const EM_ARC_A5 : Machine = Machine(93);
-pub const EM_XTENSA : Machine = Machine(94);
-pub const EM_AARCH64 : Machine = Machine(183);
-pub const EM_TILEPRO : Machine = Machine(188);
-pub const EM_MICROBLAZE : Machine = Machine(189);
-pub const EM_TILEGX : Machine = Machine(191);
+pub const EM_NONE: Machine = Machine(0);
+pub const EM_M32: Machine = Machine(1);
+pub const EM_SPARC: Machine = Machine(2);
+pub const EM_386: Machine = Machine(3);
+pub const EM_68K: Machine = Machine(4);
+pub const EM_88K: Machine = Machine(5);
+pub const EM_860: Machine = Machine(7);
+pub const EM_MIPS: Machine = Machine(8);
+pub const EM_S370: Machine = Machine(9);
+pub const EM_MIPS_RS3_LE: Machine = Machine(10);
+pub const EM_PARISC: Machine = Machine(15);
+pub const EM_VPP500: Machine = Machine(17);
+pub const EM_SPARC32PLUS: Machine = Machine(18);
+pub const EM_960: Machine = Machine(19);
+pub const EM_PPC: Machine = Machine(20);
+pub const EM_PPC64: Machine = Machine(21);
+pub const EM_S390: Machine = Machine(22);
+pub const EM_V800: Machine = Machine(36);
+pub const EM_FR20: Machine = Machine(37);
+pub const EM_RH32: Machine = Machine(38);
+pub const EM_RCE: Machine = Machine(39);
+pub const EM_ARM: Machine = Machine(40);
+pub const EM_FAKE_ALPHA: Machine = Machine(41);
+pub const EM_SH: Machine = Machine(42);
+pub const EM_SPARCV9: Machine = Machine(43);
+pub const EM_TRICORE: Machine = Machine(44);
+pub const EM_ARC: Machine = Machine(45);
+pub const EM_H8_300: Machine = Machine(46);
+pub const EM_H8_300H: Machine = Machine(47);
+pub const EM_H8S: Machine = Machine(48);
+pub const EM_H8_500: Machine = Machine(49);
+pub const EM_IA_64: Machine = Machine(50);
+pub const EM_MIPS_X: Machine = Machine(51);
+pub const EM_COLDFIRE: Machine = Machine(52);
+pub const EM_68HC12: Machine = Machine(53);
+pub const EM_MMA: Machine = Machine(54);
+pub const EM_PCP: Machine = Machine(55);
+pub const EM_NCPU: Machine = Machine(56);
+pub const EM_NDR1: Machine = Machine(57);
+pub const EM_STARCORE: Machine = Machine(58);
+pub const EM_ME16: Machine = Machine(59);
+pub const EM_ST100: Machine = Machine(60);
+pub const EM_TINYJ: Machine = Machine(61);
+pub const EM_X86_64: Machine = Machine(62);
+pub const EM_PDSP: Machine = Machine(63);
+pub const EM_FX66: Machine = Machine(66);
+pub const EM_ST9PLUS: Machine = Machine(67);
+pub const EM_ST7: Machine = Machine(68);
+pub const EM_68HC16: Machine = Machine(69);
+pub const EM_68HC11: Machine = Machine(70);
+pub const EM_68HC08: Machine = Machine(71);
+pub const EM_68HC05: Machine = Machine(72);
+pub const EM_SVX: Machine = Machine(73);
+pub const EM_ST19: Machine = Machine(74);
+pub const EM_VAX: Machine = Machine(75);
+pub const EM_CRIS: Machine = Machine(76);
+pub const EM_JAVELIN: Machine = Machine(77);
+pub const EM_FIREPATH: Machine = Machine(78);
+pub const EM_ZSP: Machine = Machine(79);
+pub const EM_MMIX: Machine = Machine(80);
+pub const EM_HUANY: Machine = Machine(81);
+pub const EM_PRISM: Machine = Machine(82);
+pub const EM_AVR: Machine = Machine(83);
+pub const EM_FR30: Machine = Machine(84);
+pub const EM_D10V: Machine = Machine(85);
+pub const EM_D30V: Machine = Machine(86);
+pub const EM_V850: Machine = Machine(87);
+pub const EM_M32R: Machine = Machine(88);
+pub const EM_MN10300: Machine = Machine(89);
+pub const EM_MN10200: Machine = Machine(90);
+pub const EM_PJ: Machine = Machine(91);
+pub const EM_OPENRISC: Machine = Machine(92);
+pub const EM_ARC_A5: Machine = Machine(93);
+pub const EM_XTENSA: Machine = Machine(94);
+pub const EM_AARCH64: Machine = Machine(183);
+pub const EM_TILEPRO: Machine = Machine(188);
+pub const EM_MICROBLAZE: Machine = Machine(189);
+pub const EM_TILEGX: Machine = Machine(191);
 
 impl fmt::Debug for Machine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -376,48 +376,64 @@ impl fmt::Display for Machine {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FileHeader {
     /// 32-bit vs 64-bit
-    pub class:      Class,
+    pub class: Class,
     /// little vs big endian
-    pub data:       Data,
+    pub data: Data,
     /// elf version
-    pub version:    Version,
+    pub version: Version,
     /// OS ABI
-    pub osabi:      OSABI,
+    pub osabi: OSABI,
     /// Version of the OS ABI
     pub abiversion: u8,
     /// ELF file type
-    pub elftype:    Type,
+    pub elftype: Type,
     /// Target machine architecture
-    pub machine:    Machine,
+    pub machine: Machine,
     /// Virtual address of program entry point
-    pub entry:      u64,
+    pub entry: u64,
 }
 
 impl FileHeader {
     pub fn new() -> FileHeader {
-        FileHeader { class : ELFCLASSNONE, data : ELFDATANONE, version : EV_NONE,
-            elftype : ET_NONE, machine : EM_NONE, osabi : ELFOSABI_NONE,
-            abiversion : 0, entry : 0 }
+        FileHeader {
+            class: ELFCLASSNONE,
+            data: ELFDATANONE,
+            version: EV_NONE,
+            elftype: ET_NONE,
+            machine: EM_NONE,
+            osabi: ELFOSABI_NONE,
+            abiversion: 0,
+            entry: 0,
+        }
+    }
+}
+
+impl Default for FileHeader {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl fmt::Display for FileHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File Header for {} {} Elf {} for {} {}", self.class, self.data,
-            self.elftype, self.osabi, self.machine)
+        write!(
+            f,
+            "File Header for {} {} Elf {} for {} {}",
+            self.class, self.data, self.elftype, self.osabi, self.machine
+        )
     }
 }
 
 /// Represents ELF Program Header flags
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgFlag(pub u32);
-pub const PF_NONE : ProgFlag = ProgFlag(0);
+pub const PF_NONE: ProgFlag = ProgFlag(0);
 /// Executable program segment
-pub const PF_X : ProgFlag = ProgFlag(1);
+pub const PF_X: ProgFlag = ProgFlag(1);
 /// Writable program segment
-pub const PF_W : ProgFlag = ProgFlag(2);
+pub const PF_W: ProgFlag = ProgFlag(2);
 /// Readable program segment
-pub const PF_R : ProgFlag = ProgFlag(4);
+pub const PF_R: ProgFlag = ProgFlag(4);
 
 impl fmt::Debug for ProgFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -428,14 +444,14 @@ impl fmt::Debug for ProgFlag {
 impl fmt::Display for ProgFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if (self.0 & PF_R.0) != 0 {
-            try!(write!(f, "R"));
+            write!(f, "R")?;
         } else {
-            try!(write!(f, " "));
+            write!(f, " ")?;
         }
         if (self.0 & PF_W.0) != 0 {
-            try!(write!(f, "W"));
+            write!(f, "W")?;
         } else {
-            try!(write!(f, " "));
+            write!(f, " ")?;
         }
         if (self.0 & PF_X.0) != 0 {
             write!(f, "E")
@@ -449,27 +465,27 @@ impl fmt::Display for ProgFlag {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
 /// Program header table entry unused
-pub const PT_NULL : ProgType = ProgType(0);
+pub const PT_NULL: ProgType = ProgType(0);
 /// Loadable program segment
-pub const PT_LOAD : ProgType = ProgType(1);
+pub const PT_LOAD: ProgType = ProgType(1);
 /// Dynamic linking information
-pub const PT_DYNAMIC : ProgType = ProgType(2);
+pub const PT_DYNAMIC: ProgType = ProgType(2);
 /// Program interpreter
-pub const PT_INTERP : ProgType = ProgType(3);
+pub const PT_INTERP: ProgType = ProgType(3);
 /// Auxiliary information
-pub const PT_NOTE : ProgType = ProgType(4);
+pub const PT_NOTE: ProgType = ProgType(4);
 /// Unused
-pub const PT_SHLIB : ProgType = ProgType(5);
+pub const PT_SHLIB: ProgType = ProgType(5);
 /// The program header table
-pub const PT_PHDR : ProgType = ProgType(6);
+pub const PT_PHDR: ProgType = ProgType(6);
 /// Thread-local storage segment
-pub const PT_TLS : ProgType = ProgType(7);
+pub const PT_TLS: ProgType = ProgType(7);
 /// GCC .eh_frame_hdr segment
-pub const PT_GNU_EH_FRAME : ProgType = ProgType(0x6474e550);
+pub const PT_GNU_EH_FRAME: ProgType = ProgType(0x6474e550);
 /// Indicates stack executability
-pub const PT_GNU_STACK : ProgType = ProgType(0x6474e551);
+pub const PT_GNU_STACK: ProgType = ProgType(0x6474e551);
 /// Read-only after relocation
-pub const PT_GNU_RELRO : ProgType = ProgType(0x6474e552);
+pub const PT_GNU_RELRO: ProgType = ProgType(0x6474e552);
 
 impl fmt::Debug for ProgType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -506,19 +522,19 @@ pub struct ProgramHeader {
     /// Program segment type
     pub progtype: ProgType,
     /// Offset into the ELF file where this segment begins
-    pub offset:   u64,
+    pub offset: u64,
     /// Virtual adress where this segment should be loaded
-    pub vaddr:    u64,
+    pub vaddr: u64,
     /// Physical address where this segment should be loaded
-    pub paddr:    u64,
+    pub paddr: u64,
     /// Size of this segment in the file
-    pub filesz:   u64,
+    pub filesz: u64,
     /// Size of this segment in memory
-    pub memsz:    u64,
+    pub memsz: u64,
     /// Flags for this segment
-    pub flags:    ProgFlag,
+    pub flags: ProgFlag,
     /// file and memory alignment
-    pub align:    u64,
+    pub align: u64,
 }
 
 impl fmt::Display for ProgramHeader {
@@ -533,53 +549,53 @@ impl fmt::Display for ProgramHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionType(pub u32);
 /// Inactive section with undefined values
-pub const SHT_NULL : SectionType = SectionType(0);
+pub const SHT_NULL: SectionType = SectionType(0);
 /// Information defined by the program, includes executable code and data
-pub const SHT_PROGBITS : SectionType = SectionType(1);
+pub const SHT_PROGBITS: SectionType = SectionType(1);
 /// Section data contains a symbol table
-pub const SHT_SYMTAB : SectionType = SectionType(2);
+pub const SHT_SYMTAB: SectionType = SectionType(2);
 /// Section data contains a string table
-pub const SHT_STRTAB : SectionType = SectionType(3);
+pub const SHT_STRTAB: SectionType = SectionType(3);
 /// Section data contains relocation entries with explicit addends
-pub const SHT_RELA : SectionType = SectionType(4);
+pub const SHT_RELA: SectionType = SectionType(4);
 /// Section data contains a symbol hash table. Must be present for dynamic linking
-pub const SHT_HASH : SectionType = SectionType(5);
+pub const SHT_HASH: SectionType = SectionType(5);
 /// Section data contains information for dynamic linking
-pub const SHT_DYNAMIC : SectionType = SectionType(6);
+pub const SHT_DYNAMIC: SectionType = SectionType(6);
 /// Section data contains information that marks the file in some way
-pub const SHT_NOTE : SectionType = SectionType(7);
+pub const SHT_NOTE: SectionType = SectionType(7);
 /// Section data occupies no space in the file but otherwise resembles SHT_PROGBITS
-pub const SHT_NOBITS : SectionType = SectionType(8);
+pub const SHT_NOBITS: SectionType = SectionType(8);
 /// Section data contains relocation entries without explicit addends
-pub const SHT_REL : SectionType = SectionType(9);
+pub const SHT_REL: SectionType = SectionType(9);
 /// Section is reserved but has unspecified semantics
-pub const SHT_SHLIB : SectionType = SectionType(10);
+pub const SHT_SHLIB: SectionType = SectionType(10);
 /// Section data contains a minimal set of dynamic linking symbols
-pub const SHT_DYNSYM : SectionType = SectionType(11);
+pub const SHT_DYNSYM: SectionType = SectionType(11);
 /// Section data contains an array of constructors
-pub const SHT_INIT_ARRAY : SectionType = SectionType(14);
+pub const SHT_INIT_ARRAY: SectionType = SectionType(14);
 /// Section data contains an array of destructors
-pub const SHT_FINI_ARRAY : SectionType = SectionType(15);
+pub const SHT_FINI_ARRAY: SectionType = SectionType(15);
 /// Section data contains an array of pre-constructors
-pub const SHT_PREINIT_ARRAY : SectionType = SectionType(16);
+pub const SHT_PREINIT_ARRAY: SectionType = SectionType(16);
 /// Section group
-pub const SHT_GROUP : SectionType = SectionType(17);
+pub const SHT_GROUP: SectionType = SectionType(17);
 /// Extended symbol table section index
-pub const SHT_SYMTAB_SHNDX : SectionType = SectionType(18);
+pub const SHT_SYMTAB_SHNDX: SectionType = SectionType(18);
 /// Number of reserved SHT_* values
-pub const SHT_NUM : SectionType = SectionType(19);
+pub const SHT_NUM: SectionType = SectionType(19);
 /// Object attributes
-pub const SHT_GNU_ATTRIBUTES : SectionType = SectionType(0x6ffffff5);
+pub const SHT_GNU_ATTRIBUTES: SectionType = SectionType(0x6ffffff5);
 /// GNU-style hash section
-pub const SHT_GNU_HASH : SectionType = SectionType(0x6ffffff6);
+pub const SHT_GNU_HASH: SectionType = SectionType(0x6ffffff6);
 /// Pre-link library list
-pub const SHT_GNU_LIBLIST : SectionType = SectionType(0x6ffffff7);
+pub const SHT_GNU_LIBLIST: SectionType = SectionType(0x6ffffff7);
 /// Version definition section
-pub const SHT_GNU_VERDEF : SectionType = SectionType(0x6ffffffd);
+pub const SHT_GNU_VERDEF: SectionType = SectionType(0x6ffffffd);
 /// Version needs section
-pub const SHT_GNU_VERNEED : SectionType = SectionType(0x6ffffffe);
+pub const SHT_GNU_VERNEED: SectionType = SectionType(0x6ffffffe);
 /// Version symbol table
-pub const SHT_GNU_VERSYM : SectionType = SectionType(0x6fffffff);
+pub const SHT_GNU_VERSYM: SectionType = SectionType(0x6fffffff);
 
 impl fmt::Debug for SectionType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -626,27 +642,27 @@ impl fmt::Display for SectionType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionFlag(pub u64);
 /// Empty flags
-pub const SHF_NONE : SectionFlag = SectionFlag(0);
+pub const SHF_NONE: SectionFlag = SectionFlag(0);
 /// Writable
-pub const SHF_WRITE : SectionFlag = SectionFlag(1);
+pub const SHF_WRITE: SectionFlag = SectionFlag(1);
 /// Occupies memory during execution
-pub const SHF_ALLOC : SectionFlag = SectionFlag(2);
+pub const SHF_ALLOC: SectionFlag = SectionFlag(2);
 /// Executable
-pub const SHF_EXECINSTR : SectionFlag = SectionFlag(4);
+pub const SHF_EXECINSTR: SectionFlag = SectionFlag(4);
 /// Might be merged
-pub const SHF_MERGE : SectionFlag = SectionFlag(16);
+pub const SHF_MERGE: SectionFlag = SectionFlag(16);
 /// Contains nul-terminated strings
-pub const SHF_STRINGS : SectionFlag = SectionFlag(32);
+pub const SHF_STRINGS: SectionFlag = SectionFlag(32);
 /// `sh_info' contains SHT index
-pub const SHF_INFO_LINK : SectionFlag = SectionFlag(64);
+pub const SHF_INFO_LINK: SectionFlag = SectionFlag(64);
 /// Preserve order after combining
-pub const SHF_LINK_ORDER : SectionFlag = SectionFlag(128);
+pub const SHF_LINK_ORDER: SectionFlag = SectionFlag(128);
 /// Non-standard OS specific handling required
-pub const SHF_OS_NONCONFORMING : SectionFlag = SectionFlag(256);
+pub const SHF_OS_NONCONFORMING: SectionFlag = SectionFlag(256);
 /// Section is member of a group
-pub const SHF_GROUP : SectionFlag = SectionFlag(512);
+pub const SHF_GROUP: SectionFlag = SectionFlag(512);
 /// Section hold thread-local data
-pub const SHF_TLS : SectionFlag = SectionFlag(1024);
+pub const SHF_TLS: SectionFlag = SectionFlag(1024);
 
 impl fmt::Debug for SectionFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -664,25 +680,25 @@ impl fmt::Display for SectionFlag {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SectionHeader {
     /// Section Name
-    pub name:      String,
+    pub name: String,
     /// Section Type
-    pub shtype:    SectionType,
+    pub shtype: SectionType,
     /// Section Flags
-    pub flags:     SectionFlag,
+    pub flags: SectionFlag,
     /// in-memory address where this section is loaded
-    pub addr:      u64,
+    pub addr: u64,
     /// Byte-offset into the file where this section starts
-    pub offset:    u64,
+    pub offset: u64,
     /// Section size in bytes
-    pub size:      u64,
+    pub size: u64,
     /// Defined by section type
-    pub link:      u32,
+    pub link: u32,
     /// Defined by section type
-    pub info:      u32,
+    pub info: u32,
     /// address alignment
     pub addralign: u64,
     /// size of an entry if section data is an array of entries
-    pub entsize:   u64,
+    pub entsize: u64,
 }
 
 impl fmt::Display for SectionHeader {
@@ -696,21 +712,21 @@ impl fmt::Display for SectionHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
 /// Unspecified symbol type
-pub const STT_NOTYPE : SymbolType = SymbolType(0);
+pub const STT_NOTYPE: SymbolType = SymbolType(0);
 /// Data object symbol
-pub const STT_OBJECT : SymbolType = SymbolType(1);
+pub const STT_OBJECT: SymbolType = SymbolType(1);
 /// Code object symbol
-pub const STT_FUNC : SymbolType = SymbolType(2);
+pub const STT_FUNC: SymbolType = SymbolType(2);
 /// Section symbol
-pub const STT_SECTION : SymbolType = SymbolType(3);
+pub const STT_SECTION: SymbolType = SymbolType(3);
 /// File name symbol
-pub const STT_FILE : SymbolType = SymbolType(4);
+pub const STT_FILE: SymbolType = SymbolType(4);
 /// Common data object symbol
-pub const STT_COMMON : SymbolType = SymbolType(5);
+pub const STT_COMMON: SymbolType = SymbolType(5);
 /// Thread-local data object symbol
-pub const STT_TLS	 : SymbolType = SymbolType(6);
+pub const STT_TLS: SymbolType = SymbolType(6);
 /// Indirect code object symbol
-pub const STT_GNU_IFUNC : SymbolType = SymbolType(10);
+pub const STT_GNU_IFUNC: SymbolType = SymbolType(10);
 
 impl fmt::Display for SymbolType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -732,13 +748,13 @@ impl fmt::Display for SymbolType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolBind(pub u8);
 /// Local symbol
-pub const STB_LOCAL : SymbolBind = SymbolBind(0);
+pub const STB_LOCAL: SymbolBind = SymbolBind(0);
 /// Global symbol
-pub const STB_GLOBAL : SymbolBind = SymbolBind(1);
+pub const STB_GLOBAL: SymbolBind = SymbolBind(1);
 /// Weak symbol
-pub const STB_WEAK : SymbolBind = SymbolBind(2);
+pub const STB_WEAK: SymbolBind = SymbolBind(2);
 /// Unique symbol
-pub const STB_GNU_UNIQUE : SymbolBind = SymbolBind(10);
+pub const STB_GNU_UNIQUE: SymbolBind = SymbolBind(10);
 
 impl fmt::Display for SymbolBind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -756,13 +772,13 @@ impl fmt::Display for SymbolBind {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolVis(pub u8);
 /// Default symbol visibility
-pub const STV_DEFAULT : SymbolVis = SymbolVis(0);
+pub const STV_DEFAULT: SymbolVis = SymbolVis(0);
 /// Processor-specific hidden visibility
-pub const STV_INTERNAL : SymbolVis = SymbolVis(1);
+pub const STV_INTERNAL: SymbolVis = SymbolVis(1);
 /// Hidden visibility
-pub const STV_HIDDEN : SymbolVis = SymbolVis(2);
+pub const STV_HIDDEN: SymbolVis = SymbolVis(2);
 /// Protected visibility
-pub const STV_PROTECTED : SymbolVis = SymbolVis(3);
+pub const STV_PROTECTED: SymbolVis = SymbolVis(3);
 
 impl fmt::Display for SymbolVis {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -797,7 +813,10 @@ pub struct Symbol {
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
-            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name)
+        write!(
+            f,
+            "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
+            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name
+        )
     }
 }
