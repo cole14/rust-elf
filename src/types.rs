@@ -428,14 +428,14 @@ impl fmt::Debug for ProgFlag {
 impl fmt::Display for ProgFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if (self.0 & PF_R.0) != 0 {
-            try!(write!(f, "R"));
+            write!(f, "R")?;
         } else {
-            try!(write!(f, " "));
+            write!(f, " ")?;
         }
         if (self.0 & PF_W.0) != 0 {
-            try!(write!(f, "W"));
+            write!(f, "W")?;
         } else {
-            try!(write!(f, " "));
+            write!(f, " ")?;
         }
         if (self.0 & PF_X.0) != 0 {
             write!(f, "E")

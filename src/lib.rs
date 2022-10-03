@@ -24,14 +24,14 @@ impl std::fmt::Debug for File {
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        try!(write!(f, "{{ {} }}", self.ehdr));
-        try!(write!(f, "{{ "));
+        write!(f, "{{ {} }}", self.ehdr)?;
+        write!(f, "{{ ")?;
         for phdr in self.phdrs.iter() {
-            try!(write!(f, "{}", phdr));
+            write!(f, "{}", phdr)?;
         }
-        try!(write!(f, " }} {{ "));
+        write!(f, " }} {{ ")?;
         for shdr in self.sections.iter() {
-            try!(write!(f, "{}", shdr));
+            write!(f, "{}", shdr)?;
         }
         write!(f, " }}")
     }
@@ -60,7 +60,7 @@ impl std::convert::From<std::string::FromUtf8Error> for ParseError {
 impl File {
     pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
         // Open the file for reading
-        let mut io_file = try!(fs::File::open(path));
+        let mut io_file = fs::File::open(path)?;
 
         File::open_stream(&mut io_file)
     }
@@ -68,7 +68,7 @@ impl File {
     pub fn open_stream<T: io::Read + io::Seek>(io_file: &mut T) -> Result<File, ParseError> {
         // Read the platform-independent ident bytes
         let mut ident = [0u8; types::EI_NIDENT];
-        let nread = try!(io_file.read(ident.as_mut()));
+        let nread = io_file.read(ident.as_mut())?;
 
         if nread != types::EI_NIDENT {
             return Err(ParseError::InvalidFormat(None));
@@ -86,34 +86,34 @@ impl File {
         elf_f.ehdr.data = types::Data(ident[types::EI_DATA]);
         elf_f.ehdr.osabi = types::OSABI(ident[types::EI_OSABI]);
         elf_f.ehdr.abiversion = ident[types::EI_ABIVERSION];
-        elf_f.ehdr.elftype = types::Type(try!(read_u16!(elf_f, io_file)));
-        elf_f.ehdr.machine = types::Machine(try!(read_u16!(elf_f, io_file)));
-        elf_f.ehdr.version = types::Version(try!(read_u32!(elf_f, io_file)));
+        elf_f.ehdr.elftype = types::Type(read_u16!(elf_f, io_file)?);
+        elf_f.ehdr.machine = types::Machine(read_u16!(elf_f, io_file)?);
+        elf_f.ehdr.version = types::Version(read_u32!(elf_f, io_file)?);
 
         let phoff: u64;
         let shoff: u64;
 
         // Parse the platform-dependent file fields
         if elf_f.ehdr.class == types::ELFCLASS32 {
-            elf_f.ehdr.entry = try!(read_u32!(elf_f, io_file)) as u64;
-            phoff = try!(read_u32!(elf_f, io_file)) as u64;
-            shoff = try!(read_u32!(elf_f, io_file)) as u64;
+            elf_f.ehdr.entry = read_u32!(elf_f, io_file)? as u64;
+            phoff = read_u32!(elf_f, io_file)? as u64;
+            shoff = read_u32!(elf_f, io_file)? as u64;
         } else {
-            elf_f.ehdr.entry = try!(read_u64!(elf_f, io_file));
-            phoff = try!(read_u64!(elf_f, io_file));
-            shoff = try!(read_u64!(elf_f, io_file));
+            elf_f.ehdr.entry = read_u64!(elf_f, io_file)?;
+            phoff = read_u64!(elf_f, io_file)?;
+            shoff = read_u64!(elf_f, io_file)?;
         }
 
-        let flags = try!(read_u32!(elf_f, io_file));
-        let ehsize = try!(read_u16!(elf_f, io_file));
-        let phentsize = try!(read_u16!(elf_f, io_file));
-        let phnum = try!(read_u16!(elf_f, io_file));
-        let shentsize = try!(read_u16!(elf_f, io_file));
-        let shnum = try!(read_u16!(elf_f, io_file));
-        let shstrndx = try!(read_u16!(elf_f, io_file));
+        let flags = read_u32!(elf_f, io_file)?;
+        let ehsize = read_u16!(elf_f, io_file)?;
+        let phentsize = read_u16!(elf_f, io_file)?;
+        let phnum = read_u16!(elf_f, io_file)?;
+        let shentsize = read_u16!(elf_f, io_file)?;
+        let shnum = read_u16!(elf_f, io_file)?;
+        let shstrndx = read_u16!(elf_f, io_file)?;
 
         // Parse the program headers
-        try!(io_file.seek(io::SeekFrom::Start(phoff)));
+        io_file.seek(io::SeekFrom::Start(phoff))?;
         for _ in 0..phnum {
             let progtype: types::ProgType;
             let offset: u64;
@@ -124,23 +124,23 @@ impl File {
             let flags: types::ProgFlag;
             let align: u64;
 
-            progtype = types::ProgType(try!(read_u32!(elf_f, io_file)));
+            progtype = types::ProgType(read_u32!(elf_f, io_file)?);
             if elf_f.ehdr.class == types::ELFCLASS32 {
-                offset = try!(read_u32!(elf_f, io_file)) as u64;
-                vaddr = try!(read_u32!(elf_f, io_file)) as u64;
-                paddr = try!(read_u32!(elf_f, io_file)) as u64;
-                filesz = try!(read_u32!(elf_f, io_file)) as u64;
-                memsz = try!(read_u32!(elf_f, io_file)) as u64;
-                flags = types::ProgFlag(try!(read_u32!(elf_f, io_file)));
-                align = try!(read_u32!(elf_f, io_file)) as u64;
+                offset = read_u32!(elf_f, io_file)? as u64;
+                vaddr = read_u32!(elf_f, io_file)? as u64;
+                paddr = read_u32!(elf_f, io_file)? as u64;
+                filesz = read_u32!(elf_f, io_file)? as u64;
+                memsz = read_u32!(elf_f, io_file)? as u64;
+                flags = types::ProgFlag(read_u32!(elf_f, io_file)?);
+                align = read_u32!(elf_f, io_file)? as u64;
             } else {
-                flags = types::ProgFlag(try!(read_u32!(elf_f, io_file)));
-                offset = try!(read_u64!(elf_f, io_file));
-                vaddr = try!(read_u64!(elf_f, io_file));
-                paddr = try!(read_u64!(elf_f, io_file));
-                filesz = try!(read_u64!(elf_f, io_file));
-                memsz = try!(read_u64!(elf_f, io_file));
-                align = try!(read_u64!(elf_f, io_file));
+                flags = types::ProgFlag(read_u32!(elf_f, io_file)?);
+                offset = read_u64!(elf_f, io_file)?;
+                vaddr = read_u64!(elf_f, io_file)?;
+                paddr = read_u64!(elf_f, io_file)?;
+                filesz = read_u64!(elf_f, io_file)?;
+                memsz = read_u64!(elf_f, io_file)?;
+                align = read_u64!(elf_f, io_file)?;
             }
 
             elf_f.phdrs.push(types::ProgramHeader {
@@ -157,7 +157,7 @@ impl File {
 
         // Parse the section headers
         let mut name_idxs: Vec<u32> = Vec::new();
-        try!(io_file.seek(io::SeekFrom::Start(shoff)));
+        io_file.seek(io::SeekFrom::Start(shoff))?;
         for _ in 0..shnum {
             let name: String = String::new();
             let shtype: types::SectionType;
@@ -170,26 +170,26 @@ impl File {
             let addralign: u64;
             let entsize: u64;
 
-            name_idxs.push(try!(read_u32!(elf_f, io_file)));
-            shtype = types::SectionType(try!(read_u32!(elf_f, io_file)));
+            name_idxs.push(read_u32!(elf_f, io_file)?);
+            shtype = types::SectionType(read_u32!(elf_f, io_file)?);
             if elf_f.ehdr.class == types::ELFCLASS32 {
-                flags = types::SectionFlag(try!(read_u32!(elf_f, io_file)) as u64);
-                addr = try!(read_u32!(elf_f, io_file)) as u64;
-                offset = try!(read_u32!(elf_f, io_file)) as u64;
-                size = try!(read_u32!(elf_f, io_file)) as u64;
-                link = try!(read_u32!(elf_f, io_file));
-                info = try!(read_u32!(elf_f, io_file));
-                addralign = try!(read_u32!(elf_f, io_file)) as u64;
-                entsize = try!(read_u32!(elf_f, io_file)) as u64;
+                flags = types::SectionFlag(read_u32!(elf_f, io_file)? as u64);
+                addr = read_u32!(elf_f, io_file)? as u64;
+                offset = read_u32!(elf_f, io_file)? as u64;
+                size = read_u32!(elf_f, io_file)? as u64;
+                link = read_u32!(elf_f, io_file)?;
+                info = read_u32!(elf_f, io_file)?;
+                addralign = read_u32!(elf_f, io_file)? as u64;
+                entsize = read_u32!(elf_f, io_file)? as u64;
             } else {
-                flags = types::SectionFlag(try!(read_u64!(elf_f, io_file)));
-                addr = try!(read_u64!(elf_f, io_file));
-                offset = try!(read_u64!(elf_f, io_file));
-                size = try!(read_u64!(elf_f, io_file));
-                link = try!(read_u32!(elf_f, io_file));
-                info = try!(read_u32!(elf_f, io_file));
-                addralign = try!(read_u64!(elf_f, io_file));
-                entsize = try!(read_u64!(elf_f, io_file));
+                flags = types::SectionFlag(read_u64!(elf_f, io_file)?);
+                addr = read_u64!(elf_f, io_file)?;
+                offset = read_u64!(elf_f, io_file)?;
+                size = read_u64!(elf_f, io_file)?;
+                link = read_u32!(elf_f, io_file)?;
+                info = read_u32!(elf_f, io_file)?;
+                addralign = read_u64!(elf_f, io_file)?;
+                entsize = read_u64!(elf_f, io_file)?;
             }
 
             elf_f.sections.push(Section {
@@ -216,10 +216,10 @@ impl File {
 
             let off = elf_f.sections[s_i].shdr.offset;
             let size = elf_f.sections[s_i].shdr.size;
-            try!(io_file.seek(io::SeekFrom::Start(off)));
+            io_file.seek(io::SeekFrom::Start(off))?;
             let mut data = vec![0; size as usize];
             if elf_f.sections[s_i].shdr.shtype != types::SHT_NOBITS {
-                try!(io_file.read_exact(&mut data));
+                io_file.read_exact(&mut data)?;
             }
             elf_f.sections[s_i].data = data;
 
@@ -231,9 +231,9 @@ impl File {
         loop {
             if s_i == shnum as usize { break; }
 
-            elf_f.sections[s_i].shdr.name = try!(utils::get_string(
+            elf_f.sections[s_i].shdr.name = utils::get_string(
                 &elf_f.sections[shstrndx as usize].data,
-                name_idxs[s_i] as usize));
+                name_idxs[s_i] as usize)?;
 
             s_i += 1;
         }
@@ -247,7 +247,7 @@ impl File {
             let link = &self.sections[section.shdr.link as usize].data;
             let mut io_section = io::Cursor::new(&section.data);
             while (io_section.position() as usize) < section.data.len() {
-                try!(self.parse_symbol(&mut io_section, &mut symbols, link));
+                self.parse_symbol(&mut io_section, &mut symbols, link)?;
             }
         }
         Ok(symbols)
@@ -258,27 +258,27 @@ impl File {
         let value: u64;
         let size: u64;
         let shndx: u16;
-        let mut info = [0u8];
-        let mut other = [0u8];
+        let mut info: [u8; 1] = [0u8];
+        let mut other: [u8; 1] = [0u8];
 
         if self.ehdr.class == types::ELFCLASS32 {
-            name = try!(read_u32!(self, io_section));
-            value = try!(read_u32!(self, io_section)) as u64;
-            size = try!(read_u32!(self, io_section)) as u64;
-            try!(io_section.read_exact(&mut info));
-            try!(io_section.read_exact(&mut other));
-            shndx = try!(read_u16!(self, io_section));
+            name = read_u32!(self, io_section)?;
+            value = read_u32!(self, io_section)? as u64;
+            size = read_u32!(self, io_section)? as u64;
+            io_section.read_exact(&mut info)?;
+            io_section.read_exact(&mut other)?;
+            shndx = read_u16!(self, io_section)?;
         } else {
-            name = try!(read_u32!(self, io_section));
-            try!(io_section.read_exact(&mut info));
-            try!(io_section.read_exact(&mut other));
-            shndx = try!(read_u16!(self, io_section));
-            value = try!(read_u64!(self, io_section));
-            size = try!(read_u64!(self, io_section));
+            name = read_u32!(self, io_section)?;
+            io_section.read_exact(&mut info)?;
+            io_section.read_exact(&mut other)?;
+            shndx = read_u16!(self, io_section)?;
+            value = read_u64!(self, io_section)?;
+            size = read_u64!(self, io_section)?;
         }
 
         symbols.push(types::Symbol {
-                name:    try!(utils::get_string(link, name as usize)),
+                name:    utils::get_string(link, name as usize)?,
                 value:   value,
                 size:    size,
                 shndx:   shndx,
