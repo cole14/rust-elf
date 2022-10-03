@@ -253,7 +253,7 @@ impl File {
         Ok(symbols)
     }
 
-    fn parse_symbol(&self, io_section: &mut Read, symbols: &mut Vec<types::Symbol>, link: &[u8]) -> Result<(), ParseError> {
+    fn parse_symbol(&self, io_section: &mut dyn Read, symbols: &mut Vec<types::Symbol>, link: &[u8]) -> Result<(), ParseError> {
         let name: u32;
         let value: u64;
         let size: u64;
