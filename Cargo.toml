@@ -1,6 +1,6 @@
 [package]
 name = "elf"
-version = "0.0.10"
+version = "0.0.11"
 authors = ["Christopher Cole <chris.cole.09@gmail.com>"]
 license = "MIT/Apache-2.0"
 homepage = "https://github.com/cole14/rust-elf/"
@@ -14,4 +14,4 @@ readme = "README.md"
 name = "elf"
 
 [dependencies]
-byteorder = "0.*"
+byteorder = "1"
