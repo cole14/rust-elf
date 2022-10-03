@@ -1,4 +1,7 @@
-[![Build Status](https://travis-ci.org/cole14/rust-elf.svg?branch=master)](https://travis-ci.org/cole14/rust-elf)
+[![](https://img.shields.io/crates/v/elf.svg)](https://crates.io/crates/elf)
+[![](https://img.shields.io/crates/d/elf.svg)](https://crates.io/crates/elf)
+[![Build Status](https://github.com/cole14/rust-elf/actions/workflows/rust.yml/badge.svg)](https://github.com/cole14/rust-elf/actions)
+[![](https://docs.rs/elf/badge.svg)](https://docs.rs/elf/)
 
 # rust-elf
 Pure-Rust library for parsing ELF files
