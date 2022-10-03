@@ -39,6 +39,7 @@ impl std::fmt::Display for File {
 
 #[derive(Debug)]
 pub enum ParseError {
+    EndianError,
     IoError(io::Error),
     InvalidMagic,
     InvalidFormat(Option<std::string::FromUtf8Error>),

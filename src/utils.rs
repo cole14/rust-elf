@@ -1,40 +1,40 @@
 #[macro_export]
 macro_rules! read_u16 {
-    ($elf:ident, $io:ident) => ({
+    ($elf:ident, $io:ident) => {{
         use byteorder::{LittleEndian, BigEndian, ReadBytesExt};
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_u16::<LittleEndian>() }
             types::ELFDATA2MSB => { $io.read_u16::<BigEndian>() }
-            types::ELFDATANONE => { panic!("Unable to resolve file endianness"); }
-            _ => { panic!("Unable to resolve file endianness"); }
+            types::ELFDATANONE => { return Err(ParseError::EndianError); }
+            _ => { return Err(ParseError::EndianError); }
         }
-    });
+    }};
 }
 
 #[macro_export]
 macro_rules! read_u32 {
-    ($elf:ident, $io:ident) => ({
+    ($elf:ident, $io:ident) => {{
         use byteorder::{LittleEndian, BigEndian, ReadBytesExt};
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_u32::<LittleEndian>() }
             types::ELFDATA2MSB => { $io.read_u32::<BigEndian>() }
-            types::ELFDATANONE => { panic!("Unable to resolve file endianness"); }
-            _ => { panic!("Unable to resolve file endianness"); }
+            types::ELFDATANONE => { return Err(ParseError::EndianError); }
+            _ => { return Err(ParseError::EndianError); }
         }
-    });
+    }};
 }
 
 #[macro_export]
 macro_rules! read_u64 {
-    ($elf:ident, $io:ident) => ({
+    ($elf:ident, $io:ident) => {{
         use byteorder::{LittleEndian, BigEndian, ReadBytesExt};
         match $elf.ehdr.data {
             types::ELFDATA2LSB => { $io.read_u64::<LittleEndian>() }
             types::ELFDATA2MSB => { $io.read_u64::<BigEndian>() }
-            types::ELFDATANONE => { panic!("Unable to resolve file endianness"); }
-            _ => { panic!("Unable to resolve file endianness"); }
+            types::ELFDATANONE => { return Err(ParseError::EndianError); }
+            _ => { return Err(ParseError::EndianError); }
         }
-    });
+    }};
 }
 
 use std;
