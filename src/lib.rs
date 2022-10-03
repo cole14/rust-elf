@@ -105,11 +105,11 @@ impl File {
             shoff = read_u64!(elf_f, io_file)?;
         }
 
-        let flags = read_u32!(elf_f, io_file)?;
-        let ehsize = read_u16!(elf_f, io_file)?;
-        let phentsize = read_u16!(elf_f, io_file)?;
+        let _flags = read_u32!(elf_f, io_file)?;
+        let _ehsize = read_u16!(elf_f, io_file)?;
+        let _phentsize = read_u16!(elf_f, io_file)?;
         let phnum = read_u16!(elf_f, io_file)?;
-        let shentsize = read_u16!(elf_f, io_file)?;
+        let _shentsize = read_u16!(elf_f, io_file)?;
         let shnum = read_u16!(elf_f, io_file)?;
         let shstrndx = read_u16!(elf_f, io_file)?;
 
