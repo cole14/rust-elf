@@ -385,6 +385,7 @@ pub const EM_FT32: Machine = Machine(222); // FTDI Chip FT32 high performance 32
 pub const EM_MOXIE: Machine = Machine(223); // Moxie processor family
 pub const EM_AMDGPU: Machine = Machine(224); // AMD GPU architecture
 pub const EM_RISCV: Machine = Machine(243); // RISC-V
+pub const EM_BPF: Machine = Machine(247); // Linux BPF
 
 impl fmt::Debug for Machine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -577,6 +578,7 @@ impl fmt::Display for Machine {
             EM_MOXIE => "Moxie processor family",
             EM_AMDGPU => "AMD GPU architecture",
             EM_RISCV => "RISC-V",
+            EM_BPF => "Linux BPF",
             _ => "Unknown Machine",
         };
         write!(f, "{}", str)
