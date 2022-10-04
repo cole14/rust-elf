@@ -14,4 +14,3 @@ readme = "README.md"
 name = "elf"
 
 [dependencies]
-byteorder = "1"
