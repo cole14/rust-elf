@@ -3,6 +3,7 @@ use std::io;
 use std::path::Path;
 use std::io::{Read, Seek};
 
+pub mod gabi;
 pub mod types;
 
 #[macro_use]
@@ -66,50 +67,50 @@ impl File {
 
     pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
         // Read the platform-independent ident bytes
-        let mut ident = [0u8; types::EI_NIDENT];
+        let mut ident = [0u8; gabi::EI_NIDENT];
         let nread = io_file.read(ident.as_mut())?;
 
-        if nread != types::EI_NIDENT {
+        if nread != gabi::EI_NIDENT {
             return Err(ParseError::InvalidFormat(None));
         }
 
         // Verify the magic number
-        if ident[0] != types::ELFMAG0 || ident[1] != types::ELFMAG1
-                || ident[2] != types::ELFMAG2 || ident[3] != types::ELFMAG3 {
+        if ident[0] != gabi::ELFMAG0 || ident[1] != gabi::ELFMAG1
+                || ident[2] != gabi::ELFMAG2 || ident[3] != gabi::ELFMAG3 {
             return Err(ParseError::InvalidMagic);
         }
 
         // Fill in file header values from ident bytes
         let mut elf_f = File::new();
-        elf_f.ehdr.class = types::Class(ident[types::EI_CLASS]);
-        elf_f.ehdr.data = types::Data(ident[types::EI_DATA]);
-        elf_f.ehdr.osabi = types::OSABI(ident[types::EI_OSABI]);
-        elf_f.ehdr.abiversion = ident[types::EI_ABIVERSION];
-        elf_f.ehdr.elftype = types::Type(utils::read_u16(elf_f.ehdr.data, io_file)?);
-        elf_f.ehdr.machine = types::Machine(utils::read_u16(elf_f.ehdr.data, io_file)?);
-        elf_f.ehdr.version = types::Version(utils::read_u32(elf_f.ehdr.data, io_file)?);
+        elf_f.ehdr.class = types::Class(ident[gabi::EI_CLASS]);
+        elf_f.ehdr.endianness = types::Endian(ident[gabi::EI_DATA]);
+        elf_f.ehdr.osabi = types::OSABI(ident[gabi::EI_OSABI]);
+        elf_f.ehdr.abiversion = ident[gabi::EI_ABIVERSION];
+        elf_f.ehdr.elftype = types::ObjectFileType(utils::read_u16(elf_f.ehdr.endianness, io_file)?);
+        elf_f.ehdr.arch = types::Architecture(utils::read_u16(elf_f.ehdr.endianness, io_file)?);
+        elf_f.ehdr.version = types::Version(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
 
         let phoff: u64;
         let shoff: u64;
 
         // Parse the platform-dependent file fields
-        if elf_f.ehdr.class == types::ELFCLASS32 {
-            elf_f.ehdr.entry = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-            phoff = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-            shoff = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
+        if elf_f.ehdr.class == gabi::ELFCLASS32 {
+            elf_f.ehdr.entry = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+            phoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+            shoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
         } else {
-            elf_f.ehdr.entry = utils::read_u64(elf_f.ehdr.data, io_file)?;
-            phoff = utils::read_u64(elf_f.ehdr.data, io_file)?;
-            shoff = utils::read_u64(elf_f.ehdr.data, io_file)?;
+            elf_f.ehdr.entry = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+            phoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+            shoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
         }
 
-        let _flags = utils::read_u32(elf_f.ehdr.data, io_file)?;
-        let _ehsize = utils::read_u16(elf_f.ehdr.data, io_file)?;
-        let _phentsize = utils::read_u16(elf_f.ehdr.data, io_file)?;
-        let phnum = utils::read_u16(elf_f.ehdr.data, io_file)?;
-        let _shentsize = utils::read_u16(elf_f.ehdr.data, io_file)?;
-        let shnum = utils::read_u16(elf_f.ehdr.data, io_file)?;
-        let shstrndx = utils::read_u16(elf_f.ehdr.data, io_file)?;
+        let _flags = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+        let _ehsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        let _phentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        let phnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        let _shentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        let shnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        let shstrndx = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
 
         // Parse the program headers
         io_file.seek(io::SeekFrom::Start(phoff))?;
@@ -123,23 +124,23 @@ impl File {
             let flags: types::ProgFlag;
             let align: u64;
 
-            progtype = types::ProgType(utils::read_u32(elf_f.ehdr.data, io_file)?);
-            if elf_f.ehdr.class == types::ELFCLASS32 {
-                offset = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                vaddr = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                paddr = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                filesz = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                memsz = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                flags = types::ProgFlag(utils::read_u32(elf_f.ehdr.data, io_file)?);
-                align = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
+            progtype = types::ProgType(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+            if elf_f.ehdr.class == gabi::ELFCLASS32 {
+                offset = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                vaddr = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                paddr = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                filesz = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                memsz = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                flags = types::ProgFlag(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+                align = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
             } else {
-                flags = types::ProgFlag(utils::read_u32(elf_f.ehdr.data, io_file)?);
-                offset = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                vaddr = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                paddr = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                filesz = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                memsz = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                align = utils::read_u64(elf_f.ehdr.data, io_file)?;
+                flags = types::ProgFlag(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+                offset = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                vaddr = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                paddr = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                filesz = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                memsz = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                align = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
             }
 
             elf_f.phdrs.push(types::ProgramHeader {
@@ -169,26 +170,26 @@ impl File {
             let addralign: u64;
             let entsize: u64;
 
-            name_idxs.push(utils::read_u32(elf_f.ehdr.data, io_file)?);
-            shtype = types::SectionType(utils::read_u32(elf_f.ehdr.data, io_file)?);
-            if elf_f.ehdr.class == types::ELFCLASS32 {
-                flags = types::SectionFlag(utils::read_u32(elf_f.ehdr.data, io_file)? as u64);
-                addr = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                offset = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                size = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                link = utils::read_u32(elf_f.ehdr.data, io_file)?;
-                info = utils::read_u32(elf_f.ehdr.data, io_file)?;
-                addralign = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
-                entsize = utils::read_u32(elf_f.ehdr.data, io_file)? as u64;
+            name_idxs.push(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+            shtype = types::SectionType(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+            if elf_f.ehdr.class == gabi::ELFCLASS32 {
+                flags = types::SectionFlag(utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64);
+                addr = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                offset = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                size = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                link = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+                info = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+                addralign = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+                entsize = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
             } else {
-                flags = types::SectionFlag(utils::read_u64(elf_f.ehdr.data, io_file)?);
-                addr = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                offset = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                size = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                link = utils::read_u32(elf_f.ehdr.data, io_file)?;
-                info = utils::read_u32(elf_f.ehdr.data, io_file)?;
-                addralign = utils::read_u64(elf_f.ehdr.data, io_file)?;
-                entsize = utils::read_u64(elf_f.ehdr.data, io_file)?;
+                flags = types::SectionFlag(utils::read_u64(elf_f.ehdr.endianness, io_file)?);
+                addr = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                offset = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                size = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                link = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+                info = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+                addralign = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+                entsize = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
             }
 
             elf_f.sections.push(Section {
@@ -260,20 +261,20 @@ impl File {
         let mut info: [u8; 1] = [0u8];
         let mut other: [u8; 1] = [0u8];
 
-        if self.ehdr.class == types::ELFCLASS32 {
-            name = utils::read_u32(self.ehdr.data, io_section)?;
-            value = utils::read_u32(self.ehdr.data, io_section)? as u64;
-            size = utils::read_u32(self.ehdr.data, io_section)? as u64;
+        if self.ehdr.class == gabi::ELFCLASS32 {
+            name = utils::read_u32(self.ehdr.endianness, io_section)?;
+            value = utils::read_u32(self.ehdr.endianness, io_section)? as u64;
+            size = utils::read_u32(self.ehdr.endianness, io_section)? as u64;
             io_section.read_exact(&mut info)?;
             io_section.read_exact(&mut other)?;
-            shndx = utils::read_u16(self.ehdr.data, io_section)?;
+            shndx = utils::read_u16(self.ehdr.endianness, io_section)?;
         } else {
-            name = utils::read_u32(self.ehdr.data, io_section)?;
+            name = utils::read_u32(self.ehdr.endianness, io_section)?;
             io_section.read_exact(&mut info)?;
             io_section.read_exact(&mut other)?;
-            shndx = utils::read_u16(self.ehdr.data, io_section)?;
-            value = utils::read_u64(self.ehdr.data, io_section)?;
-            size = utils::read_u64(self.ehdr.data, io_section)?;
+            shndx = utils::read_u16(self.ehdr.endianness, io_section)?;
+            value = utils::read_u64(self.ehdr.endianness, io_section)?;
+            size = utils::read_u64(self.ehdr.endianness, io_section)?;
         }
 
         symbols.push(types::Symbol {
