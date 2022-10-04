@@ -90,31 +90,28 @@ impl File {
         elf_f.ehdr.arch = types::Architecture(utils::read_u16(elf_f.ehdr.endianness, io_file)?);
         elf_f.ehdr.version = types::Version(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
 
-        let phoff: u64;
-        let shoff: u64;
-
         // Parse the platform-dependent file fields
         if elf_f.ehdr.class == gabi::ELFCLASS32 {
-            elf_f.ehdr.entry = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
-            phoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
-            shoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+            elf_f.ehdr.e_entry = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+            elf_f.ehdr.e_phoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
+            elf_f.ehdr.e_shoff = utils::read_u32(elf_f.ehdr.endianness, io_file)? as u64;
         } else {
-            elf_f.ehdr.entry = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
-            phoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
-            shoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+            elf_f.ehdr.e_entry = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+            elf_f.ehdr.e_phoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
+            elf_f.ehdr.e_shoff = utils::read_u64(elf_f.ehdr.endianness, io_file)?;
         }
 
-        let _flags = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
-        let _ehsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
-        let _phentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
-        let phnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
-        let _shentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
-        let shnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
-        let shstrndx = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_flags = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_ehsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_phentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_phnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_shentsize = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_shnum = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
+        elf_f.ehdr.e_shstrndx = utils::read_u16(elf_f.ehdr.endianness, io_file)?;
 
         // Parse the program headers
-        io_file.seek(io::SeekFrom::Start(phoff))?;
-        for _ in 0..phnum {
+        io_file.seek(io::SeekFrom::Start(elf_f.ehdr.e_phoff))?;
+        for _ in 0..elf_f.ehdr.e_phnum {
             let progtype: types::ProgType;
             let offset: u64;
             let vaddr: u64;
@@ -157,8 +154,8 @@ impl File {
 
         // Parse the section headers
         let mut name_idxs: Vec<u32> = Vec::new();
-        io_file.seek(io::SeekFrom::Start(shoff))?;
-        for _ in 0..shnum {
+        io_file.seek(io::SeekFrom::Start(elf_f.ehdr.e_shoff))?;
+        for _ in 0..elf_f.ehdr.e_shnum {
             let name: String = String::new();
             let shtype: types::SectionType;
             let flags: types::SectionFlag;
@@ -212,7 +209,7 @@ impl File {
         // Read the section data
         let mut s_i: usize = 0;
         loop {
-            if s_i == shnum as usize { break; }
+            if s_i == elf_f.ehdr.e_shnum as usize { break; }
 
             let off = elf_f.sections[s_i].shdr.offset;
             let size = elf_f.sections[s_i].shdr.size;
@@ -229,10 +226,10 @@ impl File {
         // Parse the section names from the string header string table
         s_i = 0;
         loop {
-            if s_i == shnum as usize { break; }
+            if s_i == elf_f.ehdr.e_shnum as usize { break; }
 
             elf_f.sections[s_i].shdr.name = utils::get_string(
-                &elf_f.sections[shstrndx as usize].data,
+                &elf_f.sections[elf_f.ehdr.e_shstrndx as usize].data,
                 name_idxs[s_i] as usize)?;
 
             s_i += 1;

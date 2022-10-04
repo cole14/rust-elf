@@ -362,14 +362,68 @@ pub struct FileHeader {
     /// Target machine architecture
     pub arch: Architecture,
     /// Virtual address of program entry point
-    pub entry: u64,
+    /// This member gives the virtual address to which the system first transfers control,
+    /// thus starting the process. If the file has no associated entry point, this member holds zero.
+    ///
+    /// Note: Type is Elf32_Addr or Elf64_Addr which are either 4 or 8 bytes. We aren't trying to zero-copy
+    /// parse the FileHeader since there's only one per file and its only ~45 bytes anyway, so we use
+    /// u64 for the three Elf*_Addr and Elf*_Off fields here.
+    pub e_entry: u64,
+    /// This member holds the program header table's file offset in bytes. If the file has no program header
+    /// table, this member holds zero.
+    pub e_phoff: u64,
+    /// This member holds the section header table's file offset in bytes. If the file has no section header
+    /// table, this member holds zero.
+    pub e_shoff: u64,
+    /// This member holds processor-specific flags associated with the file. Flag names take the form EF_machine_flag.
+    pub e_flags: u32,
+    /// This member holds the ELF header's size in bytes.
+    pub e_ehsize: u16,
+    /// This member holds the size in bytes of one entry in the file's program header table; all entries are the same size.
+    pub e_phentsize: u16,
+    /// This member holds the number of entries in the program header table. Thus the product of e_phentsize and e_phnum
+    /// gives the table's size in bytes. If a file has no program header table, e_phnum holds the value zero.
+    pub e_phnum: u16,
+    /// This member holds a section header's size in bytes. A section header is one entry in the section header table;
+    /// all entries are the same size.
+    pub e_shentsize: u16,
+    /// This member holds the number of entries in the section header table. Thus the product of e_shentsize and e_shnum
+    /// gives the section header table's size in bytes. If a file has no section header table, e_shnum holds the value zero.
+    ///
+    /// If the number of sections is greater than or equal to SHN_LORESERVE (0xff00), this member has the value zero and
+    /// the actual number of section header table entries is contained in the sh_size field of the section header at index 0.
+    /// (Otherwise, the sh_size member of the initial entry contains 0.)
+    pub e_shnum: u16,
+    /// This member holds the section header table index of the entry associated with the section name string table. If the
+    /// file has no section name string table, this member holds the value SHN_UNDEF.
+    ///
+    /// If the section name string table section index is greater than or equal to SHN_LORESERVE (0xff00), this member has
+    /// the value SHN_XINDEX (0xffff) and the actual index of the section name string table section is contained in the
+    /// sh_link field of the section header at index 0. (Otherwise, the sh_link member of the initial entry contains 0.)
+    pub e_shstrndx: u16,
 }
 
 impl FileHeader {
     pub fn new() -> FileHeader {
-        FileHeader { class : Class(gabi::ELFCLASSNONE), endianness : Endian(gabi::ELFDATANONE), version : Version(gabi::EV_NONE),
-            elftype : ObjectFileType(gabi::ET_NONE), arch : Architecture(gabi::EM_NONE), osabi : OSABI(gabi::ELFOSABI_NONE),
-            abiversion : 0, entry : 0 }
+        FileHeader {
+            class: Class(gabi::ELFCLASSNONE),
+            endianness: Endian(gabi::ELFDATANONE),
+            version: Version(gabi::EV_NONE),
+            elftype: ObjectFileType(gabi::ET_NONE),
+            arch: Architecture(gabi::EM_NONE),
+            osabi: OSABI(gabi::ELFOSABI_NONE),
+            abiversion: 0,
+            e_entry: 0,
+            e_phoff: 0,
+            e_shoff: 0,
+            e_flags: 0,
+            e_ehsize: 0,
+            e_phentsize: 0,
+            e_phnum: 0,
+            e_shentsize: 0,
+            e_shnum: 0,
+            e_shstrndx: 0,
+        }
     }
 }
 
