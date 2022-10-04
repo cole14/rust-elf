@@ -75,8 +75,7 @@ impl File {
         }
 
         // Verify the magic number
-        if ident[0] != gabi::ELFMAG0 || ident[1] != gabi::ELFMAG1
-                || ident[2] != gabi::ELFMAG2 || ident[3] != gabi::ELFMAG3 {
+        if ident.split_at(gabi::EI_CLASS).0 != gabi::ELFMAGIC {
             return Err(ParseError::InvalidMagic);
         }
 
