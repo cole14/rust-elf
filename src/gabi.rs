@@ -53,9 +53,9 @@ pub const ELFCLASS64: u8 = 2;
 
 /// Invalid ELF data format
 pub const ELFDATANONE: u8 = 0;
-/// 2's complement values, with the least significant byte occupying the lowest address. 
+/// 2's complement values, with the least significant byte occupying the lowest address.
 pub const ELFDATA2LSB: u8 = 1;
-/// 2's complement values, with the most significant byte occupying the lowest address. 
+/// 2's complement values, with the most significant byte occupying the lowest address.
 pub const ELFDATA2MSB: u8 = 2;
 
 /// ELFOSABI* define constants for e_ident[EI_OSABI]
@@ -138,9 +138,9 @@ pub const EM_860: u16 = 7; // Intel 80860
 pub const EM_MIPS: u16 = 8; // MIPS I Architecture
 pub const EM_S370: u16 = 9; // IBM System/370 Processor
 pub const EM_MIPS_RS3_LE: u16 = 10; // MIPS RS3000 Little-endian
-// 11-14 Reserved for future use
+                                    // 11-14 Reserved for future use
 pub const EM_PARISC: u16 = 15; // Hewlett-Packard PA-RISC
-// 16 Reserved for future use
+                               // 16 Reserved for future use
 pub const EM_VPP500: u16 = 17; // Fujitsu VPP500
 pub const EM_SPARC32PLUS: u16 = 18; // Enhanced instruction set SPARC
 pub const EM_960: u16 = 19; // Intel 80960
@@ -148,7 +148,7 @@ pub const EM_PPC: u16 = 20; // PowerPC
 pub const EM_PPC64: u16 = 21; // 64-bit PowerPC
 pub const EM_S390: u16 = 22; // IBM System/390 Processor
 pub const EM_SPU: u16 = 23; // IBM SPU/SPC
-// 24-35 Reserved for future use
+                            // 24-35 Reserved for future use
 pub const EM_V800: u16 = 36; // NEC V800
 pub const EM_FR20: u16 = 37; // Fujitsu FR20
 pub const EM_RH32: u16 = 38; // TRW RH-32
@@ -234,7 +234,7 @@ pub const EM_M16C: u16 = 117; // Renesas M16C series microprocessors
 pub const EM_DSPIC30F: u16 = 118; // Microchip Technology dsPIC30F Digital Signal Controller
 pub const EM_CE: u16 = 119; // Freescale Communication Engine RISC core
 pub const EM_M32C: u16 = 120; // Renesas M32C series microprocessors
-// 121-130 Reserved for future use
+                              // 121-130 Reserved for future use
 pub const EM_TSK3000: u16 = 131; // Altium TSK3000 core
 pub const EM_RS08: u16 = 132; // Freescale RS08 embedded processor
 pub const EM_SHARC: u16 = 133; // Analog Devices SHARC family of 32-bit DSP processors
@@ -249,7 +249,7 @@ pub const EM_TI_C2000: u16 = 141; // The Texas Instruments TMS320C2000 DSP famil
 pub const EM_TI_C5500: u16 = 142; // The Texas Instruments TMS320C55x DSP family
 pub const EM_TI_ARP32: u16 = 143; // Texas Instruments Application Specific RISC Processor, 32bit fetch
 pub const EM_TI_PRU: u16 = 144; // Texas Instruments Programmable Realtime Unit
-// 145-159 Reserved for future use
+                                // 145-159 Reserved for future use
 pub const EM_MMDSP_PLUS: u16 = 160; // STMicroelectronics 64bit VLIW Data Signal Processor
 pub const EM_CYPRESS_M8C: u16 = 161; // Cypress M8C microprocessor
 pub const EM_R32C: u16 = 162; // Renesas R32C series microprocessors
@@ -273,9 +273,9 @@ pub const EM_ETPU: u16 = 178; // Freescale Extended Time Processing Unit
 pub const EM_SLE9X: u16 = 179; // Infineon Technologies SLE9X core
 pub const EM_L10M: u16 = 180; // Intel L10M
 pub const EM_K10M: u16 = 181; // Intel K10M
-// 182 Reserved for future Intel use
+                              // 182 Reserved for future Intel use
 pub const EM_AARCH64: u16 = 183; // ARM 64-bit architecture (AARCH64)
-// 184 Reserved for future ARM use
+                                 // 184 Reserved for future ARM use
 pub const EM_AVR32: u16 = 185; // Atmel Corporation 32-bit microprocessor family
 pub const EM_STM8: u16 = 186; // STMicroeletronics STM8 8-bit microcontroller
 pub const EM_TILE64: u16 = 187; // Tilera TILE64 multicore architecture family
@@ -322,7 +322,7 @@ pub const EM_BPF: u16 = 247; // Linux BPF
 /// EV_* define constants for the ELF File Header's e_version field.
 /// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
 /// are both 4-byte unsigned integers with 4-byte alignment
- 
+
 /// Invalid version
 pub const EV_NONE: u8 = 0;
 /// Current version

@@ -63,7 +63,6 @@ impl fmt::Debug for OSABI {
     }
 }
 
-
 impl fmt::Display for OSABI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let str = match self.0 {
@@ -203,7 +202,9 @@ impl fmt::Display for Architecture {
             gabi::EM_MN10200 => "Matsushita MN10200",
             gabi::EM_PJ => "picoJava",
             gabi::EM_OPENRISC => "OpenRISC 32-bit embedded processor",
-            gabi::EM_ARC_COMPACT => "ARC International ARCompact processor (old spelling/synonym: EM_ARC_A5)",
+            gabi::EM_ARC_COMPACT => {
+                "ARC International ARCompact processor (old spelling/synonym: EM_ARC_A5)"
+            }
             gabi::EM_XTENSA => "Tensilica Xtensa Architecture",
             gabi::EM_VIDEOCORE => "Alphamosaic VideoCore processor",
             gabi::EM_TMM_GPP => "Thompson Multimedia General Purpose Processor",
@@ -220,7 +221,9 @@ impl fmt::Display for Architecture {
             gabi::EM_SE_C33 => "S1C33 Family of Seiko Epson processors",
             gabi::EM_SEP => "Sharp embedded microprocessor",
             gabi::EM_ARCA => "Arca RISC Microprocessor",
-            gabi::EM_UNICORE => "Microprocessor series from PKU-Unity Ltd. and MPRC of Peking University",
+            gabi::EM_UNICORE => {
+                "Microprocessor series from PKU-Unity Ltd. and MPRC of Peking University"
+            }
             gabi::EM_EXCESS => "eXcess: 16/32/64-bit configurable embedded CPU",
             gabi::EM_DXP => "Icera Semiconductor Inc. Deep Execution Processor",
             gabi::EM_ALTERA_NIOS2 => "Altera Nios II soft-core processor",
@@ -243,7 +246,9 @@ impl fmt::Display for Architecture {
             gabi::EM_TI_C6000 => "The Texas Instruments TMS320C6000 DSP family",
             gabi::EM_TI_C2000 => "The Texas Instruments TMS320C2000 DSP family",
             gabi::EM_TI_C5500 => "The Texas Instruments TMS320C55x DSP family",
-            gabi::EM_TI_ARP32 => "Texas Instruments Application Specific RISC Processor, 32bit fetch",
+            gabi::EM_TI_ARP32 => {
+                "Texas Instruments Application Specific RISC Processor, 32bit fetch"
+            }
             gabi::EM_TI_PRU => "Texas Instruments Programmable Realtime Unit",
             gabi::EM_MMDSP_PLUS => "STMicroelectronics 64bit VLIW Data Signal Processor",
             gabi::EM_CYPRESS_M8C => "Cypress M8C microprocessor",
@@ -251,7 +256,9 @@ impl fmt::Display for Architecture {
             gabi::EM_TRIMEDIA => "NXP Semiconductors TriMedia architecture family",
             gabi::EM_QDSP6 => "QUALCOMM DSP6 Processor",
             gabi::EM_8051 => "Intel 8051 and variants",
-            gabi::EM_STXP7X => "STMicroelectronics STxP7x family of configurable and extensible RISC processors",
+            gabi::EM_STXP7X => {
+                "STMicroelectronics STxP7x family of configurable and extensible RISC processors"
+            }
             gabi::EM_NDS32 => "Andes Technology compact code size embedded RISC processor family",
             gabi::EM_ECOG1X => "Cyan Technology eCOG1X family",
             gabi::EM_MAXQ30 => "Dallas Semiconductor MAXQ30 Core Micro-controllers",
@@ -406,21 +413,24 @@ impl FileHeader {
 
 impl fmt::Display for FileHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File Header for {} {} Elf {} for {} {}", self.class, self.endianness,
-            self.elftype, self.osabi, self.arch)
+        write!(
+            f,
+            "File Header for {} {} Elf {} for {} {}",
+            self.class, self.endianness, self.elftype, self.osabi, self.arch
+        )
     }
 }
 
 /// Represents ELF Program Header flags
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgFlag(pub u32);
-pub const PF_NONE : ProgFlag = ProgFlag(0);
+pub const PF_NONE: ProgFlag = ProgFlag(0);
 /// Executable program segment
-pub const PF_X : ProgFlag = ProgFlag(1);
+pub const PF_X: ProgFlag = ProgFlag(1);
 /// Writable program segment
-pub const PF_W : ProgFlag = ProgFlag(2);
+pub const PF_W: ProgFlag = ProgFlag(2);
 /// Readable program segment
-pub const PF_R : ProgFlag = ProgFlag(4);
+pub const PF_R: ProgFlag = ProgFlag(4);
 
 impl fmt::Debug for ProgFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -452,27 +462,27 @@ impl fmt::Display for ProgFlag {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
 /// Program header table entry unused
-pub const PT_NULL : ProgType = ProgType(0);
+pub const PT_NULL: ProgType = ProgType(0);
 /// Loadable program segment
-pub const PT_LOAD : ProgType = ProgType(1);
+pub const PT_LOAD: ProgType = ProgType(1);
 /// Dynamic linking information
-pub const PT_DYNAMIC : ProgType = ProgType(2);
+pub const PT_DYNAMIC: ProgType = ProgType(2);
 /// Program interpreter
-pub const PT_INTERP : ProgType = ProgType(3);
+pub const PT_INTERP: ProgType = ProgType(3);
 /// Auxiliary information
-pub const PT_NOTE : ProgType = ProgType(4);
+pub const PT_NOTE: ProgType = ProgType(4);
 /// Unused
-pub const PT_SHLIB : ProgType = ProgType(5);
+pub const PT_SHLIB: ProgType = ProgType(5);
 /// The program header table
-pub const PT_PHDR : ProgType = ProgType(6);
+pub const PT_PHDR: ProgType = ProgType(6);
 /// Thread-local storage segment
-pub const PT_TLS : ProgType = ProgType(7);
+pub const PT_TLS: ProgType = ProgType(7);
 /// GCC .eh_frame_hdr segment
-pub const PT_GNU_EH_FRAME : ProgType = ProgType(0x6474e550);
+pub const PT_GNU_EH_FRAME: ProgType = ProgType(0x6474e550);
 /// Indicates stack executability
-pub const PT_GNU_STACK : ProgType = ProgType(0x6474e551);
+pub const PT_GNU_STACK: ProgType = ProgType(0x6474e551);
 /// Read-only after relocation
-pub const PT_GNU_RELRO : ProgType = ProgType(0x6474e552);
+pub const PT_GNU_RELRO: ProgType = ProgType(0x6474e552);
 
 impl fmt::Debug for ProgType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -509,19 +519,19 @@ pub struct ProgramHeader {
     /// Program segment type
     pub progtype: ProgType,
     /// Offset into the ELF file where this segment begins
-    pub offset:   u64,
+    pub offset: u64,
     /// Virtual adress where this segment should be loaded
-    pub vaddr:    u64,
+    pub vaddr: u64,
     /// Physical address where this segment should be loaded
-    pub paddr:    u64,
+    pub paddr: u64,
     /// Size of this segment in the file
-    pub filesz:   u64,
+    pub filesz: u64,
     /// Size of this segment in memory
-    pub memsz:    u64,
+    pub memsz: u64,
     /// Flags for this segment
-    pub flags:    ProgFlag,
+    pub flags: ProgFlag,
     /// file and memory alignment
-    pub align:    u64,
+    pub align: u64,
 }
 
 impl fmt::Display for ProgramHeader {
@@ -536,53 +546,53 @@ impl fmt::Display for ProgramHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionType(pub u32);
 /// Inactive section with undefined values
-pub const SHT_NULL : SectionType = SectionType(0);
+pub const SHT_NULL: SectionType = SectionType(0);
 /// Information defined by the program, includes executable code and data
-pub const SHT_PROGBITS : SectionType = SectionType(1);
+pub const SHT_PROGBITS: SectionType = SectionType(1);
 /// Section data contains a symbol table
-pub const SHT_SYMTAB : SectionType = SectionType(2);
+pub const SHT_SYMTAB: SectionType = SectionType(2);
 /// Section data contains a string table
-pub const SHT_STRTAB : SectionType = SectionType(3);
+pub const SHT_STRTAB: SectionType = SectionType(3);
 /// Section data contains relocation entries with explicit addends
-pub const SHT_RELA : SectionType = SectionType(4);
+pub const SHT_RELA: SectionType = SectionType(4);
 /// Section data contains a symbol hash table. Must be present for dynamic linking
-pub const SHT_HASH : SectionType = SectionType(5);
+pub const SHT_HASH: SectionType = SectionType(5);
 /// Section data contains information for dynamic linking
-pub const SHT_DYNAMIC : SectionType = SectionType(6);
+pub const SHT_DYNAMIC: SectionType = SectionType(6);
 /// Section data contains information that marks the file in some way
-pub const SHT_NOTE : SectionType = SectionType(7);
+pub const SHT_NOTE: SectionType = SectionType(7);
 /// Section data occupies no space in the file but otherwise resembles SHT_PROGBITS
-pub const SHT_NOBITS : SectionType = SectionType(8);
+pub const SHT_NOBITS: SectionType = SectionType(8);
 /// Section data contains relocation entries without explicit addends
-pub const SHT_REL : SectionType = SectionType(9);
+pub const SHT_REL: SectionType = SectionType(9);
 /// Section is reserved but has unspecified semantics
-pub const SHT_SHLIB : SectionType = SectionType(10);
+pub const SHT_SHLIB: SectionType = SectionType(10);
 /// Section data contains a minimal set of dynamic linking symbols
-pub const SHT_DYNSYM : SectionType = SectionType(11);
+pub const SHT_DYNSYM: SectionType = SectionType(11);
 /// Section data contains an array of constructors
-pub const SHT_INIT_ARRAY : SectionType = SectionType(14);
+pub const SHT_INIT_ARRAY: SectionType = SectionType(14);
 /// Section data contains an array of destructors
-pub const SHT_FINI_ARRAY : SectionType = SectionType(15);
+pub const SHT_FINI_ARRAY: SectionType = SectionType(15);
 /// Section data contains an array of pre-constructors
-pub const SHT_PREINIT_ARRAY : SectionType = SectionType(16);
+pub const SHT_PREINIT_ARRAY: SectionType = SectionType(16);
 /// Section group
-pub const SHT_GROUP : SectionType = SectionType(17);
+pub const SHT_GROUP: SectionType = SectionType(17);
 /// Extended symbol table section index
-pub const SHT_SYMTAB_SHNDX : SectionType = SectionType(18);
+pub const SHT_SYMTAB_SHNDX: SectionType = SectionType(18);
 /// Number of reserved SHT_* values
-pub const SHT_NUM : SectionType = SectionType(19);
+pub const SHT_NUM: SectionType = SectionType(19);
 /// Object attributes
-pub const SHT_GNU_ATTRIBUTES : SectionType = SectionType(0x6ffffff5);
+pub const SHT_GNU_ATTRIBUTES: SectionType = SectionType(0x6ffffff5);
 /// GNU-style hash section
-pub const SHT_GNU_HASH : SectionType = SectionType(0x6ffffff6);
+pub const SHT_GNU_HASH: SectionType = SectionType(0x6ffffff6);
 /// Pre-link library list
-pub const SHT_GNU_LIBLIST : SectionType = SectionType(0x6ffffff7);
+pub const SHT_GNU_LIBLIST: SectionType = SectionType(0x6ffffff7);
 /// Version definition section
-pub const SHT_GNU_VERDEF : SectionType = SectionType(0x6ffffffd);
+pub const SHT_GNU_VERDEF: SectionType = SectionType(0x6ffffffd);
 /// Version needs section
-pub const SHT_GNU_VERNEED : SectionType = SectionType(0x6ffffffe);
+pub const SHT_GNU_VERNEED: SectionType = SectionType(0x6ffffffe);
 /// Version symbol table
-pub const SHT_GNU_VERSYM : SectionType = SectionType(0x6fffffff);
+pub const SHT_GNU_VERSYM: SectionType = SectionType(0x6fffffff);
 
 impl fmt::Debug for SectionType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -629,27 +639,27 @@ impl fmt::Display for SectionType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionFlag(pub u64);
 /// Empty flags
-pub const SHF_NONE : SectionFlag = SectionFlag(0);
+pub const SHF_NONE: SectionFlag = SectionFlag(0);
 /// Writable
-pub const SHF_WRITE : SectionFlag = SectionFlag(1);
+pub const SHF_WRITE: SectionFlag = SectionFlag(1);
 /// Occupies memory during execution
-pub const SHF_ALLOC : SectionFlag = SectionFlag(2);
+pub const SHF_ALLOC: SectionFlag = SectionFlag(2);
 /// Executable
-pub const SHF_EXECINSTR : SectionFlag = SectionFlag(4);
+pub const SHF_EXECINSTR: SectionFlag = SectionFlag(4);
 /// Might be merged
-pub const SHF_MERGE : SectionFlag = SectionFlag(16);
+pub const SHF_MERGE: SectionFlag = SectionFlag(16);
 /// Contains nul-terminated strings
-pub const SHF_STRINGS : SectionFlag = SectionFlag(32);
+pub const SHF_STRINGS: SectionFlag = SectionFlag(32);
 /// `sh_info' contains SHT index
-pub const SHF_INFO_LINK : SectionFlag = SectionFlag(64);
+pub const SHF_INFO_LINK: SectionFlag = SectionFlag(64);
 /// Preserve order after combining
-pub const SHF_LINK_ORDER : SectionFlag = SectionFlag(128);
+pub const SHF_LINK_ORDER: SectionFlag = SectionFlag(128);
 /// Non-standard OS specific handling required
-pub const SHF_OS_NONCONFORMING : SectionFlag = SectionFlag(256);
+pub const SHF_OS_NONCONFORMING: SectionFlag = SectionFlag(256);
 /// Section is member of a group
-pub const SHF_GROUP : SectionFlag = SectionFlag(512);
+pub const SHF_GROUP: SectionFlag = SectionFlag(512);
 /// Section hold thread-local data
-pub const SHF_TLS : SectionFlag = SectionFlag(1024);
+pub const SHF_TLS: SectionFlag = SectionFlag(1024);
 
 impl fmt::Debug for SectionFlag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -667,25 +677,25 @@ impl fmt::Display for SectionFlag {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SectionHeader {
     /// Section Name
-    pub name:      String,
+    pub name: String,
     /// Section Type
-    pub shtype:    SectionType,
+    pub shtype: SectionType,
     /// Section Flags
-    pub flags:     SectionFlag,
+    pub flags: SectionFlag,
     /// in-memory address where this section is loaded
-    pub addr:      u64,
+    pub addr: u64,
     /// Byte-offset into the file where this section starts
-    pub offset:    u64,
+    pub offset: u64,
     /// Section size in bytes
-    pub size:      u64,
+    pub size: u64,
     /// Defined by section type
-    pub link:      u32,
+    pub link: u32,
     /// Defined by section type
-    pub info:      u32,
+    pub info: u32,
     /// address alignment
     pub addralign: u64,
     /// size of an entry if section data is an array of entries
-    pub entsize:   u64,
+    pub entsize: u64,
 }
 
 impl fmt::Display for SectionHeader {
@@ -699,21 +709,21 @@ impl fmt::Display for SectionHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
 /// Unspecified symbol type
-pub const STT_NOTYPE : SymbolType = SymbolType(0);
+pub const STT_NOTYPE: SymbolType = SymbolType(0);
 /// Data object symbol
-pub const STT_OBJECT : SymbolType = SymbolType(1);
+pub const STT_OBJECT: SymbolType = SymbolType(1);
 /// Code object symbol
-pub const STT_FUNC : SymbolType = SymbolType(2);
+pub const STT_FUNC: SymbolType = SymbolType(2);
 /// Section symbol
-pub const STT_SECTION : SymbolType = SymbolType(3);
+pub const STT_SECTION: SymbolType = SymbolType(3);
 /// File name symbol
-pub const STT_FILE : SymbolType = SymbolType(4);
+pub const STT_FILE: SymbolType = SymbolType(4);
 /// Common data object symbol
-pub const STT_COMMON : SymbolType = SymbolType(5);
+pub const STT_COMMON: SymbolType = SymbolType(5);
 /// Thread-local data object symbol
-pub const STT_TLS	 : SymbolType = SymbolType(6);
+pub const STT_TLS: SymbolType = SymbolType(6);
 /// Indirect code object symbol
-pub const STT_GNU_IFUNC : SymbolType = SymbolType(10);
+pub const STT_GNU_IFUNC: SymbolType = SymbolType(10);
 
 impl fmt::Display for SymbolType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -735,13 +745,13 @@ impl fmt::Display for SymbolType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolBind(pub u8);
 /// Local symbol
-pub const STB_LOCAL : SymbolBind = SymbolBind(0);
+pub const STB_LOCAL: SymbolBind = SymbolBind(0);
 /// Global symbol
-pub const STB_GLOBAL : SymbolBind = SymbolBind(1);
+pub const STB_GLOBAL: SymbolBind = SymbolBind(1);
 /// Weak symbol
-pub const STB_WEAK : SymbolBind = SymbolBind(2);
+pub const STB_WEAK: SymbolBind = SymbolBind(2);
 /// Unique symbol
-pub const STB_GNU_UNIQUE : SymbolBind = SymbolBind(10);
+pub const STB_GNU_UNIQUE: SymbolBind = SymbolBind(10);
 
 impl fmt::Display for SymbolBind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -759,13 +769,13 @@ impl fmt::Display for SymbolBind {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolVis(pub u8);
 /// Default symbol visibility
-pub const STV_DEFAULT : SymbolVis = SymbolVis(0);
+pub const STV_DEFAULT: SymbolVis = SymbolVis(0);
 /// Processor-specific hidden visibility
-pub const STV_INTERNAL : SymbolVis = SymbolVis(1);
+pub const STV_INTERNAL: SymbolVis = SymbolVis(1);
 /// Hidden visibility
-pub const STV_HIDDEN : SymbolVis = SymbolVis(2);
+pub const STV_HIDDEN: SymbolVis = SymbolVis(2);
 /// Protected visibility
-pub const STV_PROTECTED : SymbolVis = SymbolVis(3);
+pub const STV_PROTECTED: SymbolVis = SymbolVis(3);
 
 impl fmt::Display for SymbolVis {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -800,7 +810,10 @@ pub struct Symbol {
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
-            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name)
+        write!(
+            f,
+            "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
+            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name
+        )
     }
 }
