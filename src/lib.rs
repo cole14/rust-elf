@@ -41,6 +41,7 @@ pub enum ParseError {
     EndianError,
     IoError(io::Error),
     InvalidMagic,
+    InvalidVersion,
     InvalidFormat(Option<std::string::FromUtf8Error>),
     NotImplemented,
 }
@@ -65,29 +66,37 @@ impl File {
         File::open_stream(&mut io_file)
     }
 
-    pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
-        // Read the platform-independent ident bytes
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        let nread = io_file.read(ident.as_mut())?;
-
-        if nread != gabi::EI_NIDENT {
-            return Err(ParseError::InvalidFormat(None));
-        }
+    // Read the platform-independent ident bytes
+    fn parse_ident<T: Read>(io_file: &mut T, buf: &mut [u8; gabi::EI_NIDENT]) -> Result<(), ParseError> {
+        io_file.read_exact(buf)?;
 
         // Verify the magic number
-        if ident.split_at(gabi::EI_CLASS).0 != gabi::ELFMAGIC {
+        if buf.split_at(gabi::EI_CLASS).0 != gabi::ELFMAGIC {
             return Err(ParseError::InvalidMagic);
         }
 
+        // Verify ELF Version
+        if buf[gabi::EI_VERSION] != gabi::EV_CURRENT {
+            return Err(ParseError::InvalidVersion);
+        }
+
+        return Ok(());
+    }
+
+    pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        Self::parse_ident(io_file, &mut ident)?;
+
         // Fill in file header values from ident bytes
         let mut elf_f = File::new();
+
         elf_f.ehdr.class = types::Class(ident[gabi::EI_CLASS]);
         elf_f.ehdr.endianness = types::Endian(ident[gabi::EI_DATA]);
         elf_f.ehdr.osabi = types::OSABI(ident[gabi::EI_OSABI]);
         elf_f.ehdr.abiversion = ident[gabi::EI_ABIVERSION];
         elf_f.ehdr.elftype = types::ObjectFileType(utils::read_u16(elf_f.ehdr.endianness, io_file)?);
         elf_f.ehdr.arch = types::Architecture(utils::read_u16(elf_f.ehdr.endianness, io_file)?);
-        elf_f.ehdr.version = types::Version(utils::read_u32(elf_f.ehdr.endianness, io_file)?);
+        elf_f.ehdr.version = utils::read_u32(elf_f.ehdr.endianness, io_file)?;
 
         // Parse the platform-dependent file fields
         if elf_f.ehdr.class == gabi::ELFCLASS32 {
@@ -316,6 +325,7 @@ impl std::fmt::Display for Section {
 mod tests {
     use std::path::PathBuf;
     use File;
+    use gabi;
 
     #[test]
     fn test_open_path() {
@@ -324,4 +334,72 @@ mod tests {
         let bss = file.get_section(".bss").expect("Get .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
     }
+
+    #[test]
+    fn test_parse_ident_empty_buf_errors() {
+        let data: [u8; 0] = [];
+        let mut ident: [u8; gabi::EI_NIDENT] = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
+    #[test]
+    fn test_parse_ident_valid() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            gabi::ELFMAG0, gabi::ELFMAG1, gabi::ELFMAG2, gabi::ELFMAG3,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, gabi::EV_CURRENT, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_ok());
+    }
+
+    #[test]
+    fn test_parse_ident_invalid_mag0() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            42, gabi::ELFMAG1, gabi::ELFMAG2, gabi::ELFMAG3,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, gabi::EV_CURRENT, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
+    #[test]
+    fn test_parse_ident_invalid_mag1() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            gabi::ELFMAG0, 42, gabi::ELFMAG2, gabi::ELFMAG3,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, gabi::EV_CURRENT, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
+    #[test]
+    fn test_parse_ident_invalid_mag2() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            gabi::ELFMAG0, gabi::ELFMAG1, 42, gabi::ELFMAG3,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, gabi::EV_CURRENT, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
+    #[test]
+    fn test_parse_ident_invalid_mag3() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            gabi::ELFMAG0, gabi::ELFMAG1, gabi::ELFMAG2, 42,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, gabi::EV_CURRENT, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
+    #[test]
+    fn test_parse_ident_invalid_version() {
+        let data: [u8; gabi::EI_NIDENT] = [
+            gabi::ELFMAG0, gabi::ELFMAG1, gabi::ELFMAG2, gabi::ELFMAG3,
+            gabi::ELFCLASS32, gabi::ELFDATA2LSB, 42, gabi::ELFOSABI_LINUX,
+            0, 0, 0, 0, 0, 0, 0, 0];
+        let mut ident = [0u8; gabi::EI_NIDENT];
+        assert!(File::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+    }
+
 }

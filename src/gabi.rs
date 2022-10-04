@@ -324,6 +324,6 @@ pub const EM_BPF: u16 = 247; // Linux BPF
 /// are both 4-byte unsigned integers with 4-byte alignment
  
 /// Invalid version
-pub const EV_NONE: u32 = 0;
+pub const EV_NONE: u8 = 0;
 /// Current version
-pub const EV_CURRENT: u32 = 1;
+pub const EV_CURRENT: u8 = 1;

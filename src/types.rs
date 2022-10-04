@@ -53,29 +53,6 @@ impl fmt::Display for Endian {
     }
 }
 
-/// Represents the ELF file version
-///
-/// This field represents the values both found in the e_ident byte array and the e_version field.
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Version(pub u32);
-
-impl fmt::Debug for Version {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl fmt::Display for Version {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let str = match self.0 {
-            gabi::EV_NONE => "Invalid",
-            gabi::EV_CURRENT => "1 (Current)",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
-    }
-}
-
 /// Represents the ELF file OS ABI
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OSABI(pub u8);
@@ -352,7 +329,7 @@ pub struct FileHeader {
     /// little vs big endian
     pub endianness: Endian,
     /// elf version
-    pub version: Version,
+    pub version: u32,
     /// OS ABI
     pub osabi: OSABI,
     /// Version of the OS ABI
@@ -408,7 +385,7 @@ impl FileHeader {
         FileHeader {
             class: Class(gabi::ELFCLASSNONE),
             endianness: Endian(gabi::ELFDATANONE),
-            version: Version(gabi::EV_NONE),
+            version: gabi::EV_NONE as u32,
             elftype: ObjectFileType(gabi::ET_NONE),
             arch: Architecture(gabi::EM_NONE),
             osabi: OSABI(gabi::ELFOSABI_NONE),
