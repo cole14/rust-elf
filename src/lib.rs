@@ -141,11 +141,10 @@ impl File {
         Self::parse_ident(io_file, &mut ident)?;
         let ehdr = Self::parse_ehdr(io_file, &ident)?;
 
-        let mut elf_f = File::new();
-        elf_f.ehdr = ehdr;
-
         // Parse the program headers
         io_file.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
+        let mut phdrs = Vec::<types::ProgramHeader>::default();
+
         for _ in 0..ehdr.e_phnum {
             let progtype: types::ProgType;
             let offset: u64;
@@ -175,7 +174,7 @@ impl File {
                 align = utils::read_u64(ehdr.endianness, io_file)?;
             }
 
-            elf_f.phdrs.push(types::ProgramHeader {
+            phdrs.push(types::ProgramHeader {
                     progtype: progtype,
                     offset:   offset,
                     vaddr:    vaddr,
@@ -186,6 +185,8 @@ impl File {
                     align:    align,
                 });
         }
+
+        let mut sections = Vec::<Section>::default();
 
         // Parse the section headers
         let mut name_idxs: Vec<u32> = Vec::new();
@@ -224,7 +225,7 @@ impl File {
                 entsize = utils::read_u64(ehdr.endianness, io_file)?;
             }
 
-            elf_f.sections.push(Section {
+            sections.push(Section {
                     shdr: types::SectionHeader {
                         name:      name,
                         shtype:    shtype,
@@ -246,14 +247,14 @@ impl File {
         loop {
             if s_i == ehdr.e_shnum as usize { break; }
 
-            let off = elf_f.sections[s_i].shdr.offset;
-            let size = elf_f.sections[s_i].shdr.size;
+            let off = sections[s_i].shdr.offset;
+            let size = sections[s_i].shdr.size;
             io_file.seek(io::SeekFrom::Start(off))?;
             let mut data = vec![0; size as usize];
-            if elf_f.sections[s_i].shdr.shtype != types::SHT_NOBITS {
+            if sections[s_i].shdr.shtype != types::SHT_NOBITS {
                 io_file.read_exact(&mut data)?;
             }
-            elf_f.sections[s_i].data = data;
+            sections[s_i].data = data;
 
             s_i += 1;
         }
@@ -263,14 +264,18 @@ impl File {
         loop {
             if s_i == ehdr.e_shnum as usize { break; }
 
-            elf_f.sections[s_i].shdr.name = utils::get_string(
-                &elf_f.sections[ehdr.e_shstrndx as usize].data,
+            sections[s_i].shdr.name = utils::get_string(
+                &sections[ehdr.e_shstrndx as usize].data,
                 name_idxs[s_i] as usize)?;
 
             s_i += 1;
         }
 
-        Ok(elf_f)
+        Ok(File {
+            ehdr: ehdr,
+            phdrs: phdrs,
+            sections: sections
+        })
     }
 
     pub fn get_symbols(&self, section: &Section) -> Result<Vec<types::Symbol>, ParseError> {
@@ -325,14 +330,6 @@ impl File {
         self.sections
             .iter()
             .find(|section| section.shdr.name == name.as_ref() )
-    }
-
-    pub fn new() -> File {
-        File {
-            ehdr: types::FileHeader::new(),
-            phdrs: Vec::new(),
-            sections: Vec::new(),
-        }
     }
 }
 

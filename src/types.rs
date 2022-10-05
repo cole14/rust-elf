@@ -387,30 +387,6 @@ pub struct FileHeader {
     pub e_shstrndx: u16,
 }
 
-impl FileHeader {
-    pub fn new() -> FileHeader {
-        FileHeader {
-            class: Class(gabi::ELFCLASSNONE),
-            endianness: Endian(gabi::ELFDATANONE),
-            version: gabi::EV_NONE as u32,
-            elftype: ObjectFileType(gabi::ET_NONE),
-            arch: Architecture(gabi::EM_NONE),
-            osabi: OSABI(gabi::ELFOSABI_NONE),
-            abiversion: 0,
-            e_entry: 0,
-            e_phoff: 0,
-            e_shoff: 0,
-            e_flags: 0,
-            e_ehsize: 0,
-            e_phentsize: 0,
-            e_phnum: 0,
-            e_shentsize: 0,
-            e_shnum: 0,
-            e_shstrndx: 0,
-        }
-    }
-}
-
 impl fmt::Display for FileHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
