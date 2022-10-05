@@ -6,8 +6,7 @@ use std::io::{Read, Seek};
 pub mod gabi;
 pub mod types;
 
-#[macro_use]
-pub mod utils;
+mod utils;
 
 pub struct File {
     pub ehdr: types::FileHeader,
