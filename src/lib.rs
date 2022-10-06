@@ -6,6 +6,7 @@ use std::io::{Read, Seek};
 pub mod gabi;
 pub mod types;
 pub mod segment;
+pub mod section;
 pub mod parse;
 
 use parse::Parse;
@@ -159,86 +160,32 @@ impl File {
         let mut sections = Vec::<Section>::default();
 
         // Parse the section headers
-        let mut name_idxs: Vec<u32> = Vec::new();
         io_file.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
-            let name: String = String::new();
-            let shtype: types::SectionType;
-            let flags: types::SectionFlag;
-            let addr: u64;
-            let offset: u64;
-            let size: u64;
-            let link: u32;
-            let info: u32;
-            let addralign: u64;
-            let entsize: u64;
-
-            name_idxs.push(utils::read_u32(ehdr.endianness, io_file)?);
-            shtype = types::SectionType(utils::read_u32(ehdr.endianness, io_file)?);
-            if ehdr.class == gabi::ELFCLASS32 {
-                flags = types::SectionFlag(utils::read_u32(ehdr.endianness, io_file)? as u64);
-                addr = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                offset = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                size = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                link = utils::read_u32(ehdr.endianness, io_file)?;
-                info = utils::read_u32(ehdr.endianness, io_file)?;
-                addralign = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                entsize = utils::read_u32(ehdr.endianness, io_file)? as u64;
-            } else {
-                flags = types::SectionFlag(utils::read_u64(ehdr.endianness, io_file)?);
-                addr = utils::read_u64(ehdr.endianness, io_file)?;
-                offset = utils::read_u64(ehdr.endianness, io_file)?;
-                size = utils::read_u64(ehdr.endianness, io_file)?;
-                link = utils::read_u32(ehdr.endianness, io_file)?;
-                info = utils::read_u32(ehdr.endianness, io_file)?;
-                addralign = utils::read_u64(ehdr.endianness, io_file)?;
-                entsize = utils::read_u64(ehdr.endianness, io_file)?;
-            }
-
-            sections.push(Section {
-                    shdr: types::SectionHeader {
-                        name:      name,
-                        shtype:    shtype,
-                        flags:     flags,
-                        addr:      addr,
-                        offset:    offset,
-                        size:      size,
-                        link:      link,
-                        info:      info,
-                        addralign: addralign,
-                        entsize:   entsize,
-                    },
+            let shdr = section::SectionHeader::parse(ehdr.endianness, ehdr.class, io_file)?;
+            sections.push(
+                Section {
+                    name: String::new(),
+                    shdr: shdr,
                     data: Vec::new(),
                 });
         }
 
         // Read the section data
-        let mut s_i: usize = 0;
-        loop {
-            if s_i == ehdr.e_shnum as usize { break; }
-
-            let off = sections[s_i].shdr.offset;
-            let size = sections[s_i].shdr.size;
-            io_file.seek(io::SeekFrom::Start(off))?;
-            let mut data = vec![0; size as usize];
-            if sections[s_i].shdr.shtype != types::SHT_NOBITS {
-                io_file.read_exact(&mut data)?;
+        for section in sections.iter_mut() {
+            if section.shdr.sh_type == section::SHT_NOBITS {
+                continue;
             }
-            sections[s_i].data = data;
 
-            s_i += 1;
+            io_file.seek(io::SeekFrom::Start(section.shdr.sh_offset))?;
+            section.data.resize(section.shdr.sh_size as usize, 0u8);
+            io_file.read_exact(&mut section.data)?;
         }
 
-        // Parse the section names from the string header string table
-        s_i = 0;
-        loop {
-            if s_i == ehdr.e_shnum as usize { break; }
-
-            sections[s_i].shdr.name = utils::get_string(
-                &sections[ehdr.e_shstrndx as usize].data,
-                name_idxs[s_i] as usize)?;
-
-            s_i += 1;
+        // Parse the section names from the section header string table
+        for i in 0..sections.len() {
+            let shstr_data = &sections[ehdr.e_shstrndx as usize].data;
+            sections[i].name = utils::get_string(shstr_data, sections[i].shdr.sh_name as usize)?;
         }
 
         Ok(File {
@@ -250,8 +197,8 @@ impl File {
 
     pub fn get_symbols(&self, section: &Section) -> Result<Vec<types::Symbol>, ParseError> {
         let mut symbols = Vec::new();
-        if section.shdr.shtype == types::SHT_SYMTAB || section.shdr.shtype == types::SHT_DYNSYM {
-            let link = &self.sections[section.shdr.link as usize].data;
+        if section.shdr.sh_type == section::SHT_SYMTAB || section.shdr.sh_type == section::SHT_DYNSYM {
+            let link = &self.sections[section.shdr.sh_link as usize].data;
             let mut io_section = io::Cursor::new(&section.data);
             while (io_section.position() as usize) < section.data.len() {
                 self.parse_symbol(&mut io_section, &mut symbols, link)?;
@@ -299,13 +246,14 @@ impl File {
     pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&Section> {
         self.sections
             .iter()
-            .find(|section| section.shdr.name == name.as_ref() )
+            .find(|section| section.name == name.as_ref() )
     }
 }
 
 #[derive(Debug)]
 pub struct Section {
-    pub shdr: types::SectionHeader,
+    pub name: String,
+    pub shdr: section::SectionHeader,
     pub data: Vec<u8>,
 }
 
