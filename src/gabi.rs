@@ -378,3 +378,132 @@ pub const PT_HIOS: u32 = 0x6fffffff;
 pub const PT_LOPROC: u32 = 0x70000000;
 /// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved for processor-specific semantics.
 pub const PT_HIPROC: u32 = 0x7fffffff;
+
+/// SHT_* define constants for the ELF Section Header's p_type field.
+/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+/// are both 4-byte unsigned integers with 4-byte alignment
+
+/// Inactive section with undefined values
+pub const SHT_NULL: u32 = 0;
+/// Information defined by the program, includes executable code and data
+pub const SHT_PROGBITS: u32 = 1;
+/// Section data contains a symbol table
+pub const SHT_SYMTAB: u32 = 2;
+/// Section data contains a string table
+pub const SHT_STRTAB: u32 = 3;
+/// Section data contains relocation entries with explicit addends
+pub const SHT_RELA: u32 = 4;
+/// Section data contains a symbol hash table. Must be present for dynamic linking
+pub const SHT_HASH: u32 = 5;
+/// Section data contains information for dynamic linking
+pub const SHT_DYNAMIC: u32 = 6;
+/// Section data contains information that marks the file in some way
+pub const SHT_NOTE: u32 = 7;
+/// Section data occupies no space in the file but otherwise resembles SHT_PROGBITS
+pub const SHT_NOBITS: u32 = 8;
+/// Section data contains relocation entries without explicit addends
+pub const SHT_REL: u32 = 9;
+/// Section is reserved but has unspecified semantics
+pub const SHT_SHLIB: u32 = 10;
+/// Section data contains a minimal set of dynamic linking symbols
+pub const SHT_DYNSYM: u32 = 11;
+/// Section data contains an array of constructors
+pub const SHT_INIT_ARRAY: u32 = 14;
+/// Section data contains an array of destructors
+pub const SHT_FINI_ARRAY: u32 = 15;
+/// Section data contains an array of pre-constructors
+pub const SHT_PREINIT_ARRAY: u32 = 16;
+/// Section group
+pub const SHT_GROUP: u32 = 17;
+/// Extended symbol table section index
+pub const SHT_SYMTAB_SHNDX: u32 = 18;
+/// Number of reserved SHT_* values
+pub const SHT_NUM: u32 = 19;
+/// Object attributes
+pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5;
+/// GNU-style hash section
+pub const SHT_GNU_HASH: u32 = 0x6ffffff6;
+/// Pre-link library list
+pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7;
+/// Version definition section
+pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd;
+/// Version needs section
+pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe;
+/// Version symbol table
+pub const SHT_GNU_VERSYM: u32 = 0x6fffffff;
+
+/// SHF_* define constants for the ELF Section Header's sh_flags field.
+/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Xword in Elf64_Ehdr which
+/// are both 4-byte and 8-byte unsigned integers, respectively.
+/// All of the constants are < 32-bits, so we use a u32 to represent these in order
+/// to make working with them easier.
+
+/// Empty flags
+pub const SHF_NONE: u32 = 0;
+/// The section contains data that should be writable during process execution.
+pub const SHF_WRITE: u32 = 1;
+/// The section occupies memory during process execution. Some control sections
+/// do not reside in the memory image of an object file; this attribute is off for
+/// those sections.
+pub const SHF_ALLOC: u32 = 1 << 1;
+/// The section contains executable machine instructions.
+pub const SHF_EXECINSTR: u32 = 1 << 2;
+/// The data in the section may be merged to eliminate duplication. Unless the
+/// SHF_STRINGS flag is also set, the data elements in the section are of a uniform size.
+/// The size of each element is specified in the section header's sh_entsize field. If
+/// the SHF_STRINGS flag is also set, the data elements consist of null-terminated
+/// character strings. The size of each character is specified in the section header's
+/// sh_entsize field.
+///
+/// Each element in the section is compared against other elements in sections with the
+/// same name, type and flags. Elements that would have identical values at program
+/// run-time may be merged. Relocations referencing elements of such sections must be
+/// resolved to the merged locations of the referenced values. Note that any relocatable
+/// values, including values that would result in run-time relocations, must be analyzed
+/// to determine whether the run-time values would actually be identical. An
+/// ABI-conforming object file may not depend on specific elements being merged, and an
+/// ABI-conforming link editor may choose not to merge specific elements.
+pub const SHF_MERGE: u32 = 1 << 4;
+/// The data elements in the section consist of null-terminated character strings.
+/// The size of each character is specified in the section header's sh_entsize field. 
+pub const SHF_STRINGS: u32 = 1 << 5;
+/// The sh_info field of this section header holds a section header table index.
+pub const SHF_INFO_LINK: u32 = 1 << 6;
+/// This flag adds special ordering requirements for link editors. The requirements
+/// apply if the sh_link field of this section's header references another section (the
+/// linked-to section). If this section is combined with other sections in the output
+/// file, it must appear in the same relative order with respect to those sections,
+/// as the linked-to section appears with respect to sections the linked-to section is
+/// combined with.
+pub const SHF_LINK_ORDER: u32 = 1 << 7;
+/// This section requires special OS-specific processing (beyond the standard linking
+/// rules) to avoid incorrect behavior. If this section has either an sh_type value or
+/// contains sh_flags bits in the OS-specific ranges for those fields, and a link
+/// editor processing this section does not recognize those values, then the link editor
+/// should reject the object file containing this section with an error. 
+pub const SHF_OS_NONCONFORMING: u32 = 1 << 8;
+/// This section is a member (perhaps the only one) of a section group. The section must
+/// be referenced by a section of type SHT_GROUP. The SHF_GROUP flag may be set only for
+/// sections contained in relocatable objects (objects with the ELF header e_type member
+/// set to ET_REL).
+pub const SHF_GROUP: u32 = 1 << 9;
+/// This section holds Thread-Local Storage, meaning that each separate execution flow
+/// has its own distinct instance of this data. Implementations need not support this flag.
+pub const SHF_TLS: u32 = 1 << 10;
+/// This flag identifies a section containing compressed data. SHF_COMPRESSED applies only
+/// to non-allocable sections, and cannot be used in conjunction with SHF_ALLOC. In
+/// addition, SHF_COMPRESSED cannot be applied to sections of type SHT_NOBITS.
+///
+/// All relocations to a compressed section specifiy offsets to the uncompressed section
+/// data. It is therefore necessary to decompress the section data before relocations can
+/// be applied. Each compressed section specifies the algorithm independently. It is
+/// permissible for different sections in a given ELF object to employ different
+/// compression algorithms.
+///
+/// Compressed sections begin with a compression header structure that identifies the
+/// compression algorithm. 
+pub const SHF_COMPRESSED: u32 = 1 << 11;
+/// Masked bits are reserved for operating system-specific semantics.
+pub const SHF_MASKOS: u32 = 0x0ff00000;
+/// Masked bits are reserved for processor-specific semantics.
+pub const SHF_MASKPROC: u32 = 0xf0000000;

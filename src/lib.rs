@@ -173,7 +173,7 @@ impl File {
 
         // Read the section data
         for section in sections.iter_mut() {
-            if section.shdr.sh_type == section::SHT_NOBITS {
+            if section.shdr.sh_type == section::SectionType(gabi::SHT_NOBITS) {
                 continue;
             }
 
@@ -197,7 +197,7 @@ impl File {
 
     pub fn get_symbols(&self, section: &Section) -> Result<Vec<types::Symbol>, ParseError> {
         let mut symbols = Vec::new();
-        if section.shdr.sh_type == section::SHT_SYMTAB || section.shdr.sh_type == section::SHT_DYNSYM {
+        if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB) || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM) {
             let link = &self.sections[section.shdr.sh_link as usize].data;
             let mut io_section = io::Cursor::new(&section.data);
             while (io_section.position() as usize) < section.data.len() {
