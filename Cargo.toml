@@ -9,6 +9,7 @@ documentation = "https://docs.rs/elf/latest/elf/"
 description = "A pure-rust library for parsing ELF files"
 keywords = ["elf"]
 readme = "README.md"
+edition = "2021"
 
 [lib]
 name = "elf"

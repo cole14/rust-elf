@@ -1,7 +1,7 @@
-use file::Endian;
-use gabi;
+use crate::file::Endian;
+use crate::gabi;
 use std::io;
-use ParseError;
+use crate::ParseError;
 
 #[inline]
 pub fn read_u16<T: io::Read>(endian: Endian, io: &mut T) -> Result<u16, ParseError> {

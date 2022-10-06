@@ -1,7 +1,7 @@
-use file::{Class, Endian};
-use gabi;
-use parse::Parse;
-use utils::{read_u32, read_u64};
+use crate::file::{Class, Endian};
+use crate::gabi;
+use crate::parse::Parse;
+use crate::utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -144,10 +144,10 @@ impl std::fmt::Display for ProgType {
 
 #[cfg(test)]
 mod tests {
-    use file::{Class, Endian};
-    use gabi;
-    use parse::Parse;
-    use segment::{ProgFlag, ProgType, ProgramHeader};
+    use crate::file::{Class, Endian};
+    use crate::gabi;
+    use crate::parse::Parse;
+    use crate::segment::{ProgFlag, ProgType, ProgramHeader};
 
     #[test]
     fn parse_phdr32_fuzz_too_short() {

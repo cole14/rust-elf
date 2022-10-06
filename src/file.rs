@@ -1,6 +1,6 @@
-use gabi;
-use parse::Parse;
-use utils::{read_u16, read_u32, read_u64};
+use crate::gabi;
+use crate::parse::Parse;
+use crate::utils::{read_u16, read_u32, read_u64};
 
 /// Encapsulates the contents of the ELF File Header
 ///
@@ -483,9 +483,9 @@ impl std::fmt::Display for Architecture {
 
 #[cfg(test)]
 mod tests {
-    use file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
-    use gabi;
-    use parse::Parse;
+    use crate::file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
+    use crate::gabi;
+    use crate::parse::Parse;
 
     #[test]
     fn test_parse_ident_empty_buf_errors() {

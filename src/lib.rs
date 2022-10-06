@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use parse::Parse;
+use crate::parse::Parse;
 
 mod utils;
 
@@ -193,7 +193,7 @@ impl std::fmt::Display for Section {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use File;
+    use crate::File;
 
     #[test]
     fn test_open_path() {

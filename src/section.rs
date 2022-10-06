@@ -1,7 +1,7 @@
-use file::{Class, Endian};
-use gabi;
-use parse::Parse;
-use utils::{read_u32, read_u64};
+use crate::file::{Class, Endian};
+use crate::gabi;
+use crate::parse::Parse;
+use crate::utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -134,10 +134,10 @@ impl std::fmt::Display for SectionFlag {
 
 #[cfg(test)]
 mod tests {
-    use file::{Class, Endian};
-    use gabi;
-    use parse::Parse;
-    use section::{SectionFlag, SectionHeader, SectionType};
+    use crate::file::{Class, Endian};
+    use crate::gabi;
+    use crate::parse::Parse;
+    use crate::section::{SectionFlag, SectionHeader, SectionType};
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
