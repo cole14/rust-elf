@@ -1,10 +1,10 @@
+use file::Endian;
 use gabi;
 use std::io;
-use types;
 use ParseError;
 
 #[inline]
-pub fn read_u16<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u16, ParseError> {
+pub fn read_u16<T: io::Read>(endian: Endian, io: &mut T) -> Result<u16, ParseError> {
     let mut buf = [0u8; 2];
     io.read_exact(&mut buf)?;
     match endian.0 {
@@ -20,7 +20,7 @@ pub fn read_u16<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u16, P
 }
 
 #[inline]
-pub fn read_u32<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u32, ParseError> {
+pub fn read_u32<T: io::Read>(endian: Endian, io: &mut T) -> Result<u32, ParseError> {
     let mut buf = [0u8; 4];
     io.read_exact(&mut buf)?;
     match endian.0 {
@@ -36,7 +36,7 @@ pub fn read_u32<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u32, P
 }
 
 #[inline]
-pub fn read_u64<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u64, ParseError> {
+pub fn read_u64<T: io::Read>(endian: Endian, io: &mut T) -> Result<u64, ParseError> {
     let mut buf = [0u8; 8];
     io.read_exact(&mut buf)?;
     match endian.0 {
@@ -71,10 +71,10 @@ pub fn get_string(data: &[u8], start: usize) -> Result<String, std::string::From
 mod tests {
     use super::*;
 
-    const NONE: types::Endian = types::Endian(gabi::ELFDATANONE);
-    const LITTLE: types::Endian = types::Endian(gabi::ELFDATA2LSB);
-    const BIG: types::Endian = types::Endian(gabi::ELFDATA2MSB);
-    const INVALID: types::Endian = types::Endian(42);
+    const NONE: Endian = Endian(gabi::ELFDATANONE);
+    const LITTLE: Endian = Endian(gabi::ELFDATA2LSB);
+    const BIG: Endian = Endian(gabi::ELFDATA2MSB);
+    const INVALID: Endian = Endian(42);
 
     #[test]
     fn test_read_u16_lsb() {

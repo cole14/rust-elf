@@ -1,6 +1,6 @@
+use file::{Class, Endian};
 use gabi;
 use parse::Parse;
-use types;
 use utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Program Header
@@ -31,11 +31,7 @@ impl<R> Parse<R> for ProgramHeader
 where
     R: std::io::Read,
 {
-    fn parse(
-        endian: types::Endian,
-        class: types::Class,
-        reader: &mut R,
-    ) -> Result<Self, crate::ParseError> {
+    fn parse(endian: Endian, class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
             let p_type = read_u32(endian, reader)?;
             let p_offset = read_u32(endian, reader)?;
@@ -148,10 +144,10 @@ impl std::fmt::Display for ProgType {
 
 #[cfg(test)]
 mod tests {
+    use file::{Class, Endian};
     use gabi;
     use parse::Parse;
     use segment::{ProgFlag, ProgType, ProgramHeader};
-    use types::{Class, Endian};
 
     #[test]
     fn parse_phdr32_fuzz_too_short() {

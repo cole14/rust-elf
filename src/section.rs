@@ -1,6 +1,6 @@
+use file::{Class, Endian};
 use gabi;
 use parse::Parse;
-use types;
 use utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Section Header
@@ -32,11 +32,7 @@ impl<R> Parse<R> for SectionHeader
 where
     R: std::io::Read,
 {
-    fn parse(
-        endian: types::Endian,
-        class: types::Class,
-        reader: &mut R,
-    ) -> Result<Self, crate::ParseError> {
+    fn parse(endian: Endian, class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
             return Ok(SectionHeader {
                 sh_name: read_u32(endian, reader)?,
@@ -138,10 +134,10 @@ impl std::fmt::Display for SectionFlag {
 
 #[cfg(test)]
 mod tests {
+    use file::{Class, Endian};
     use gabi;
     use parse::Parse;
     use section::{SectionFlag, SectionHeader, SectionType};
-    use types::{Class, Endian};
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
