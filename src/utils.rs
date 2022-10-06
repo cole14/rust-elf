@@ -11,10 +11,10 @@ pub fn read_u16<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u16, P
         gabi::ELFDATA2LSB => Ok(u16::from_le_bytes(buf)),
         gabi::ELFDATA2MSB => Ok(u16::from_be_bytes(buf)),
         gabi::ELFDATANONE => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
         _ => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
     }
 }
@@ -27,10 +27,10 @@ pub fn read_u32<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u32, P
         gabi::ELFDATA2LSB => Ok(u32::from_le_bytes(buf)),
         gabi::ELFDATA2MSB => Ok(u32::from_be_bytes(buf)),
         gabi::ELFDATANONE => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
         _ => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
     }
 }
@@ -43,10 +43,10 @@ pub fn read_u64<T: io::Read>(endian: types::Endian, io: &mut T) -> Result<u64, P
         gabi::ELFDATA2LSB => Ok(u64::from_le_bytes(buf)),
         gabi::ELFDATA2MSB => Ok(u64::from_be_bytes(buf)),
         gabi::ELFDATANONE => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
         _ => {
-            return Err(ParseError::EndianError);
+            return Err(ParseError(format!("Unsupported Endianness: {endian}")));
         }
     }
 }

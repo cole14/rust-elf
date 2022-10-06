@@ -39,25 +39,26 @@ impl std::fmt::Display for File {
     }
 }
 
-#[derive(Debug)]
-pub enum ParseError {
-    EndianError,
-    IoError(io::Error),
-    InvalidMagic,
-    InvalidVersion,
-    InvalidFormat(Option<std::string::FromUtf8Error>),
-    NotImplemented,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseError(String);
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
 }
+
+impl std::error::Error for ParseError {}
 
 impl std::convert::From<std::io::Error> for ParseError {
     fn from(e: std::io::Error) -> Self {
-        ParseError::IoError(e)
+        ParseError(e.to_string())
     }
 }
 
 impl std::convert::From<std::string::FromUtf8Error> for ParseError {
     fn from(e: std::string::FromUtf8Error) -> Self {
-        ParseError::InvalidFormat(Some(e))
+        ParseError(e.to_string())
     }
 }
 
@@ -74,13 +75,15 @@ impl File {
         io_file.read_exact(buf)?;
 
         // Verify the magic number
-        if buf.split_at(gabi::EI_CLASS).0 != gabi::ELFMAGIC {
-            return Err(ParseError::InvalidMagic);
+        let magic = buf.split_at(gabi::EI_CLASS).0;
+        if magic != gabi::ELFMAGIC {
+            return Err(ParseError(format!("Invalid Magic Bytes: {magic:?}")));
         }
 
         // Verify ELF Version
-        if buf[gabi::EI_VERSION] != gabi::EV_CURRENT {
-            return Err(ParseError::InvalidVersion);
+        let version = buf[gabi::EI_VERSION];
+        if version != gabi::EV_CURRENT {
+            return Err(ParseError(format!("Unsupported ELF Version: {version:?}")));
         }
 
         return Ok(());
