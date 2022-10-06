@@ -1,4 +1,31 @@
-use std::fmt;
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Symbol {
+    /// Symbol name
+    pub name: String,
+    /// Symbol value
+    pub value: u64,
+    /// Symbol size
+    pub size: u64,
+    /// Section index
+    pub shndx: u16,
+    /// Symbol type
+    pub symtype: SymbolType,
+    /// Symbol binding
+    pub bind: SymbolBind,
+    /// Symbol visibility
+    pub vis: SymbolVis,
+}
+
+impl std::fmt::Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
+            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name
+        )
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
@@ -19,8 +46,8 @@ pub const STT_TLS: SymbolType = SymbolType(6);
 /// Indirect code object symbol
 pub const STT_GNU_IFUNC: SymbolType = SymbolType(10);
 
-impl fmt::Display for SymbolType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for SymbolType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match *self {
             STT_NOTYPE => "unspecified",
             STT_OBJECT => "data object",
@@ -47,8 +74,8 @@ pub const STB_WEAK: SymbolBind = SymbolBind(2);
 /// Unique symbol
 pub const STB_GNU_UNIQUE: SymbolBind = SymbolBind(10);
 
-impl fmt::Display for SymbolBind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for SymbolBind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match *self {
             STB_LOCAL => "local",
             STB_GLOBAL => "global",
@@ -71,8 +98,8 @@ pub const STV_HIDDEN: SymbolVis = SymbolVis(2);
 /// Protected visibility
 pub const STV_PROTECTED: SymbolVis = SymbolVis(3);
 
-impl fmt::Display for SymbolVis {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for SymbolVis {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match *self {
             STV_DEFAULT => "default",
             STV_INTERNAL => "internal",
@@ -81,33 +108,5 @@ impl fmt::Display for SymbolVis {
             _ => "Unknown",
         };
         write!(f, "{}", str)
-    }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct Symbol {
-    /// Symbol name
-    pub name: String,
-    /// Symbol value
-    pub value: u64,
-    /// Symbol size
-    pub size: u64,
-    /// Section index
-    pub shndx: u16,
-    /// Symbol type
-    pub symtype: SymbolType,
-    /// Symbol binding
-    pub bind: SymbolBind,
-    /// Symbol visibility
-    pub vis: SymbolVis,
-}
-
-impl fmt::Display for Symbol {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
-            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name
-        )
     }
 }

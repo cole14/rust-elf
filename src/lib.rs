@@ -5,9 +5,9 @@ use std::io::{Read, Seek};
 
 pub mod file;
 pub mod gabi;
-pub mod types;
 pub mod segment;
 pub mod section;
+pub mod symbol;
 pub mod parse;
 
 use parse::Parse;
@@ -122,7 +122,7 @@ impl File {
         })
     }
 
-    pub fn get_symbols(&self, section: &Section) -> Result<Vec<types::Symbol>, ParseError> {
+    pub fn get_symbols(&self, section: &Section) -> Result<Vec<symbol::Symbol>, ParseError> {
         let mut symbols = Vec::new();
         if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB) || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM) {
             let link = &self.sections[section.shdr.sh_link as usize].data;
@@ -134,7 +134,7 @@ impl File {
         Ok(symbols)
     }
 
-    fn parse_symbol<T: Read + Seek>(&self, io_section: &mut T, symbols: &mut Vec<types::Symbol>, link: &[u8]) -> Result<(), ParseError> {
+    fn parse_symbol<T: Read + Seek>(&self, io_section: &mut T, symbols: &mut Vec<symbol::Symbol>, link: &[u8]) -> Result<(), ParseError> {
         let name: u32;
         let value: u64;
         let size: u64;
@@ -158,14 +158,14 @@ impl File {
             size = utils::read_u64(self.ehdr.endianness, io_section)?;
         }
 
-        symbols.push(types::Symbol {
+        symbols.push(symbol::Symbol {
                 name:    utils::get_string(link, name as usize)?,
                 value:   value,
                 size:    size,
                 shndx:   shndx,
-                symtype: types::SymbolType(info[0] & 0xf),
-                bind:    types::SymbolBind(info[0] >> 4),
-                vis:     types::SymbolVis(other[0] & 0x3),
+                symtype: symbol::SymbolType(info[0] & 0xf),
+                bind:    symbol::SymbolBind(info[0] >> 4),
+                vis:     symbol::SymbolVis(other[0] & 0x3),
             });
         Ok(())
     }
