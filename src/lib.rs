@@ -5,12 +5,16 @@ use std::io::{Read, Seek};
 
 pub mod gabi;
 pub mod types;
+pub mod segment;
+pub mod parse;
+
+use parse::Parse;
 
 mod utils;
 
 pub struct File {
     pub ehdr: types::FileHeader,
-    pub phdrs: Vec<types::ProgramHeader>,
+    pub phdrs: Vec<segment::ProgramHeader>,
     pub sections: Vec<Section>,
 }
 
@@ -142,47 +146,11 @@ impl File {
 
         // Parse the program headers
         io_file.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
-        let mut phdrs = Vec::<types::ProgramHeader>::default();
+        let mut phdrs = Vec::<segment::ProgramHeader>::default();
 
         for _ in 0..ehdr.e_phnum {
-            let progtype: types::ProgType;
-            let offset: u64;
-            let vaddr: u64;
-            let paddr: u64;
-            let filesz: u64;
-            let memsz: u64;
-            let flags: types::ProgFlag;
-            let align: u64;
-
-            progtype = types::ProgType(utils::read_u32(ehdr.endianness, io_file)?);
-            if ehdr.class == gabi::ELFCLASS32 {
-                offset = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                vaddr = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                paddr = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                filesz = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                memsz = utils::read_u32(ehdr.endianness, io_file)? as u64;
-                flags = types::ProgFlag(utils::read_u32(ehdr.endianness, io_file)?);
-                align = utils::read_u32(ehdr.endianness, io_file)? as u64;
-            } else {
-                flags = types::ProgFlag(utils::read_u32(ehdr.endianness, io_file)?);
-                offset = utils::read_u64(ehdr.endianness, io_file)?;
-                vaddr = utils::read_u64(ehdr.endianness, io_file)?;
-                paddr = utils::read_u64(ehdr.endianness, io_file)?;
-                filesz = utils::read_u64(ehdr.endianness, io_file)?;
-                memsz = utils::read_u64(ehdr.endianness, io_file)?;
-                align = utils::read_u64(ehdr.endianness, io_file)?;
-            }
-
-            phdrs.push(types::ProgramHeader {
-                    progtype: progtype,
-                    offset:   offset,
-                    vaddr:    vaddr,
-                    paddr:    paddr,
-                    filesz:   filesz,
-                    memsz:    memsz,
-                    flags:    flags,
-                    align:    align,
-                });
+            let phdr = segment::ProgramHeader::parse(ehdr.endianness, ehdr.class, io_file)?;
+            phdrs.push(phdr);
         }
 
         let mut sections = Vec::<Section>::default();
