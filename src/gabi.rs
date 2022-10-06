@@ -370,13 +370,17 @@ pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
 pub const PT_GNU_STACK: u32 = 0x6474e551;
 /// Read-only after relocation
 pub const PT_GNU_RELRO: u32 = 0x6474e552;
-/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for operating system-specific semantics.
+/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
 pub const PT_LOOS: u32 = 0x60000000;
-/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for operating system-specific semantics.
+/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
 pub const PT_HIOS: u32 = 0x6fffffff;
-/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved for processor-specific semantics.
+/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
 pub const PT_LOPROC: u32 = 0x70000000;
-/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved for processor-specific semantics.
+/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
 pub const PT_HIPROC: u32 = 0x7fffffff;
 
 /// SHT_* define constants for the ELF Section Header's p_type field.
@@ -465,7 +469,7 @@ pub const SHF_EXECINSTR: u32 = 1 << 2;
 /// ABI-conforming link editor may choose not to merge specific elements.
 pub const SHF_MERGE: u32 = 1 << 4;
 /// The data elements in the section consist of null-terminated character strings.
-/// The size of each character is specified in the section header's sh_entsize field. 
+/// The size of each character is specified in the section header's sh_entsize field.
 pub const SHF_STRINGS: u32 = 1 << 5;
 /// The sh_info field of this section header holds a section header table index.
 pub const SHF_INFO_LINK: u32 = 1 << 6;
@@ -480,7 +484,7 @@ pub const SHF_LINK_ORDER: u32 = 1 << 7;
 /// rules) to avoid incorrect behavior. If this section has either an sh_type value or
 /// contains sh_flags bits in the OS-specific ranges for those fields, and a link
 /// editor processing this section does not recognize those values, then the link editor
-/// should reject the object file containing this section with an error. 
+/// should reject the object file containing this section with an error.
 pub const SHF_OS_NONCONFORMING: u32 = 1 << 8;
 /// This section is a member (perhaps the only one) of a section group. The section must
 /// be referenced by a section of type SHT_GROUP. The SHF_GROUP flag may be set only for
@@ -501,9 +505,95 @@ pub const SHF_TLS: u32 = 1 << 10;
 /// compression algorithms.
 ///
 /// Compressed sections begin with a compression header structure that identifies the
-/// compression algorithm. 
+/// compression algorithm.
 pub const SHF_COMPRESSED: u32 = 1 << 11;
 /// Masked bits are reserved for operating system-specific semantics.
 pub const SHF_MASKOS: u32 = 0x0ff00000;
 /// Masked bits are reserved for processor-specific semantics.
 pub const SHF_MASKPROC: u32 = 0xf0000000;
+
+/// STT_* define constants for the ELF Symbol's st_type (encoded in the st_info field).
+
+/// Unspecified symbol type
+pub const STT_NOTYPE: u8 = 0;
+/// Data object symbol
+pub const STT_OBJECT: u8 = 1;
+/// Code object symbol
+pub const STT_FUNC: u8 = 2;
+/// Section symbol
+pub const STT_SECTION: u8 = 3;
+/// File name symbol
+pub const STT_FILE: u8 = 4;
+/// Common data object symbol
+pub const STT_COMMON: u8 = 5;
+/// Thread-local data object symbol
+pub const STT_TLS: u8 = 6;
+/// Indirect code object symbol
+pub const STT_GNU_IFUNC: u8 = 10;
+/// Values between [STT_LOOS, STT_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
+pub const STT_LOOS: u8 = 10;
+/// Values between [STT_LOOS, STT_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
+pub const STT_HIOS: u8 = 12;
+/// Values between [STT_LOPROC, STT_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
+pub const STT_LOPROC: u8 = 13;
+/// Values between [STT_LOPROC, STT_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
+pub const STT_HIPROC: u8 = 15;
+
+/// STB_* define constants for the ELF Symbol's st_bind (encoded in the st_info field).
+
+/// Local symbols are not visible outside the object file containing their
+/// definition.  Local symbols of the same name may exist in multiple files
+/// without interfering with each other.
+pub const STB_LOCAL: u8 = 0;
+/// Global symbols are visible to all object files being combined. One file's
+/// definition of a global symbol will satisfy another file's undefined
+/// reference to the same global symbol.
+pub const STB_GLOBAL: u8 = 1;
+/// Weak symbols resemble global symbols, but their definitions have lower
+/// precedence.
+pub const STB_WEAK: u8 = 2;
+/// Unique symbol
+pub const STB_GNU_UNIQUE: u8 = 10;
+/// Values between [STB_LOOS, STB_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
+pub const STB_LOOS: u8 = 10;
+/// Values between [STB_LOOS, STB_HIOS] in this inclusive range are reserved for
+/// operating system-specific semantics.
+pub const STB_HIOS: u8 = 12;
+/// Values between [STB_LOPROC, STB_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
+pub const STB_LOPROC: u8 = 13;
+/// Values between [STB_LOPROC, STB_HIPROC] in this inclusive range are reserved
+/// for processor-specific semantics.
+pub const STB_HIPROC: u8 = 15;
+
+/// STV_* define constants for the ELF Symbol's st_visibility (encoded in the st_other field).
+
+/// The visibility of symbols with the STV_DEFAULT attribute is as specified by
+/// the symbol's binding type.  That is, global and weak symbols are visible
+/// outside of their defining component (executable file or shared object).
+/// Local symbols are hidden, as described below. Global and weak symbols are
+/// also preemptable, that is, they may by preempted by definitions of the same
+/// name in another component.
+pub const STV_DEFAULT: u8 = 0;
+/// The meaning of this visibility attribute may be defined by processor
+/// supplements to further constrain hidden symbols. A processor supplement's
+/// definition should be such that generic tools can safely treat internal
+/// symbols as hidden.
+pub const STV_INTERNAL: u8 = 1;
+/// A symbol defined in the current component is hidden if its name is not
+/// visible to other components. Such a symbol is necessarily protected. This
+/// attribute may be used to control the external interface of a component. Note
+/// that an object named by such a symbol may still be referenced from another
+/// component if its address is passed outside.
+pub const STV_HIDDEN: u8 = 2;
+/// A symbol defined in the current component is protected if it is visible in
+/// other components but not preemptable, meaning that any reference to such a
+/// symbol from within the defining component must be resolved to the definition
+/// in that component, even if there is a definition in another component that
+/// would preempt by the default rules.
+pub const STV_PROTECTED: u8 = 3;

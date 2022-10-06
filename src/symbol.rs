@@ -1,3 +1,4 @@
+use crate::gabi;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Symbol {
@@ -29,34 +30,18 @@ impl std::fmt::Display for Symbol {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
-/// Unspecified symbol type
-pub const STT_NOTYPE: SymbolType = SymbolType(0);
-/// Data object symbol
-pub const STT_OBJECT: SymbolType = SymbolType(1);
-/// Code object symbol
-pub const STT_FUNC: SymbolType = SymbolType(2);
-/// Section symbol
-pub const STT_SECTION: SymbolType = SymbolType(3);
-/// File name symbol
-pub const STT_FILE: SymbolType = SymbolType(4);
-/// Common data object symbol
-pub const STT_COMMON: SymbolType = SymbolType(5);
-/// Thread-local data object symbol
-pub const STT_TLS: SymbolType = SymbolType(6);
-/// Indirect code object symbol
-pub const STT_GNU_IFUNC: SymbolType = SymbolType(10);
 
 impl std::fmt::Display for SymbolType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match *self {
-            STT_NOTYPE => "unspecified",
-            STT_OBJECT => "data object",
-            STT_FUNC => "code object",
-            STT_SECTION => "section",
-            STT_FILE => "file name",
-            STT_COMMON => "common data object",
-            STT_TLS => "thread-local data object",
-            STT_GNU_IFUNC => "indirect code object",
+        let str = match self.0 {
+            gabi::STT_NOTYPE => "unspecified",
+            gabi::STT_OBJECT => "data object",
+            gabi::STT_FUNC => "code object",
+            gabi::STT_SECTION => "section",
+            gabi::STT_FILE => "file name",
+            gabi::STT_COMMON => "common data object",
+            gabi::STT_TLS => "thread-local data object",
+            gabi::STT_GNU_IFUNC => "indirect code object",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -65,22 +50,14 @@ impl std::fmt::Display for SymbolType {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolBind(pub u8);
-/// Local symbol
-pub const STB_LOCAL: SymbolBind = SymbolBind(0);
-/// Global symbol
-pub const STB_GLOBAL: SymbolBind = SymbolBind(1);
-/// Weak symbol
-pub const STB_WEAK: SymbolBind = SymbolBind(2);
-/// Unique symbol
-pub const STB_GNU_UNIQUE: SymbolBind = SymbolBind(10);
 
 impl std::fmt::Display for SymbolBind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match *self {
-            STB_LOCAL => "local",
-            STB_GLOBAL => "global",
-            STB_WEAK => "weak",
-            STB_GNU_UNIQUE => "unique",
+        let str = match self.0 {
+            gabi::STB_LOCAL => "local",
+            gabi::STB_GLOBAL => "global",
+            gabi::STB_WEAK => "weak",
+            gabi::STB_GNU_UNIQUE => "unique",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -89,22 +66,14 @@ impl std::fmt::Display for SymbolBind {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SymbolVis(pub u8);
-/// Default symbol visibility
-pub const STV_DEFAULT: SymbolVis = SymbolVis(0);
-/// Processor-specific hidden visibility
-pub const STV_INTERNAL: SymbolVis = SymbolVis(1);
-/// Hidden visibility
-pub const STV_HIDDEN: SymbolVis = SymbolVis(2);
-/// Protected visibility
-pub const STV_PROTECTED: SymbolVis = SymbolVis(3);
 
 impl std::fmt::Display for SymbolVis {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match *self {
-            STV_DEFAULT => "default",
-            STV_INTERNAL => "internal",
-            STV_HIDDEN => "hidden",
-            STV_PROTECTED => "protected",
+        let str = match self.0 {
+            gabi::STV_DEFAULT => "default",
+            gabi::STV_INTERNAL => "internal",
+            gabi::STV_HIDDEN => "hidden",
+            gabi::STV_PROTECTED => "protected",
             _ => "Unknown",
         };
         write!(f, "{}", str)
