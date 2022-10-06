@@ -89,13 +89,6 @@ impl std::fmt::Display for ProgramHeader {
 /// Represents ELF Program Header flags
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgFlag(pub u32);
-pub const PF_NONE: ProgFlag = ProgFlag(0);
-/// Executable program segment
-pub const PF_X: ProgFlag = ProgFlag(1);
-/// Writable program segment
-pub const PF_W: ProgFlag = ProgFlag(2);
-/// Readable program segment
-pub const PF_R: ProgFlag = ProgFlag(4);
 
 impl std::fmt::Debug for ProgFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -105,17 +98,17 @@ impl std::fmt::Debug for ProgFlag {
 
 impl std::fmt::Display for ProgFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if (self.0 & PF_R.0) != 0 {
+        if (self.0 & gabi::PF_R) != 0 {
             write!(f, "R")?;
         } else {
             write!(f, " ")?;
         }
-        if (self.0 & PF_W.0) != 0 {
+        if (self.0 & gabi::PF_W) != 0 {
             write!(f, "W")?;
         } else {
             write!(f, " ")?;
         }
-        if (self.0 & PF_X.0) != 0 {
+        if (self.0 & gabi::PF_X) != 0 {
             write!(f, "E")
         } else {
             write!(f, " ")
@@ -126,28 +119,6 @@ impl std::fmt::Display for ProgFlag {
 /// Represents ELF Program Header type
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
-/// Program header table entry unused
-pub const PT_NULL: ProgType = ProgType(0);
-/// Loadable program segment
-pub const PT_LOAD: ProgType = ProgType(1);
-/// Dynamic linking information
-pub const PT_DYNAMIC: ProgType = ProgType(2);
-/// Program interpreter
-pub const PT_INTERP: ProgType = ProgType(3);
-/// Auxiliary information
-pub const PT_NOTE: ProgType = ProgType(4);
-/// Unused
-pub const PT_SHLIB: ProgType = ProgType(5);
-/// The program header table
-pub const PT_PHDR: ProgType = ProgType(6);
-/// Thread-local storage segment
-pub const PT_TLS: ProgType = ProgType(7);
-/// GCC .eh_frame_hdr segment
-pub const PT_GNU_EH_FRAME: ProgType = ProgType(0x6474e550);
-/// Indicates stack executability
-pub const PT_GNU_STACK: ProgType = ProgType(0x6474e551);
-/// Read-only after relocation
-pub const PT_GNU_RELRO: ProgType = ProgType(0x6474e552);
 
 impl std::fmt::Debug for ProgType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -157,18 +128,18 @@ impl std::fmt::Debug for ProgType {
 
 impl std::fmt::Display for ProgType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match *self {
-            PT_NULL => "NULL",
-            PT_LOAD => "LOAD",
-            PT_DYNAMIC => "DYNAMIC",
-            PT_INTERP => "INTERP",
-            PT_NOTE => "NOTE",
-            PT_SHLIB => "SHLIB",
-            PT_PHDR => "PHDR",
-            PT_TLS => "TLS",
-            PT_GNU_EH_FRAME => "GNU_EH_FRAME",
-            PT_GNU_STACK => "GNU_STACK",
-            PT_GNU_RELRO => "GNU_RELRO",
+        let str = match self.0 {
+            gabi::PT_NULL => "NULL",
+            gabi::PT_LOAD => "LOAD",
+            gabi::PT_DYNAMIC => "DYNAMIC",
+            gabi::PT_INTERP => "INTERP",
+            gabi::PT_NOTE => "NOTE",
+            gabi::PT_SHLIB => "SHLIB",
+            gabi::PT_PHDR => "PHDR",
+            gabi::PT_TLS => "TLS",
+            gabi::PT_GNU_EH_FRAME => "GNU_EH_FRAME",
+            gabi::PT_GNU_STACK => "GNU_STACK",
+            gabi::PT_GNU_RELRO => "GNU_RELRO",
             _ => "Unknown",
         };
         write!(f, "{}", str)

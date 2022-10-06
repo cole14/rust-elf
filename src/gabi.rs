@@ -327,3 +327,54 @@ pub const EM_BPF: u16 = 247; // Linux BPF
 pub const EV_NONE: u8 = 0;
 /// Current version
 pub const EV_CURRENT: u8 = 1;
+
+/// PF_* define constants for the ELF Program Header's p_flags field.
+/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+/// are both 4-byte unsigned integers with 4-byte alignment
+
+pub const PF_NONE: u32 = 0;
+/// Executable program segment
+pub const PF_X: u32 = 1;
+/// Writable program segment
+pub const PF_W: u32 = 2;
+/// Readable program segment
+pub const PF_R: u32 = 4;
+// All bits included in the PF_MASKOS mask are reserved for operating system-specific semantics.
+pub const PF_MASKOS: u32 = 0x0ff00000;
+//  All bits included in the PF_MASKPROC mask are reserved for processor-specific semantics.
+pub const PF_MASKPROC: u32 = 0xf0000000;
+
+/// PT_* define constants for the ELF Program Header's p_type field.
+/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+/// are both 4-byte unsigned integers with 4-byte alignment
+
+/// Program header table entry unused
+pub const PT_NULL: u32 = 0;
+/// Loadable program segment
+pub const PT_LOAD: u32 = 1;
+/// Dynamic linking information
+pub const PT_DYNAMIC: u32 = 2;
+/// Program interpreter
+pub const PT_INTERP: u32 = 3;
+/// Auxiliary information
+pub const PT_NOTE: u32 = 4;
+/// Unused
+pub const PT_SHLIB: u32 = 5;
+/// The program header table
+pub const PT_PHDR: u32 = 6;
+/// Thread-local storage segment
+pub const PT_TLS: u32 = 7;
+/// GCC .eh_frame_hdr segment
+pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
+/// Indicates stack executability
+pub const PT_GNU_STACK: u32 = 0x6474e551;
+/// Read-only after relocation
+pub const PT_GNU_RELRO: u32 = 0x6474e552;
+/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for operating system-specific semantics.
+pub const PT_LOOS: u32 = 0x60000000;
+/// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for operating system-specific semantics.
+pub const PT_HIOS: u32 = 0x6fffffff;
+/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved for processor-specific semantics.
+pub const PT_LOPROC: u32 = 0x70000000;
+/// Values between [PT_LOPROC, PT_HIPROC] in this inclusive range are reserved for processor-specific semantics.
+pub const PT_HIPROC: u32 = 0x7fffffff;
