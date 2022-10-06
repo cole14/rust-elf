@@ -1,7 +1,7 @@
 use gabi;
 use parse::Parse;
 use types;
-use utils;
+use utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -39,30 +39,30 @@ where
     ) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
             return Ok(SectionHeader {
-                sh_name: utils::read_u32(endian, reader)?,
-                sh_type: SectionType(utils::read_u32(endian, reader)?),
-                sh_flags: SectionFlag(utils::read_u32(endian, reader)? as u64),
-                sh_addr: utils::read_u32(endian, reader)? as u64,
-                sh_offset: utils::read_u32(endian, reader)? as u64,
-                sh_size: utils::read_u32(endian, reader)? as u64,
-                sh_link: utils::read_u32(endian, reader)?,
-                sh_info: utils::read_u32(endian, reader)?,
-                sh_addralign: utils::read_u32(endian, reader)? as u64,
-                sh_entsize: utils::read_u32(endian, reader)? as u64,
+                sh_name: read_u32(endian, reader)?,
+                sh_type: SectionType(read_u32(endian, reader)?),
+                sh_flags: SectionFlag(read_u32(endian, reader)? as u64),
+                sh_addr: read_u32(endian, reader)? as u64,
+                sh_offset: read_u32(endian, reader)? as u64,
+                sh_size: read_u32(endian, reader)? as u64,
+                sh_link: read_u32(endian, reader)?,
+                sh_info: read_u32(endian, reader)?,
+                sh_addralign: read_u32(endian, reader)? as u64,
+                sh_entsize: read_u32(endian, reader)? as u64,
             });
         }
 
         Ok(SectionHeader {
-            sh_name: utils::read_u32(endian, reader)?,
-            sh_type: SectionType(utils::read_u32(endian, reader)?),
-            sh_flags: SectionFlag(utils::read_u64(endian, reader)?),
-            sh_addr: utils::read_u64(endian, reader)?,
-            sh_offset: utils::read_u64(endian, reader)?,
-            sh_size: utils::read_u64(endian, reader)?,
-            sh_link: utils::read_u32(endian, reader)?,
-            sh_info: utils::read_u32(endian, reader)?,
-            sh_addralign: utils::read_u64(endian, reader)?,
-            sh_entsize: utils::read_u64(endian, reader)?,
+            sh_name: read_u32(endian, reader)?,
+            sh_type: SectionType(read_u32(endian, reader)?),
+            sh_flags: SectionFlag(read_u64(endian, reader)?),
+            sh_addr: read_u64(endian, reader)?,
+            sh_offset: read_u64(endian, reader)?,
+            sh_size: read_u64(endian, reader)?,
+            sh_link: read_u32(endian, reader)?,
+            sh_info: read_u32(endian, reader)?,
+            sh_addralign: read_u64(endian, reader)?,
+            sh_entsize: read_u64(endian, reader)?,
         })
     }
 }

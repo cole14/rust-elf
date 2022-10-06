@@ -1,7 +1,7 @@
 use gabi;
 use parse::Parse;
 use types;
-use utils;
+use utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -37,14 +37,14 @@ where
         reader: &mut R,
     ) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
-            let p_type = utils::read_u32(endian, reader)?;
-            let p_offset = utils::read_u32(endian, reader)?;
-            let p_vaddr = utils::read_u32(endian, reader)?;
-            let p_paddr = utils::read_u32(endian, reader)?;
-            let p_filesz = utils::read_u32(endian, reader)?;
-            let p_memsz = utils::read_u32(endian, reader)?;
-            let p_flags = utils::read_u32(endian, reader)?;
-            let p_align = utils::read_u32(endian, reader)?;
+            let p_type = read_u32(endian, reader)?;
+            let p_offset = read_u32(endian, reader)?;
+            let p_vaddr = read_u32(endian, reader)?;
+            let p_paddr = read_u32(endian, reader)?;
+            let p_filesz = read_u32(endian, reader)?;
+            let p_memsz = read_u32(endian, reader)?;
+            let p_flags = read_u32(endian, reader)?;
+            let p_align = read_u32(endian, reader)?;
             return Ok(ProgramHeader {
                 progtype: ProgType(p_type),
                 offset: p_offset as u64,
@@ -57,14 +57,14 @@ where
             });
         }
 
-        let p_type = utils::read_u32(endian, reader)?;
-        let p_flags = utils::read_u32(endian, reader)?;
-        let p_offset = utils::read_u64(endian, reader)?;
-        let p_vaddr = utils::read_u64(endian, reader)?;
-        let p_paddr = utils::read_u64(endian, reader)?;
-        let p_filesz = utils::read_u64(endian, reader)?;
-        let p_memsz = utils::read_u64(endian, reader)?;
-        let p_align = utils::read_u64(endian, reader)?;
+        let p_type = read_u32(endian, reader)?;
+        let p_flags = read_u32(endian, reader)?;
+        let p_offset = read_u64(endian, reader)?;
+        let p_vaddr = read_u64(endian, reader)?;
+        let p_paddr = read_u64(endian, reader)?;
+        let p_filesz = read_u64(endian, reader)?;
+        let p_memsz = read_u64(endian, reader)?;
+        let p_align = read_u64(endian, reader)?;
         Ok(ProgramHeader {
             progtype: ProgType(p_type),
             offset: p_offset,
