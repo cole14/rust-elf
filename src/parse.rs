@@ -18,6 +18,55 @@ impl std::fmt::Display for Endian {
     }
 }
 
+pub trait ReadExt {
+    fn read_u16(&mut self) -> Result<u16, ParseError>;
+    fn read_u32(&mut self) -> Result<u32, ParseError>;
+    fn read_u64(&mut self) -> Result<u64, ParseError>;
+}
+
+pub struct Reader<'data, D: std::io::Read> {
+    delegate: &'data mut D,
+    endian: Endian,
+}
+
+impl<'data, D: std::io::Read> Reader<'data, D> {
+    pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
+        Reader{delegate: delegate, endian: endian}
+    }
+}
+
+impl<'data, D: std::io::Read> ReadExt for Reader<'data, D> {
+    #[inline]
+    fn read_u16(&mut self) -> Result<u16, ParseError> {
+        let mut buf = [0u8; 2];
+        self.delegate.read_exact(&mut buf)?;
+        match self.endian {
+            Endian::Little => Ok(u16::from_le_bytes(buf)),
+            Endian::Big => Ok(u16::from_be_bytes(buf)),
+        }
+    }
+
+    #[inline]
+    fn read_u32(&mut self) -> Result<u32, ParseError> {
+        let mut buf = [0u8; 4];
+        self.delegate.read_exact(&mut buf)?;
+        match self.endian {
+            Endian::Little => Ok(u32::from_le_bytes(buf)),
+            Endian::Big => Ok(u32::from_be_bytes(buf)),
+        }
+    }
+
+    #[inline]
+    fn read_u64(&mut self) -> Result<u64, ParseError> {
+        let mut buf = [0u8; 8];
+        self.delegate.read_exact(&mut buf)?;
+        match self.endian {
+            Endian::Little => Ok(u64::from_le_bytes(buf)),
+            Endian::Big => Ok(u64::from_be_bytes(buf)),
+        }
+    }
+}
+
 #[inline]
 pub fn read_u16<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u16, ParseError> {
     let mut buf = [0u8; 2];
