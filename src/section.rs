@@ -137,13 +137,14 @@ mod tests {
     use crate::gabi;
     use crate::parse::{Endian, Parse, Reader};
     use crate::section::{SectionFlag, SectionHeader, SectionType};
+    use std::io::Cursor;
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
         let data = [0u8; 40];
         for n in 0..40 {
-            let mut slice = data.split_at(n).0.as_ref();
-            let mut reader = Reader::new(&mut slice, Endian::Little);
+            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
+            let mut reader = Reader::new(&mut cur, Endian::Little);
             assert!(SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
         }
     }
@@ -155,8 +156,8 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut slice = data.as_ref();
-        let mut reader = Reader::new(&mut slice, Endian::Little);
+        let mut cur = Cursor::new(data.as_ref());
+        let mut reader = Reader::new(&mut cur, Endian::Little);
         assert_eq!(
             SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
             SectionHeader {
@@ -178,8 +179,8 @@ mod tests {
     fn parse_shdr64_fuzz_too_short() {
         let data = [0u8; 64];
         for n in 0..64 {
-            let mut slice = data.split_at(n).0.as_ref();
-            let mut reader = Reader::new(&mut slice, Endian::Big);
+            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
+            let mut reader = Reader::new(&mut cur, Endian::Big);
             assert!(SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
         }
     }
@@ -191,8 +192,8 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut slice = data.as_ref();
-        let mut reader = Reader::new(&mut slice, Endian::Big);
+        let mut cur = Cursor::new(data.as_ref());
+        let mut reader = Reader::new(&mut cur, Endian::Big);
         assert_eq!(
             SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
             SectionHeader {

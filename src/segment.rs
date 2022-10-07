@@ -147,13 +147,14 @@ mod tests {
     use crate::gabi;
     use crate::parse::{Endian, Parse, Reader};
     use crate::segment::{ProgFlag, ProgType, ProgramHeader};
+    use std::io::Cursor;
 
     #[test]
     fn parse_phdr32_fuzz_too_short() {
         let data = [0u8; 32];
         for n in 0..32 {
-            let mut slice = data.split_at(n).0.as_ref();
-            let mut reader = Reader::new(&mut slice, Endian::Little);
+            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
+            let mut reader = Reader::new(&mut cur, Endian::Little);
             assert!(ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
         }
     }
@@ -165,8 +166,8 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut slice = data.as_ref();
-        let mut reader = Reader::new(&mut slice, Endian::Little);
+        let mut cur = Cursor::new(data.as_ref());
+        let mut reader = Reader::new(&mut cur, Endian::Little);
         assert_eq!(
             ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
             ProgramHeader {
@@ -186,8 +187,8 @@ mod tests {
     fn parse_phdr64_fuzz_too_short() {
         let data = [0u8; 56];
         for n in 0..56 {
-            let mut slice = data.split_at(n).0.as_ref();
-            let mut reader = Reader::new(&mut slice, Endian::Big);
+            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
+            let mut reader = Reader::new(&mut cur, Endian::Big);
             assert!(ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
         }
     }
@@ -199,8 +200,8 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut slice = data.as_ref();
-        let mut reader = Reader::new(&mut slice, Endian::Big);
+        let mut cur = Cursor::new(data.as_ref());
+        let mut reader = Reader::new(&mut cur, Endian::Big);
         assert_eq!(
             ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
             ProgramHeader {

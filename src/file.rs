@@ -98,7 +98,7 @@ impl FileHeader {
         return Ok(());
     }
 
-    pub fn parse<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::ParseError> {
+    pub fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Result<Self, crate::ParseError> {
         let mut ident = [0u8; gabi::EI_NIDENT];
         Self::parse_ident(reader, &mut ident)?;
 
@@ -468,6 +468,7 @@ impl std::fmt::Display for Architecture {
 mod tests {
     use crate::file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
     use crate::gabi;
+    use std::io::Cursor;
 
     #[test]
     fn test_parse_ident_empty_buf_errors() {
@@ -645,9 +646,10 @@ mod tests {
             data[gabi::EI_NIDENT + n as usize] = n;
         }
 
-        let slice: &mut [u8] = data.as_mut_slice();
+        let slice = data.as_mut_slice();
+        let mut cur = Cursor::new(slice.as_ref());
         assert_eq!(
-            FileHeader::parse(&mut slice.as_ref()).unwrap(),
+            FileHeader::parse(&mut cur).unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS32),
                 endianness: Endian::Little,
@@ -693,8 +695,8 @@ mod tests {
         data.resize(gabi::EI_NIDENT + 36, 0u8);
 
         for n in 0..36 {
-            let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
-            assert!(FileHeader::parse(&mut slice.as_ref()).is_err());
+            let mut cur = Cursor::new(data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref());
+            assert!(FileHeader::parse(&mut cur).is_err());
         }
     }
 
@@ -723,9 +725,10 @@ mod tests {
             data[gabi::EI_NIDENT + n as usize] = n;
         }
 
-        let slice: &mut [u8] = data.as_mut_slice();
+        let slice = data.as_mut_slice();
+        let mut cur = Cursor::new(slice.as_ref());
         assert_eq!(
-            FileHeader::parse(&mut slice.as_ref()).unwrap(),
+            FileHeader::parse(&mut cur).unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS64),
                 endianness: Endian::Big,
@@ -771,8 +774,8 @@ mod tests {
         data.resize(gabi::EI_NIDENT + 48, 0u8);
 
         for n in 0..48 {
-            let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
-            assert!(FileHeader::parse(&mut slice.as_ref()).is_err());
+            let mut cur = Cursor::new(data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref());
+            assert!(FileHeader::parse(&mut cur).is_err());
         }
     }
 }

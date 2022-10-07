@@ -1,5 +1,6 @@
 use crate::file::Class;
 use crate::ParseError;
+use std::io::{Read, Seek};
 
 /// Represents the ELF file data format (little-endian vs big-endian)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -24,18 +25,18 @@ pub trait ReadExt {
     fn read_u64(&mut self) -> Result<u64, ParseError>;
 }
 
-pub struct Reader<'data, D: std::io::Read> {
+pub struct Reader<'data, D: Read + Seek> {
     delegate: &'data mut D,
     endian: Endian,
 }
 
-impl<'data, D: std::io::Read> Reader<'data, D> {
+impl<'data, D: Read + Seek> Reader<'data, D> {
     pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
         Reader{delegate: delegate, endian: endian}
     }
 }
 
-impl<'data, D: std::io::Read> ReadExt for Reader<'data, D> {
+impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
     #[inline]
     fn read_u16(&mut self) -> Result<u16, ParseError> {
         let mut buf = [0u8; 2];
