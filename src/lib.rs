@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use crate::parse::Parse;
+use crate::parse::{Endian, Parse};
 
 mod utils;
 
@@ -73,7 +73,7 @@ impl File {
     }
 
     pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
-        let ehdr = file::FileHeader::parse(file::Endian(gabi::ELFDATANONE), file::Class(gabi::ELFCLASSNONE), io_file)?;
+        let ehdr = file::FileHeader::parse(Endian::Little, file::Class(gabi::ELFCLASSNONE), io_file)?;
 
         // Parse the program headers
         io_file.seek(io::SeekFrom::Start(ehdr.e_phoff))?;

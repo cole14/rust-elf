@@ -1,6 +1,6 @@
-use crate::file::{Class, Endian};
+use crate::file::Class;
 use crate::gabi;
-use crate::parse::Parse;
+use crate::parse::{Endian, Parse};
 use crate::utils::{read_u32, read_u64};
 
 /// Encapsulates the contents of an ELF Section Header
@@ -134,9 +134,9 @@ impl std::fmt::Display for SectionFlag {
 
 #[cfg(test)]
 mod tests {
-    use crate::file::{Class, Endian};
+    use crate::file::Class;
     use crate::gabi;
-    use crate::parse::Parse;
+    use crate::parse::{Endian, Parse};
     use crate::section::{SectionFlag, SectionHeader, SectionType};
 
     #[test]
@@ -145,7 +145,7 @@ mod tests {
         for n in 0..40 {
             let slice = data.split_at(n).0;
             assert!(SectionHeader::parse(
-                Endian(gabi::ELFDATA2LSB),
+                Endian::Little,
                 Class(gabi::ELFCLASS32),
                 &mut slice.as_ref()
             )
@@ -162,7 +162,7 @@ mod tests {
 
         assert_eq!(
             SectionHeader::parse(
-                Endian(gabi::ELFDATA2LSB),
+                Endian::Little,
                 Class(gabi::ELFCLASS32),
                 &mut data.as_ref()
             )
@@ -188,7 +188,7 @@ mod tests {
         for n in 0..64 {
             let slice = data.split_at(n).0;
             assert!(SectionHeader::parse(
-                Endian(gabi::ELFDATA2LSB),
+                Endian::Big,
                 Class(gabi::ELFCLASS64),
                 &mut slice.as_ref()
             )
@@ -205,7 +205,7 @@ mod tests {
 
         assert_eq!(
             SectionHeader::parse(
-                Endian(gabi::ELFDATA2MSB),
+                Endian::Big,
                 Class(gabi::ELFCLASS64),
                 &mut data.as_ref()
             )

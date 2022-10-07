@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::Parse;
+use crate::parse::{Endian, Parse};
 use crate::utils::{read_u16, read_u32, read_u64};
 
 /// Encapsulates the contents of the ELF File Header
@@ -88,6 +88,14 @@ impl FileHeader {
             )));
         }
 
+        // Verify endianness is something we know how to parse
+        let endian = buf[gabi::EI_DATA];
+        if endian != gabi::ELFDATA2LSB && endian != gabi::ELFDATA2MSB {
+            return Err(crate::ParseError(format!(
+                "Unsupported ELF Endianness: {endian:?}"
+            )))
+        }
+
         return Ok(());
     }
 }
@@ -101,7 +109,7 @@ where
         Self::parse_ident(reader, &mut ident)?;
 
         let class = Class(ident[gabi::EI_CLASS]);
-        let endian = Endian(ident[gabi::EI_DATA]);
+        let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB { Endian::Little } else { Endian::Big };
         let elftype = ObjectFileType(read_u16(endian, reader)?);
         let arch = Architecture(read_u16(endian, reader)?);
         let version = read_u32(endian, reader)?;
@@ -183,28 +191,6 @@ impl std::fmt::Display for Class {
             gabi::ELFCLASSNONE => "Invalid",
             gabi::ELFCLASS32 => "32-bit",
             gabi::ELFCLASS64 => "64-bit",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
-    }
-}
-
-/// Represents the ELF file data format (little-endian vs big-endian)
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Endian(pub u8);
-
-impl std::fmt::Debug for Endian {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl std::fmt::Display for Endian {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match self.0 {
-            gabi::ELFDATANONE => "Invalid",
-            gabi::ELFDATA2LSB => "2's complement, little endian",
-            gabi::ELFDATA2MSB => "2's complement, big endian",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -666,14 +652,14 @@ mod tests {
         let slice: &mut [u8] = data.as_mut_slice();
         assert_eq!(
             FileHeader::parse(
-                Endian(gabi::ELFDATANONE),
+                Endian::Little,
                 Class(gabi::ELFCLASSNONE),
                 &mut slice.as_ref()
             )
             .unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS32),
-                endianness: Endian(gabi::ELFDATA2LSB),
+                endianness: Endian::Little,
                 version: 0x7060504,
                 osabi: OSABI(gabi::ELFOSABI_LINUX),
                 abiversion: 7,
@@ -718,7 +704,7 @@ mod tests {
         for n in 0..36 {
             let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
             assert!(FileHeader::parse(
-                Endian(gabi::ELFDATANONE),
+                Endian::Little,
                 Class(gabi::ELFCLASSNONE),
                 &mut slice.as_ref()
             )
@@ -754,14 +740,14 @@ mod tests {
         let slice: &mut [u8] = data.as_mut_slice();
         assert_eq!(
             FileHeader::parse(
-                Endian(gabi::ELFDATANONE),
+                Endian::Little,
                 Class(gabi::ELFCLASSNONE),
                 &mut slice.as_ref()
             )
             .unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS64),
-                endianness: Endian(gabi::ELFDATA2MSB),
+                endianness: Endian::Big,
                 version: 0x04050607,
                 osabi: OSABI(gabi::ELFOSABI_LINUX),
                 abiversion: 7,
@@ -806,7 +792,7 @@ mod tests {
         for n in 0..48 {
             let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
             assert!(FileHeader::parse(
-                Endian(gabi::ELFDATANONE),
+                Endian::Little,
                 Class(gabi::ELFCLASSNONE),
                 &mut slice.as_ref()
             )
