@@ -105,9 +105,9 @@ impl File {
                 continue;
             }
 
-            io_file.seek(io::SeekFrom::Start(section.shdr.sh_offset))?;
+            reader.seek(io::SeekFrom::Start(section.shdr.sh_offset))?;
             section.data.resize(section.shdr.sh_size as usize, 0u8);
-            io_file.read_exact(&mut section.data)?;
+            reader.read_exact(&mut section.data)?;
         }
 
         // Parse the section names from the section header string table

@@ -35,6 +35,10 @@ impl<'data, D: Read + Seek> Reader<'data, D> {
         Reader{delegate: delegate, endian: endian}
     }
 
+    pub fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error> {
+        self.delegate.read_exact(buf)
+    }
+
     pub fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, std::io::Error> {
         self.delegate.seek(pos)
     }
