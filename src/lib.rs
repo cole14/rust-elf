@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use crate::parse::{Endian, Parse};
+use crate::parse::{Endian, Parse, read_u16, read_u32, read_u64};
 
 mod utils;
 
@@ -143,19 +143,19 @@ impl File {
         let mut other: [u8; 1] = [0u8];
 
         if self.ehdr.class == gabi::ELFCLASS32 {
-            name = utils::read_u32(self.ehdr.endianness, io_section)?;
-            value = utils::read_u32(self.ehdr.endianness, io_section)? as u64;
-            size = utils::read_u32(self.ehdr.endianness, io_section)? as u64;
+            name = read_u32(self.ehdr.endianness, io_section)?;
+            value = read_u32(self.ehdr.endianness, io_section)? as u64;
+            size = read_u32(self.ehdr.endianness, io_section)? as u64;
             io_section.read_exact(&mut info)?;
             io_section.read_exact(&mut other)?;
-            shndx = utils::read_u16(self.ehdr.endianness, io_section)?;
+            shndx = read_u16(self.ehdr.endianness, io_section)?;
         } else {
-            name = utils::read_u32(self.ehdr.endianness, io_section)?;
+            name = read_u32(self.ehdr.endianness, io_section)?;
             io_section.read_exact(&mut info)?;
             io_section.read_exact(&mut other)?;
-            shndx = utils::read_u16(self.ehdr.endianness, io_section)?;
-            value = utils::read_u64(self.ehdr.endianness, io_section)?;
-            size = utils::read_u64(self.ehdr.endianness, io_section)?;
+            shndx = read_u16(self.ehdr.endianness, io_section)?;
+            value = read_u64(self.ehdr.endianness, io_section)?;
+            size = read_u64(self.ehdr.endianness, io_section)?;
         }
 
         symbols.push(symbol::Symbol {

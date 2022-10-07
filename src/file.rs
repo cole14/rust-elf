@@ -1,6 +1,5 @@
 use crate::gabi;
-use crate::parse::{Endian, Parse};
-use crate::utils::{read_u16, read_u32, read_u64};
+use crate::parse::{Endian, Parse, read_u16, read_u32, read_u64};
 
 /// Encapsulates the contents of the ELF File Header
 ///
