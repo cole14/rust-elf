@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::{Endian, Parse, read_u16, read_u32, read_u64};
+use crate::parse::{Endian, Parse, Reader, ReadExt};
 
 /// Encapsulates the contents of the ELF File Header
 ///
@@ -109,31 +109,34 @@ where
 
         let class = Class(ident[gabi::EI_CLASS]);
         let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB { Endian::Little } else { Endian::Big };
-        let elftype = ObjectFileType(read_u16(endian, reader)?);
-        let arch = Architecture(read_u16(endian, reader)?);
-        let version = read_u32(endian, reader)?;
+
+        let mut io_r = Reader::new(reader, endian);
+
+        let elftype = ObjectFileType(io_r.read_u16()?);
+        let arch = Architecture(io_r.read_u16()?);
+        let version = io_r.read_u32()?;
 
         let entry: u64;
         let phoff: u64;
         let shoff: u64;
 
         if class == gabi::ELFCLASS32 {
-            entry = read_u32(endian, reader)? as u64;
-            phoff = read_u32(endian, reader)? as u64;
-            shoff = read_u32(endian, reader)? as u64;
+            entry = io_r.read_u32()? as u64;
+            phoff = io_r.read_u32()? as u64;
+            shoff = io_r.read_u32()? as u64;
         } else {
-            entry = read_u64(endian, reader)?;
-            phoff = read_u64(endian, reader)?;
-            shoff = read_u64(endian, reader)?;
+            entry = io_r.read_u64()?;
+            phoff = io_r.read_u64()?;
+            shoff = io_r.read_u64()?;
         }
 
-        let flags = read_u32(endian, reader)?;
-        let ehsize = read_u16(endian, reader)?;
-        let phentsize = read_u16(endian, reader)?;
-        let phnum = read_u16(endian, reader)?;
-        let shentsize = read_u16(endian, reader)?;
-        let shnum = read_u16(endian, reader)?;
-        let shstrndx = read_u16(endian, reader)?;
+        let flags = io_r.read_u32()?;
+        let ehsize = io_r.read_u16()?;
+        let phentsize = io_r.read_u16()?;
+        let phnum = io_r.read_u16()?;
+        let shentsize = io_r.read_u16()?;
+        let shnum = io_r.read_u16()?;
+        let shstrndx = io_r.read_u16()?;
 
         return Ok(FileHeader {
             class: class,
