@@ -1,6 +1,6 @@
 use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Endian, Parse, Reader, ReadExt};
+use crate::parse::{Parse, ReadExt};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -28,19 +28,18 @@ pub struct ProgramHeader {
 
 impl<R> Parse<R> for ProgramHeader
 where
-    R: std::io::Read,
+    R: ReadExt,
 {
-    fn parse(endian: Endian, class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
-        let mut io_r = Reader::new(reader, endian);
+    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
-            let p_type = io_r.read_u32()?;
-            let p_offset = io_r.read_u32()?;
-            let p_vaddr = io_r.read_u32()?;
-            let p_paddr = io_r.read_u32()?;
-            let p_filesz = io_r.read_u32()?;
-            let p_memsz = io_r.read_u32()?;
-            let p_flags = io_r.read_u32()?;
-            let p_align = io_r.read_u32()?;
+            let p_type = reader.read_u32()?;
+            let p_offset = reader.read_u32()?;
+            let p_vaddr = reader.read_u32()?;
+            let p_paddr = reader.read_u32()?;
+            let p_filesz = reader.read_u32()?;
+            let p_memsz = reader.read_u32()?;
+            let p_flags = reader.read_u32()?;
+            let p_align = reader.read_u32()?;
             return Ok(ProgramHeader {
                 progtype: ProgType(p_type),
                 offset: p_offset as u64,
@@ -53,14 +52,14 @@ where
             });
         }
 
-        let p_type = io_r.read_u32()?;
-        let p_flags = io_r.read_u32()?;
-        let p_offset = io_r.read_u64()?;
-        let p_vaddr = io_r.read_u64()?;
-        let p_paddr = io_r.read_u64()?;
-        let p_filesz = io_r.read_u64()?;
-        let p_memsz = io_r.read_u64()?;
-        let p_align = io_r.read_u64()?;
+        let p_type = reader.read_u32()?;
+        let p_flags = reader.read_u32()?;
+        let p_offset = reader.read_u64()?;
+        let p_vaddr = reader.read_u64()?;
+        let p_paddr = reader.read_u64()?;
+        let p_filesz = reader.read_u64()?;
+        let p_memsz = reader.read_u64()?;
+        let p_align = reader.read_u64()?;
         Ok(ProgramHeader {
             progtype: ProgType(p_type),
             offset: p_offset,
@@ -146,20 +145,16 @@ impl std::fmt::Display for ProgType {
 mod tests {
     use crate::file::Class;
     use crate::gabi;
-    use crate::parse::{Endian, Parse};
+    use crate::parse::{Endian, Parse, Reader};
     use crate::segment::{ProgFlag, ProgType, ProgramHeader};
 
     #[test]
     fn parse_phdr32_fuzz_too_short() {
         let data = [0u8; 32];
         for n in 0..32 {
-            let slice = data.split_at(n).0;
-            assert!(ProgramHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASS32),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            let mut slice = data.split_at(n).0.as_ref();
+            let mut reader = Reader::new(&mut slice, Endian::Little);
+            assert!(ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
         }
     }
 
@@ -170,13 +165,10 @@ mod tests {
             data[n as usize] = n;
         }
 
+        let mut slice = data.as_ref();
+        let mut reader = Reader::new(&mut slice, Endian::Little);
         assert_eq!(
-            ProgramHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASS32),
-                &mut data.as_ref()
-            )
-            .unwrap(),
+            ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
             ProgramHeader {
                 progtype: ProgType(0x03020100),
                 offset: 0x07060504,
@@ -194,13 +186,9 @@ mod tests {
     fn parse_phdr64_fuzz_too_short() {
         let data = [0u8; 56];
         for n in 0..56 {
-            let slice = data.split_at(n).0;
-            assert!(ProgramHeader::parse(
-                Endian::Big,
-                Class(gabi::ELFCLASS64),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            let mut slice = data.split_at(n).0.as_ref();
+            let mut reader = Reader::new(&mut slice, Endian::Big);
+            assert!(ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
         }
     }
 
@@ -211,13 +199,10 @@ mod tests {
             data[n as usize] = n;
         }
 
+        let mut slice = data.as_ref();
+        let mut reader = Reader::new(&mut slice, Endian::Big);
         assert_eq!(
-            ProgramHeader::parse(
-                Endian::Big,
-                Class(gabi::ELFCLASS64),
-                &mut data.as_ref()
-            )
-            .unwrap(),
+            ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
             ProgramHeader {
                 progtype: ProgType(0x00010203),
                 offset: 0x08090A0B0C0D0E0F,

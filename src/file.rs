@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::{Endian, Parse, Reader, ReadExt};
+use crate::parse::{Endian, Reader, ReadExt};
 
 /// Encapsulates the contents of the ELF File Header
 ///
@@ -97,13 +97,8 @@ impl FileHeader {
 
         return Ok(());
     }
-}
 
-impl<R> Parse<R> for FileHeader
-where
-    R: std::io::Read,
-{
-    fn parse(_endian: Endian, _class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
+    pub fn parse<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::ParseError> {
         let mut ident = [0u8; gabi::EI_NIDENT];
         Self::parse_ident(reader, &mut ident)?;
 
@@ -111,7 +106,7 @@ where
         let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB { Endian::Little } else { Endian::Big };
 
         let mut io_r = Reader::new(reader, endian);
-
+    
         let elftype = ObjectFileType(io_r.read_u16()?);
         let arch = Architecture(io_r.read_u16()?);
         let version = io_r.read_u32()?;
@@ -473,7 +468,6 @@ impl std::fmt::Display for Architecture {
 mod tests {
     use crate::file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
     use crate::gabi;
-    use crate::parse::Parse;
 
     #[test]
     fn test_parse_ident_empty_buf_errors() {
@@ -653,12 +647,7 @@ mod tests {
 
         let slice: &mut [u8] = data.as_mut_slice();
         assert_eq!(
-            FileHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASSNONE),
-                &mut slice.as_ref()
-            )
-            .unwrap(),
+            FileHeader::parse(&mut slice.as_ref()).unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS32),
                 endianness: Endian::Little,
@@ -705,12 +694,7 @@ mod tests {
 
         for n in 0..36 {
             let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
-            assert!(FileHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASSNONE),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            assert!(FileHeader::parse(&mut slice.as_ref()).is_err());
         }
     }
 
@@ -741,12 +725,7 @@ mod tests {
 
         let slice: &mut [u8] = data.as_mut_slice();
         assert_eq!(
-            FileHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASSNONE),
-                &mut slice.as_ref()
-            )
-            .unwrap(),
+            FileHeader::parse(&mut slice.as_ref()).unwrap(),
             FileHeader {
                 class: Class(gabi::ELFCLASS64),
                 endianness: Endian::Big,
@@ -793,12 +772,7 @@ mod tests {
 
         for n in 0..48 {
             let slice = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
-            assert!(FileHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASSNONE),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            assert!(FileHeader::parse(&mut slice.as_ref()).is_err());
         }
     }
 }

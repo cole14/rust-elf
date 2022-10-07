@@ -98,9 +98,9 @@ pub fn read_u64<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u64, Par
 }
 
 pub trait Parse<R>: Copy {
-    fn parse(endian: Endian, class: Class, reader: &mut R) -> Result<Self, crate::ParseError>
+    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError>
     where
-        R: std::io::Read;
+        R: ReadExt;
 }
 
 #[cfg(test)]

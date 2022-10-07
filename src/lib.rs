@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use crate::parse::{Endian, Parse, read_u16, read_u32, read_u64};
+use crate::parse::{Parse, Reader, read_u16, read_u32, read_u64};
 
 mod utils;
 
@@ -73,14 +73,15 @@ impl File {
     }
 
     pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
-        let ehdr = file::FileHeader::parse(Endian::Little, file::Class(gabi::ELFCLASSNONE), io_file)?;
+        let ehdr = file::FileHeader::parse(io_file)?;
 
         // Parse the program headers
         io_file.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
         let mut phdrs = Vec::<segment::ProgramHeader>::default();
 
         for _ in 0..ehdr.e_phnum {
-            let phdr = segment::ProgramHeader::parse(ehdr.endianness, ehdr.class, io_file)?;
+            let mut reader = Reader::new(io_file, ehdr.endianness);
+            let phdr = segment::ProgramHeader::parse(ehdr.class, &mut reader)?;
             phdrs.push(phdr);
         }
 
@@ -89,7 +90,8 @@ impl File {
         // Parse the section headers
         io_file.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
-            let shdr = section::SectionHeader::parse(ehdr.endianness, ehdr.class, io_file)?;
+            let mut reader = Reader::new(io_file, ehdr.endianness);
+            let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
             sections.push(
                 Section {
                     name: String::new(),

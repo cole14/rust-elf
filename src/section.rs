@@ -1,6 +1,6 @@
 use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Endian, Parse, Reader, ReadExt};
+use crate::parse::{Parse, ReadExt};
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -29,36 +29,35 @@ pub struct SectionHeader {
 
 impl<R> Parse<R> for SectionHeader
 where
-    R: std::io::Read,
+    R: ReadExt,
 {
-    fn parse(endian: Endian, class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
-        let mut io_r = Reader::new(reader, endian);
+    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
         if class == gabi::ELFCLASS32 {
             return Ok(SectionHeader {
-                sh_name: io_r.read_u32()?,
-                sh_type: SectionType(io_r.read_u32()?),
-                sh_flags: SectionFlag(io_r.read_u32()? as u64),
-                sh_addr: io_r.read_u32()? as u64,
-                sh_offset: io_r.read_u32()? as u64,
-                sh_size: io_r.read_u32()? as u64,
-                sh_link: io_r.read_u32()?,
-                sh_info: io_r.read_u32()?,
-                sh_addralign: io_r.read_u32()? as u64,
-                sh_entsize: io_r.read_u32()? as u64,
+                sh_name: reader.read_u32()?,
+                sh_type: SectionType(reader.read_u32()?),
+                sh_flags: SectionFlag(reader.read_u32()? as u64),
+                sh_addr: reader.read_u32()? as u64,
+                sh_offset: reader.read_u32()? as u64,
+                sh_size: reader.read_u32()? as u64,
+                sh_link: reader.read_u32()?,
+                sh_info: reader.read_u32()?,
+                sh_addralign: reader.read_u32()? as u64,
+                sh_entsize: reader.read_u32()? as u64,
             });
         }
 
         Ok(SectionHeader {
-            sh_name: io_r.read_u32()?,
-            sh_type: SectionType(io_r.read_u32()?),
-            sh_flags: SectionFlag(io_r.read_u64()?),
-            sh_addr: io_r.read_u64()?,
-            sh_offset: io_r.read_u64()?,
-            sh_size: io_r.read_u64()?,
-            sh_link: io_r.read_u32()?,
-            sh_info: io_r.read_u32()?,
-            sh_addralign: io_r.read_u64()?,
-            sh_entsize: io_r.read_u64()?,
+            sh_name: reader.read_u32()?,
+            sh_type: SectionType(reader.read_u32()?),
+            sh_flags: SectionFlag(reader.read_u64()?),
+            sh_addr: reader.read_u64()?,
+            sh_offset: reader.read_u64()?,
+            sh_size: reader.read_u64()?,
+            sh_link: reader.read_u32()?,
+            sh_info: reader.read_u32()?,
+            sh_addralign: reader.read_u64()?,
+            sh_entsize: reader.read_u64()?,
         })
     }
 }
@@ -136,20 +135,16 @@ impl std::fmt::Display for SectionFlag {
 mod tests {
     use crate::file::Class;
     use crate::gabi;
-    use crate::parse::{Endian, Parse};
+    use crate::parse::{Endian, Parse, Reader};
     use crate::section::{SectionFlag, SectionHeader, SectionType};
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
         let data = [0u8; 40];
         for n in 0..40 {
-            let slice = data.split_at(n).0;
-            assert!(SectionHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASS32),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            let mut slice = data.split_at(n).0.as_ref();
+            let mut reader = Reader::new(&mut slice, Endian::Little);
+            assert!(SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
         }
     }
 
@@ -160,13 +155,10 @@ mod tests {
             data[n as usize] = n;
         }
 
+        let mut slice = data.as_ref();
+        let mut reader = Reader::new(&mut slice, Endian::Little);
         assert_eq!(
-            SectionHeader::parse(
-                Endian::Little,
-                Class(gabi::ELFCLASS32),
-                &mut data.as_ref()
-            )
-            .unwrap(),
+            SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
             SectionHeader {
                 sh_name: 0x03020100,
                 sh_type: SectionType(0x07060504),
@@ -186,13 +178,9 @@ mod tests {
     fn parse_shdr64_fuzz_too_short() {
         let data = [0u8; 64];
         for n in 0..64 {
-            let slice = data.split_at(n).0;
-            assert!(SectionHeader::parse(
-                Endian::Big,
-                Class(gabi::ELFCLASS64),
-                &mut slice.as_ref()
-            )
-            .is_err());
+            let mut slice = data.split_at(n).0.as_ref();
+            let mut reader = Reader::new(&mut slice, Endian::Big);
+            assert!(SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
         }
     }
 
@@ -203,13 +191,10 @@ mod tests {
             data[n as usize] = n;
         }
 
+        let mut slice = data.as_ref();
+        let mut reader = Reader::new(&mut slice, Endian::Big);
         assert_eq!(
-            SectionHeader::parse(
-                Endian::Big,
-                Class(gabi::ELFCLASS64),
-                &mut data.as_ref()
-            )
-            .unwrap(),
+            SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
             SectionHeader {
                 sh_name: 0x00010203,
                 sh_type: SectionType(0x04050607),
