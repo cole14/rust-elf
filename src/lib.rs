@@ -74,13 +74,13 @@ impl File {
 
     pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
         let ehdr = file::FileHeader::parse(io_file)?;
+        let mut reader = Reader::new(io_file, ehdr.endianness);
 
         // Parse the program headers
-        io_file.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
+        reader.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
         let mut phdrs = Vec::<segment::ProgramHeader>::default();
 
         for _ in 0..ehdr.e_phnum {
-            let mut reader = Reader::new(io_file, ehdr.endianness);
             let phdr = segment::ProgramHeader::parse(ehdr.class, &mut reader)?;
             phdrs.push(phdr);
         }
@@ -88,9 +88,8 @@ impl File {
         let mut sections = Vec::<Section>::default();
 
         // Parse the section headers
-        io_file.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
+        reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
-            let mut reader = Reader::new(io_file, ehdr.endianness);
             let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
             sections.push(
                 Section {

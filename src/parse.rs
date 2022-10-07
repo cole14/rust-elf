@@ -34,6 +34,10 @@ impl<'data, D: Read + Seek> Reader<'data, D> {
     pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
         Reader{delegate: delegate, endian: endian}
     }
+
+    pub fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, std::io::Error> {
+        self.delegate.seek(pos)
+    }
 }
 
 impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
