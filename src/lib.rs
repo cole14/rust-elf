@@ -13,6 +13,7 @@ pub mod parse;
 use crate::parse::{Parse, Reader, read_u16, read_u32, read_u64};
 
 mod utils;
+mod string_table;
 
 pub struct File {
     pub ehdr: file::FileHeader,
@@ -54,6 +55,12 @@ impl std::error::Error for ParseError {}
 
 impl std::convert::From<std::io::Error> for ParseError {
     fn from(e: std::io::Error) -> Self {
+        ParseError(e.to_string())
+    }
+}
+
+impl std::convert::From<std::str::Utf8Error> for ParseError {
+    fn from(e: std::str::Utf8Error) -> Self {
         ParseError(e.to_string())
     }
 }
