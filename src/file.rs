@@ -1,5 +1,155 @@
+use std::fs;
+use std::io;
+use std::path::Path;
+use std::io::{Read, Seek};
+
 use crate::gabi;
-use crate::parse::{Endian, ParseError, Reader, ReadExt};
+use crate::segment;
+use crate::section;
+use crate::symbol;
+use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader, read_u16, read_u32, read_u64};
+use crate::utils;
+
+pub struct File {
+    pub ehdr: FileHeader,
+    pub phdrs: Vec<segment::ProgramHeader>,
+    pub sections: Vec<section::Section>,
+}
+
+impl std::fmt::Debug for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
+    }
+}
+
+impl std::fmt::Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{{ {} }}", self.ehdr)?;
+        write!(f, "{{ ")?;
+        for phdr in self.phdrs.iter() {
+            write!(f, "{}", phdr)?;
+        }
+        write!(f, " }} {{ ")?;
+        for shdr in self.sections.iter() {
+            write!(f, "{}", shdr)?;
+        }
+        write!(f, " }}")
+    }
+}
+
+impl File {
+    pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
+        // Open the file for reading
+        let mut io_file = fs::File::open(path)?;
+
+        File::open_stream(&mut io_file)
+    }
+
+    pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
+        let ehdr = FileHeader::parse(io_file)?;
+        let mut reader = Reader::new(io_file, ehdr.endianness);
+
+        // Parse the program headers
+        reader.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
+        let mut phdrs = Vec::<segment::ProgramHeader>::default();
+
+        for _ in 0..ehdr.e_phnum {
+            let phdr = segment::ProgramHeader::parse(ehdr.class, &mut reader)?;
+            phdrs.push(phdr);
+        }
+
+        let mut sections = Vec::<section::Section>::default();
+
+        // Parse the section headers
+        reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
+        for _ in 0..ehdr.e_shnum {
+            let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
+            sections.push(
+                section::Section {
+                    name: String::new(),
+                    shdr: shdr,
+                    data: Vec::new(),
+                });
+        }
+
+        // Read the section data
+        for section in sections.iter_mut() {
+            if section.shdr.sh_type == section::SectionType(gabi::SHT_NOBITS) {
+                continue;
+            }
+
+            reader.seek(io::SeekFrom::Start(section.shdr.sh_offset))?;
+            section.data.resize(section.shdr.sh_size as usize, 0u8);
+            reader.read_exact(&mut section.data)?;
+        }
+
+        // Parse the section names from the section header string table
+        for i in 0..sections.len() {
+            let shstr_data = &sections[ehdr.e_shstrndx as usize].data;
+            sections[i].name = utils::get_string(shstr_data, sections[i].shdr.sh_name as usize)?;
+        }
+
+        Ok(File {
+            ehdr: ehdr,
+            phdrs: phdrs,
+            sections: sections
+        })
+    }
+
+    pub fn get_symbols(&self, section: &section::Section) -> Result<Vec<symbol::Symbol>, ParseError> {
+        let mut symbols = Vec::new();
+        if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB) || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM) {
+            let link = &self.sections[section.shdr.sh_link as usize].data;
+            let mut io_section = io::Cursor::new(&section.data);
+            while (io_section.position() as usize) < section.data.len() {
+                self.parse_symbol(&mut io_section, &mut symbols, link)?;
+            }
+        }
+        Ok(symbols)
+    }
+
+    fn parse_symbol<T: Read + Seek>(&self, io_section: &mut T, symbols: &mut Vec<symbol::Symbol>, link: &[u8]) -> Result<(), ParseError> {
+        let name: u32;
+        let value: u64;
+        let size: u64;
+        let shndx: u16;
+        let mut info: [u8; 1] = [0u8];
+        let mut other: [u8; 1] = [0u8];
+
+        if self.ehdr.class == gabi::ELFCLASS32 {
+            name = read_u32(self.ehdr.endianness, io_section)?;
+            value = read_u32(self.ehdr.endianness, io_section)? as u64;
+            size = read_u32(self.ehdr.endianness, io_section)? as u64;
+            io_section.read_exact(&mut info)?;
+            io_section.read_exact(&mut other)?;
+            shndx = read_u16(self.ehdr.endianness, io_section)?;
+        } else {
+            name = read_u32(self.ehdr.endianness, io_section)?;
+            io_section.read_exact(&mut info)?;
+            io_section.read_exact(&mut other)?;
+            shndx = read_u16(self.ehdr.endianness, io_section)?;
+            value = read_u64(self.ehdr.endianness, io_section)?;
+            size = read_u64(self.ehdr.endianness, io_section)?;
+        }
+
+        symbols.push(symbol::Symbol {
+                name:    utils::get_string(link, name as usize)?,
+                value:   value,
+                size:    size,
+                shndx:   shndx,
+                symtype: symbol::SymbolType(info[0] & 0xf),
+                bind:    symbol::SymbolBind(info[0] >> 4),
+                vis:     symbol::SymbolVis(other[0] & 0x3),
+            });
+        Ok(())
+    }
+
+    pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&section::Section> {
+        self.sections
+            .iter()
+            .find(|section| section.name == name.as_ref() )
+    }
+}
 
 /// Encapsulates the contents of the ELF File Header
 ///
@@ -465,7 +615,21 @@ impl std::fmt::Display for Architecture {
 }
 
 #[cfg(test)]
-mod tests {
+mod interface_tests {
+    use std::path::PathBuf;
+    use super::*;
+
+    #[test]
+    fn test_open_path() {
+        let file = File::open_path(PathBuf::from("tests/samples/test1"))
+            .expect("Open test1");
+        let bss = file.get_section(".bss").expect("Get .bss section");
+        assert!(bss.data.iter().all(|&b| b == 0));
+    }
+}
+
+#[cfg(test)]
+mod parse_tests {
     use crate::file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
     use crate::gabi;
     use std::io::Cursor;
