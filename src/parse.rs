@@ -23,6 +23,8 @@ pub trait ReadExt {
     fn read_u16(&mut self) -> Result<u16, ParseError>;
     fn read_u32(&mut self) -> Result<u32, ParseError>;
     fn read_u64(&mut self) -> Result<u64, ParseError>;
+    fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, std::io::Error>;
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error>;
 }
 
 pub struct Reader<'data, D: Read + Seek> {
@@ -33,14 +35,6 @@ pub struct Reader<'data, D: Read + Seek> {
 impl<'data, D: Read + Seek> Reader<'data, D> {
     pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
         Reader{delegate: delegate, endian: endian}
-    }
-
-    pub fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error> {
-        self.delegate.read_exact(buf)
-    }
-
-    pub fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, std::io::Error> {
-        self.delegate.seek(pos)
     }
 }
 
@@ -73,6 +67,14 @@ impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
             Endian::Little => Ok(u64::from_le_bytes(buf)),
             Endian::Big => Ok(u64::from_be_bytes(buf)),
         }
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error> {
+        self.delegate.read_exact(buf)
+    }
+
+    fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, std::io::Error> {
+        self.delegate.seek(pos)
     }
 }
 

@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use crate::parse::{Parse, Reader, read_u16, read_u32, read_u64};
+use crate::parse::{Parse, ReadExt, Reader, read_u16, read_u32, read_u64};
 
 mod utils;
 mod string_table;
