@@ -109,36 +109,6 @@ impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
     }
 }
 
-#[inline]
-pub fn read_u16<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u16, ParseError> {
-    let mut buf = [0u8; 2];
-    io.read_exact(&mut buf)?;
-    match endian {
-        Endian::Little => Ok(u16::from_le_bytes(buf)),
-        Endian::Big => Ok(u16::from_be_bytes(buf)),
-    }
-}
-
-#[inline]
-pub fn read_u32<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u32, ParseError> {
-    let mut buf = [0u8; 4];
-    io.read_exact(&mut buf)?;
-    match endian {
-        Endian::Little => Ok(u32::from_le_bytes(buf)),
-        Endian::Big => Ok(u32::from_be_bytes(buf)),
-    }
-}
-
-#[inline]
-pub fn read_u64<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u64, ParseError> {
-    let mut buf = [0u8; 8];
-    io.read_exact(&mut buf)?;
-    match endian {
-        Endian::Little => Ok(u64::from_le_bytes(buf)),
-        Endian::Big => Ok(u64::from_be_bytes(buf)),
-    }
-}
-
 pub trait Parse<R>: Sized {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError>
     where
@@ -152,42 +122,72 @@ mod tests {
     #[test]
     fn test_read_u16_lsb() {
         let data = [0x10u8, 0x20u8];
-        let result = read_u16(Endian::Little, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u16().unwrap();
         assert_eq!(result, 0x2010u16);
     }
 
     #[test]
     fn test_read_u16_msb() {
         let data = [0x10u8, 0x20u8];
-        let result = read_u16(Endian::Big, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Big,
+        };
+        let result = reader.read_u16().unwrap();
         assert_eq!(result, 0x1020u16);
     }
 
     #[test]
     fn test_read_u16_too_short() {
         let data = [0x10u8];
-        let result: Result<u16, ParseError> = read_u16(Endian::Little, &mut data.as_ref());
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u16();
         assert!(result.is_err());
     }
 
     #[test]
     fn test_read_u32_lsb() {
         let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let result = read_u32(Endian::Little, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u32().unwrap();
         assert_eq!(result, 0x40302010u32);
     }
 
     #[test]
     fn test_read_u32_msb() {
         let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let result = read_u32(Endian::Big, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Big,
+        };
+        let result = reader.read_u32().unwrap();
         assert_eq!(result, 0x10203040u32);
     }
 
     #[test]
     fn test_read_u32_too_short() {
         let data = [0x10u8, 0x20u8];
-        let result: Result<u32, ParseError> = read_u32(Endian::Little, &mut data.as_ref());
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u32();
         assert!(result.is_err());
     }
 
@@ -196,7 +196,12 @@ mod tests {
         let data = [
             0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
         ];
-        let result = read_u64(Endian::Little, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u64().unwrap();
         assert_eq!(result, 0x8070605040302010u64);
     }
 
@@ -205,14 +210,24 @@ mod tests {
         let data = [
             0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
         ];
-        let result = read_u64(Endian::Big, &mut data.as_ref()).unwrap();
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Big,
+        };
+        let result = reader.read_u64().unwrap();
         assert_eq!(result, 0x1020304050607080u64);
     }
 
     #[test]
     fn test_read_u64_too_short() {
         let data = [0x10u8, 0x20u8];
-        let result: Result<u64, ParseError> = read_u64(Endian::Little, &mut data.as_ref());
+        let mut cur = std::io::Cursor::new(data.as_ref());
+        let mut reader = Reader {
+            delegate: &mut cur,
+            endian: Endian::Little,
+        };
+        let result = reader.read_u64();
         assert!(result.is_err());
     }
 }

@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 use std::path::Path;
 
 use crate::gabi;
-use crate::parse::{read_u16, read_u32, read_u64, Endian, Parse, ParseError, ReadExt, Reader};
+use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
 use crate::section;
 use crate::segment;
 use crate::symbol;
@@ -104,17 +104,22 @@ impl File {
             || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM)
         {
             let link = &self.sections[section.shdr.sh_link as usize].data;
-            let mut io_section = io::Cursor::new(&section.data);
-            while (io_section.position() as usize) < section.data.len() {
-                self.parse_symbol(&mut io_section, &mut symbols, link)?;
+
+            let slice = section.data.as_slice();
+            let mut cur = io::Cursor::new(slice.as_ref());
+            let mut reader = Reader::new(&mut cur, self.ehdr.endianness);
+
+            let num_symbols = section.shdr.sh_size / section.shdr.sh_entsize;
+            for _ in 0..num_symbols {
+                self.parse_symbol(&mut reader, &mut symbols, link)?;
             }
         }
         Ok(symbols)
     }
 
-    fn parse_symbol<T: Read + Seek>(
+    fn parse_symbol<R: ReadExt>(
         &self,
-        io_section: &mut T,
+        reader: &mut R,
         symbols: &mut Vec<symbol::Symbol>,
         link: &[u8],
     ) -> Result<(), ParseError> {
@@ -126,19 +131,19 @@ impl File {
         let mut other: [u8; 1] = [0u8];
 
         if self.ehdr.class == gabi::ELFCLASS32 {
-            name = read_u32(self.ehdr.endianness, io_section)?;
-            value = read_u32(self.ehdr.endianness, io_section)? as u64;
-            size = read_u32(self.ehdr.endianness, io_section)? as u64;
-            io_section.read_exact(&mut info)?;
-            io_section.read_exact(&mut other)?;
-            shndx = read_u16(self.ehdr.endianness, io_section)?;
+            name = reader.read_u32()?;
+            value = reader.read_u32()? as u64;
+            size = reader.read_u32()? as u64;
+            reader.read_exact(&mut info)?;
+            reader.read_exact(&mut other)?;
+            shndx = reader.read_u16()?;
         } else {
-            name = read_u32(self.ehdr.endianness, io_section)?;
-            io_section.read_exact(&mut info)?;
-            io_section.read_exact(&mut other)?;
-            shndx = read_u16(self.ehdr.endianness, io_section)?;
-            value = read_u64(self.ehdr.endianness, io_section)?;
-            size = read_u64(self.ehdr.endianness, io_section)?;
+            name = reader.read_u32()?;
+            reader.read_exact(&mut info)?;
+            reader.read_exact(&mut other)?;
+            shndx = reader.read_u16()?;
+            value = reader.read_u64()?;
+            size = reader.read_u64()?;
         }
 
         symbols.push(symbol::Symbol {
