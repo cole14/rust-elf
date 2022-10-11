@@ -34,7 +34,7 @@ impl std::convert::From<std::string::FromUtf8Error> for ParseError {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Endian {
     Little,
-    Big
+    Big,
 }
 
 impl std::fmt::Display for Endian {
@@ -62,7 +62,10 @@ pub struct Reader<'data, D: Read + Seek> {
 
 impl<'data, D: Read + Seek> Reader<'data, D> {
     pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
-        Reader{delegate: delegate, endian: endian}
+        Reader {
+            delegate: delegate,
+            endian: endian,
+        }
     }
 }
 

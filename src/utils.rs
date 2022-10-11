@@ -1,4 +1,3 @@
-
 use std;
 pub fn get_string(data: &[u8], start: usize) -> Result<String, std::string::FromUtf8Error> {
     let mut end: usize = 0;

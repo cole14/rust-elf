@@ -1,13 +1,13 @@
 use std::fs;
 use std::io;
-use std::path::Path;
 use std::io::{Read, Seek};
+use std::path::Path;
 
 use crate::gabi;
-use crate::segment;
+use crate::parse::{read_u16, read_u32, read_u64, Endian, Parse, ParseError, ReadExt, Reader};
 use crate::section;
+use crate::segment;
 use crate::symbol;
-use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader, read_u16, read_u32, read_u64};
 use crate::utils;
 
 pub struct File {
@@ -64,12 +64,11 @@ impl File {
         reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
             let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
-            sections.push(
-                section::Section {
-                    name: String::new(),
-                    shdr: shdr,
-                    data: Vec::new(),
-                });
+            sections.push(section::Section {
+                name: String::new(),
+                shdr: shdr,
+                data: Vec::new(),
+            });
         }
 
         // Read the section data
@@ -92,13 +91,18 @@ impl File {
         Ok(File {
             ehdr: ehdr,
             phdrs: phdrs,
-            sections: sections
+            sections: sections,
         })
     }
 
-    pub fn get_symbols(&self, section: &section::Section) -> Result<Vec<symbol::Symbol>, ParseError> {
+    pub fn get_symbols(
+        &self,
+        section: &section::Section,
+    ) -> Result<Vec<symbol::Symbol>, ParseError> {
         let mut symbols = Vec::new();
-        if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB) || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM) {
+        if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB)
+            || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM)
+        {
             let link = &self.sections[section.shdr.sh_link as usize].data;
             let mut io_section = io::Cursor::new(&section.data);
             while (io_section.position() as usize) < section.data.len() {
@@ -108,7 +112,12 @@ impl File {
         Ok(symbols)
     }
 
-    fn parse_symbol<T: Read + Seek>(&self, io_section: &mut T, symbols: &mut Vec<symbol::Symbol>, link: &[u8]) -> Result<(), ParseError> {
+    fn parse_symbol<T: Read + Seek>(
+        &self,
+        io_section: &mut T,
+        symbols: &mut Vec<symbol::Symbol>,
+        link: &[u8],
+    ) -> Result<(), ParseError> {
         let name: u32;
         let value: u64;
         let size: u64;
@@ -133,21 +142,21 @@ impl File {
         }
 
         symbols.push(symbol::Symbol {
-                name:    utils::get_string(link, name as usize)?,
-                value:   value,
-                size:    size,
-                shndx:   shndx,
-                symtype: symbol::SymbolType(info[0] & 0xf),
-                bind:    symbol::SymbolBind(info[0] >> 4),
-                vis:     symbol::SymbolVis(other[0] & 0x3),
-            });
+            name: utils::get_string(link, name as usize)?,
+            value: value,
+            size: size,
+            shndx: shndx,
+            symtype: symbol::SymbolType(info[0] & 0xf),
+            bind: symbol::SymbolBind(info[0] >> 4),
+            vis: symbol::SymbolVis(other[0] & 0x3),
+        });
         Ok(())
     }
 
     pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&section::Section> {
         self.sections
             .iter()
-            .find(|section| section.name == name.as_ref() )
+            .find(|section| section.name == name.as_ref())
     }
 }
 
@@ -232,9 +241,7 @@ impl FileHeader {
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
-            return Err(ParseError(format!(
-                "Unsupported ELF Version: {version:?}"
-            )));
+            return Err(ParseError(format!("Unsupported ELF Version: {version:?}")));
         }
 
         // Verify endianness is something we know how to parse
@@ -242,7 +249,7 @@ impl FileHeader {
         if endian != gabi::ELFDATA2LSB && endian != gabi::ELFDATA2MSB {
             return Err(ParseError(format!(
                 "Unsupported ELF Endianness: {endian:?}"
-            )))
+            )));
         }
 
         return Ok(());
@@ -253,10 +260,14 @@ impl FileHeader {
         Self::parse_ident(reader, &mut ident)?;
 
         let class = Class(ident[gabi::EI_CLASS]);
-        let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB { Endian::Little } else { Endian::Big };
+        let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB {
+            Endian::Little
+        } else {
+            Endian::Big
+        };
 
         let mut io_r = Reader::new(reader, endian);
-    
+
         let elftype = ObjectFileType(io_r.read_u16()?);
         let arch = Architecture(io_r.read_u16()?);
         let version = io_r.read_u32()?;
@@ -616,13 +627,12 @@ impl std::fmt::Display for Architecture {
 
 #[cfg(test)]
 mod interface_tests {
-    use std::path::PathBuf;
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_open_path() {
-        let file = File::open_path(PathBuf::from("tests/samples/test1"))
-            .expect("Open test1");
+        let file = File::open_path(PathBuf::from("tests/samples/test1")).expect("Open test1");
         let bss = file.get_section(".bss").expect("Get .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
     }
