@@ -10,7 +10,7 @@ pub mod section;
 pub mod symbol;
 pub mod parse;
 
-use crate::parse::{Parse, ReadExt, Reader, read_u16, read_u32, read_u64};
+use crate::parse::{Parse, ParseError, ReadExt, Reader, read_u16, read_u32, read_u64};
 
 mod utils;
 mod string_table;
@@ -39,35 +39,6 @@ impl std::fmt::Display for File {
             write!(f, "{}", shdr)?;
         }
         write!(f, " }}")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseError(String);
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for ParseError {}
-
-impl std::convert::From<std::io::Error> for ParseError {
-    fn from(e: std::io::Error) -> Self {
-        ParseError(e.to_string())
-    }
-}
-
-impl std::convert::From<std::str::Utf8Error> for ParseError {
-    fn from(e: std::str::Utf8Error) -> Self {
-        ParseError(e.to_string())
-    }
-}
-
-impl std::convert::From<std::string::FromUtf8Error> for ParseError {
-    fn from(e: std::string::FromUtf8Error) -> Self {
-        ParseError(e.to_string())
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Parse, ReadExt};
+use crate::parse::{Parse, ParseError, ReadExt};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -30,7 +30,7 @@ impl<R> Parse<R> for ProgramHeader
 where
     R: ReadExt,
 {
-    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
+    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
         if class == gabi::ELFCLASS32 {
             let p_type = reader.read_u32()?;
             let p_offset = reader.read_u32()?;

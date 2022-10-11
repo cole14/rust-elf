@@ -1,4 +1,4 @@
-use crate::ParseError;
+use crate::parse::ParseError;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StringTable<'data> {

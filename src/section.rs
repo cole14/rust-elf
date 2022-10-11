@@ -1,6 +1,6 @@
 use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Parse, ReadExt};
+use crate::parse::{Parse, ParseError, ReadExt};
 
 #[derive(Debug)]
 pub struct Section {
@@ -44,7 +44,7 @@ impl<R> Parse<R> for SectionHeader
 where
     R: ReadExt,
 {
-    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError> {
+    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
         if class == gabi::ELFCLASS32 {
             return Ok(SectionHeader {
                 sh_name: reader.read_u32()?,

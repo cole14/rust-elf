@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::{Endian, Reader, ReadExt};
+use crate::parse::{Endian, ParseError, Reader, ReadExt};
 
 /// Encapsulates the contents of the ELF File Header
 ///
@@ -70,19 +70,19 @@ impl FileHeader {
     fn parse_ident<R: std::io::Read>(
         io_file: &mut R,
         buf: &mut [u8; gabi::EI_NIDENT],
-    ) -> Result<(), crate::ParseError> {
+    ) -> Result<(), ParseError> {
         io_file.read_exact(buf)?;
 
         // Verify the magic number
         let magic = buf.split_at(gabi::EI_CLASS).0;
         if magic != gabi::ELFMAGIC {
-            return Err(crate::ParseError(format!("Invalid Magic Bytes: {magic:?}")));
+            return Err(ParseError(format!("Invalid Magic Bytes: {magic:?}")));
         }
 
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
-            return Err(crate::ParseError(format!(
+            return Err(ParseError(format!(
                 "Unsupported ELF Version: {version:?}"
             )));
         }
@@ -90,7 +90,7 @@ impl FileHeader {
         // Verify endianness is something we know how to parse
         let endian = buf[gabi::EI_DATA];
         if endian != gabi::ELFDATA2LSB && endian != gabi::ELFDATA2MSB {
-            return Err(crate::ParseError(format!(
+            return Err(ParseError(format!(
                 "Unsupported ELF Endianness: {endian:?}"
             )))
         }
@@ -98,7 +98,7 @@ impl FileHeader {
         return Ok(());
     }
 
-    pub fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Result<Self, crate::ParseError> {
+    pub fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Result<Self, ParseError> {
         let mut ident = [0u8; gabi::EI_NIDENT];
         Self::parse_ident(reader, &mut ident)?;
 

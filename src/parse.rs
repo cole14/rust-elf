@@ -1,6 +1,34 @@
 use crate::file::Class;
-use crate::ParseError;
 use std::io::{Read, Seek};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseError(pub String);
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ParseError {}
+
+impl std::convert::From<std::io::Error> for ParseError {
+    fn from(e: std::io::Error) -> Self {
+        ParseError(e.to_string())
+    }
+}
+
+impl std::convert::From<std::str::Utf8Error> for ParseError {
+    fn from(e: std::str::Utf8Error) -> Self {
+        ParseError(e.to_string())
+    }
+}
+
+impl std::convert::From<std::string::FromUtf8Error> for ParseError {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        ParseError(e.to_string())
+    }
+}
 
 /// Represents the ELF file data format (little-endian vs big-endian)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -109,7 +137,7 @@ pub fn read_u64<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u64, Par
 }
 
 pub trait Parse<R>: Sized {
-    fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError>
+    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError>
     where
         R: ReadExt;
 }
