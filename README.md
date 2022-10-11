@@ -12,19 +12,26 @@ Pure-Rust library for parsing ELF files
 ```rust
 extern crate elf;
 
-use std::path::PathBuf;
+fn main() {
+    let path: std::path::PathBuf = From::from("some_file");
+    let mut io = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) => panic!("Error: {:?}", e),
+    };
 
-let path = PathBuf::from("/some/file/path");
-let file = match elf::File::open_path(&path) {
-    Ok(f) => f,
-    Err(e) => panic!("Error: {:?}", e),
-};
+    let elf_file = match elf::File::open_stream(&mut io) {
+        Ok(f) => f,
+        Err(e) => panic!("Error: {:?}", e),
+    };
 
-let text_scn = match file.get_section(".text") {
-    Some(s) => s,
-    None => panic!("Failed to look up .text section"),
-};
+    println!("ELF: {}", elf_file.ehdr);
 
-println!("{:?}", text_scn.data);
+    let text_scn = match elf_file.get_section(".text") {
+        Some(s) => s,
+        None => panic!("Failed to find .text section"),
+    };
+
+    println!("{:?}", text_scn.data);
+}
 
 ```
