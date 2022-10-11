@@ -108,7 +108,7 @@ pub fn read_u64<T: std::io::Read>(endian: Endian, io: &mut T) -> Result<u64, Par
     }
 }
 
-pub trait Parse<R>: Copy {
+pub trait Parse<R>: Sized {
     fn parse(class: Class, reader: &mut R) -> Result<Self, crate::ParseError>
     where
         R: ReadExt;

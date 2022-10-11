@@ -18,7 +18,7 @@ mod string_table;
 pub struct File {
     pub ehdr: file::FileHeader,
     pub phdrs: Vec<segment::ProgramHeader>,
-    pub sections: Vec<Section>,
+    pub sections: Vec<section::Section>,
 }
 
 impl std::fmt::Debug for File {
@@ -92,14 +92,14 @@ impl File {
             phdrs.push(phdr);
         }
 
-        let mut sections = Vec::<Section>::default();
+        let mut sections = Vec::<section::Section>::default();
 
         // Parse the section headers
         reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
             let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
             sections.push(
-                Section {
+                section::Section {
                     name: String::new(),
                     shdr: shdr,
                     data: Vec::new(),
@@ -130,7 +130,7 @@ impl File {
         })
     }
 
-    pub fn get_symbols(&self, section: &Section) -> Result<Vec<symbol::Symbol>, ParseError> {
+    pub fn get_symbols(&self, section: &section::Section) -> Result<Vec<symbol::Symbol>, ParseError> {
         let mut symbols = Vec::new();
         if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB) || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM) {
             let link = &self.sections[section.shdr.sh_link as usize].data;
@@ -178,23 +178,10 @@ impl File {
         Ok(())
     }
 
-    pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&Section> {
+    pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&section::Section> {
         self.sections
             .iter()
             .find(|section| section.name == name.as_ref() )
-    }
-}
-
-#[derive(Debug)]
-pub struct Section {
-    pub name: String,
-    pub shdr: section::SectionHeader,
-    pub data: Vec<u8>,
-}
-
-impl std::fmt::Display for Section {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.shdr)
     }
 }
 

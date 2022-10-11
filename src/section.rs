@@ -2,6 +2,19 @@ use crate::file::Class;
 use crate::gabi;
 use crate::parse::{Parse, ReadExt};
 
+#[derive(Debug)]
+pub struct Section {
+    pub name: String,
+    pub shdr: SectionHeader,
+    pub data: Vec<u8>,
+}
+
+impl std::fmt::Display for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.shdr)
+    }
+}
+
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SectionHeader {
