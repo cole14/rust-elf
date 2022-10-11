@@ -13,7 +13,7 @@ use crate::utils;
 pub struct File {
     pub ehdr: FileHeader,
     pub phdrs: Vec<segment::ProgramHeader>,
-    pub sections: Vec<section::Section>,
+    pub sections: section::SectionTable,
 }
 
 impl std::fmt::Debug for File {
@@ -24,16 +24,17 @@ impl std::fmt::Debug for File {
 
 impl std::fmt::Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{{ {} }}", self.ehdr)?;
-        write!(f, "{{ ")?;
+        writeln!(f, "{{ {} }}", self.ehdr)?;
+        writeln!(f, "{{ ")?;
         for phdr in self.phdrs.iter() {
-            write!(f, "{}", phdr)?;
+            writeln!(f, "    {}, ", phdr)?;
         }
-        write!(f, " }} {{ ")?;
+        writeln!(f, "}}")?;
+        writeln!(f, "{{")?;
         for shdr in self.sections.iter() {
-            write!(f, "{}", shdr)?;
+            writeln!(f, "    {}, ", shdr)?;
         }
-        write!(f, " }}")
+        write!(f, "}}")
     }
 }
 
@@ -58,40 +59,37 @@ impl File {
             phdrs.push(phdr);
         }
 
-        let mut sections = Vec::<section::Section>::default();
+        let mut headers = Vec::<section::SectionHeader>::with_capacity(ehdr.e_shnum as usize);
+        let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
 
         // Parse the section headers
         reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
             let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
-            sections.push(section::Section {
-                name: String::new(),
-                shdr: shdr,
-                data: Vec::new(),
-            });
+            headers.push(shdr);
         }
 
         // Read the section data
-        for section in sections.iter_mut() {
-            if section.shdr.sh_type == section::SectionType(gabi::SHT_NOBITS) {
-                continue;
+        for i in 0..ehdr.e_shnum as usize {
+            let shdr = headers[i];
+            let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
+
+            if shdr.sh_type != section::SectionType(gabi::SHT_NOBITS) {
+                reader.seek(io::SeekFrom::Start(shdr.sh_offset))?;
+
+                data.resize(shdr.sh_size as usize, 0u8);
+                reader.read_exact(&mut data)?;
             }
 
-            reader.seek(io::SeekFrom::Start(section.shdr.sh_offset))?;
-            section.data.resize(section.shdr.sh_size as usize, 0u8);
-            reader.read_exact(&mut section.data)?;
+            section_data.push(data);
         }
 
-        // Parse the section names from the section header string table
-        for i in 0..sections.len() {
-            let shstr_data = &sections[ehdr.e_shstrndx as usize].data;
-            sections[i].name = utils::get_string(shstr_data, sections[i].shdr.sh_name as usize)?;
-        }
+        let table = section::SectionTable::new(headers, section_data, ehdr.e_shstrndx as usize);
 
         Ok(File {
             ehdr: ehdr,
             phdrs: phdrs,
-            sections: sections,
+            sections: table,
         })
     }
 
@@ -103,10 +101,9 @@ impl File {
         if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB)
             || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM)
         {
-            let link = &self.sections[section.shdr.sh_link as usize].data;
+            let link = &self.sections.get(section.shdr.sh_link as usize)?.data;
 
-            let slice = section.data.as_slice();
-            let mut cur = io::Cursor::new(slice.as_ref());
+            let mut cur = io::Cursor::new(section.data.as_ref());
             let mut reader = Reader::new(&mut cur, self.ehdr.endianness);
 
             let num_symbols = section.shdr.sh_size / section.shdr.sh_entsize;
@@ -158,10 +155,8 @@ impl File {
         Ok(())
     }
 
-    pub fn get_section<T: AsRef<str>>(&self, name: T) -> Option<&section::Section> {
-        self.sections
-            .iter()
-            .find(|section| section.name == name.as_ref())
+    pub fn get_section(&self, name: &str) -> Option<section::Section> {
+        self.sections.get_by_name(name)
     }
 }
 
@@ -638,7 +633,9 @@ mod interface_tests {
     #[test]
     fn test_open_path() {
         let file = File::open_path(PathBuf::from("tests/samples/test1")).expect("Open test1");
-        let bss = file.get_section(".bss").expect("Get .bss section");
+        let bss = file
+            .get_section(".bss")
+            .expect("Could not find .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
     }
 }

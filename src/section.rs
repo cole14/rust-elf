@@ -1,15 +1,104 @@
 use crate::file::Class;
 use crate::gabi;
 use crate::parse::{Parse, ParseError, ReadExt};
+use crate::string_table::StringTable;
 
 #[derive(Debug)]
-pub struct Section {
-    pub name: String,
-    pub shdr: SectionHeader,
-    pub data: Vec<u8>,
+pub struct SectionTable {
+    headers: Vec<SectionHeader>,
+    section_data: Vec<Vec<u8>>,
+    sh_strndx: usize,
 }
 
-impl std::fmt::Display for Section {
+impl SectionTable {
+    pub fn new(headers: Vec<SectionHeader>, section_data: Vec<Vec<u8>>, sh_strndx: usize) -> Self {
+        SectionTable {
+            headers,
+            section_data,
+            sh_strndx,
+        }
+    }
+
+    pub fn get(&self, index: usize) -> Result<Section, ParseError> {
+        let table_size = self.headers.len();
+        let shdr = self.headers.get(index).ok_or(ParseError(format!(
+            "Invalid section table index: {index} table_size: {table_size}"
+        )))?;
+        let data = self.section_data.get(index).ok_or(ParseError(format!(
+            "Invalid section table index: {index} table_size: {table_size}"
+        )))?;
+
+        Ok(Section { shdr, data })
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<Section> {
+        let strings_scn = self.get(self.sh_strndx);
+        if strings_scn.is_err() {
+            return None;
+        }
+
+        let strings = StringTable::new(strings_scn.unwrap().data);
+
+        match core::iter::zip(&self.headers, &self.section_data)
+            .find(|(shdr, _)| strings.get(shdr.sh_name as usize) == Ok(name))
+        {
+            Some((shdr, data)) => Some(Section { shdr, data }),
+            None => None,
+        }
+    }
+
+    pub fn iter(&self) -> SectionTableIterator {
+        SectionTableIterator::new(self)
+    }
+}
+
+impl Default for SectionTable {
+    fn default() -> Self {
+        SectionTable {
+            headers: Vec::<SectionHeader>::default(),
+            section_data: Vec::<Vec<u8>>::default(),
+            sh_strndx: 0,
+        }
+    }
+}
+
+pub struct SectionTableIterator<'data> {
+    table: &'data SectionTable,
+    idx: usize,
+}
+
+impl<'data> SectionTableIterator<'data> {
+    pub fn new(table: &'data SectionTable) -> Self {
+        SectionTableIterator {
+            table: table,
+            idx: 0,
+        }
+    }
+}
+
+impl<'data> Iterator for SectionTableIterator<'data> {
+    type Item = Section<'data>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx == self.table.headers.len() {
+            return None;
+        }
+        let idx = self.idx;
+        self.idx += 1;
+        Some(Section {
+            shdr: &self.table.headers[idx],
+            data: &self.table.section_data[idx],
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Section<'data> {
+    pub shdr: &'data SectionHeader,
+    pub data: &'data [u8],
+}
+
+impl<'data> std::fmt::Display for Section<'data> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.shdr)
     }
@@ -145,7 +234,80 @@ impl std::fmt::Display for SectionFlag {
 }
 
 #[cfg(test)]
-mod tests {
+mod table_tests {
+    use super::*;
+    use crate::gabi;
+
+    #[test]
+    fn get_on_empty_table() {
+        let table = SectionTable::default();
+        assert!(table.get(0).is_err());
+        assert!(table.get(42).is_err());
+    }
+
+    #[test]
+    fn get_by_name_does_not_exist() {
+        let table = SectionTable::default();
+        assert!(table.get_by_name(".footab").is_none());
+    }
+
+    #[test]
+    fn get_variants_work() {
+        // Set up 1 .bss section, 1 .strtab section
+        let mut headers = Vec::<SectionHeader>::with_capacity(2);
+        headers.push(SectionHeader {
+            sh_name: 1,
+            sh_type: SectionType(gabi::SHT_NOBITS),
+            sh_flags: SectionFlag(0),
+            sh_addr: 0,
+            sh_offset: 0,
+            sh_size: 0,
+            sh_link: 0,
+            sh_info: 0,
+            sh_addralign: 0,
+            sh_entsize: 0,
+        });
+        headers.push(SectionHeader {
+            sh_name: 6,
+            sh_type: SectionType(gabi::SHT_STRTAB),
+            sh_flags: SectionFlag(0),
+            sh_addr: 0,
+            sh_offset: 0,
+            sh_size: 0,
+            sh_link: 0,
+            sh_info: 0,
+            sh_addralign: 0,
+            sh_entsize: 0,
+        });
+
+        let mut section_data = Vec::<Vec<u8>>::with_capacity(2);
+        // .bss section has no data
+        section_data.push(Vec::<u8>::default());
+        // .strtab is the string table
+        section_data.push(vec![
+            0u8, 0x2E, 0x62, 0x73, 0x73, 0u8, 0x2E, 0x73, 0x74, 0x72, 0x74, 0x61, 0x62, 0u8,
+        ]);
+
+        // SUT
+        let table = SectionTable::new(headers, section_data, 1);
+
+        let bss_by_name = table.get_by_name(".bss").expect("Couldn't find .bss");
+        assert_eq!(bss_by_name.shdr.sh_type, SectionType(gabi::SHT_NOBITS));
+        assert_eq!(bss_by_name.data.len(), 0);
+
+        let strtab_by_name = table.get_by_name(".strtab").expect("Couldn't find .strtab");
+        assert_eq!(strtab_by_name.shdr.sh_type, SectionType(gabi::SHT_STRTAB));
+        assert_eq!(strtab_by_name.data.len(), 14);
+
+        let bss_by_index = table.get(0).expect("Couldn't find .bss");
+        let strtab_by_index = table.get(1).expect("Couldn't find .strtab");
+        assert_eq!(bss_by_index, bss_by_name);
+        assert_eq!(strtab_by_index, strtab_by_name);
+    }
+}
+
+#[cfg(test)]
+mod shdr_tests {
     use crate::file::Class;
     use crate::gabi;
     use crate::parse::{Endian, Parse, Reader};

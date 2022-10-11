@@ -2,17 +2,14 @@ use crate::parse::ParseError;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StringTable<'data> {
-    #[allow(dead_code)]
     data: Option<&'data [u8]>,
 }
 
 impl<'data> StringTable<'data> {
-    #[allow(dead_code)]
     pub fn new(data: &'data [u8]) -> Self {
         StringTable { data: Some(data) }
     }
 
-    #[allow(dead_code)]
     pub fn get(&self, offset: usize) -> Result<&'data str, ParseError> {
         if self.data.is_none() {
             return Err(ParseError(format!(
