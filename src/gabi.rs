@@ -436,6 +436,10 @@ pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe;
 /// Version symbol table
 pub const SHT_GNU_VERSYM: u32 = 0x6fffffff;
 
+/// This value marks an undefined, missing, irrelevant, or otherwise meaningless
+/// section reference.
+pub const SHN_UNDEF: u16 = 0;
+
 /// SHF_* define constants for the ELF Section Header's sh_flags field.
 /// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Xword in Elf64_Ehdr which
 /// are both 4-byte and 8-byte unsigned integers, respectively.

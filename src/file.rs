@@ -58,6 +58,20 @@ impl File {
         })
     }
 
+    pub fn get_section(&self, name: &str) -> Option<section::Section> {
+        self.sections.get_by_name(name)
+    }
+
+    /// Get the string table for the section headers
+    pub fn section_strtab<'data>(&'data self) -> Result<StringTable<'data>, ParseError> {
+        if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
+            return Ok(StringTable::default());
+        }
+
+        let strtab_section = self.sections.get(self.ehdr.e_shstrndx as usize)?;
+        Ok(StringTable::new(strtab_section.data))
+    }
+
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
@@ -112,10 +126,6 @@ impl File {
             }
             None => Ok(None),
         };
-    }
-
-    pub fn get_section(&self, name: &str) -> Option<section::Section> {
-        self.sections.get_by_name(name)
     }
 }
 
