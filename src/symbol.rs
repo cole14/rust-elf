@@ -114,19 +114,62 @@ impl<'data> Iterator for SymbolTableIterator<'data> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
-    pub name: u32,
-    /// Symbol value
-    pub value: u64,
-    /// Symbol size
-    pub size: u64,
-    /// Section index
-    pub shndx: u16,
-    /// Symbol type
-    pub symtype: SymbolType,
-    /// Symbol binding
-    pub bind: SymbolBind,
-    /// Symbol visibility
-    pub vis: SymbolVis,
+    /// This member holds an index into the symbol table's string table,
+    /// which holds the character representations of the symbol names. If the
+    /// value is non-zero, it represents a string table index that gives the
+    /// symbol name. Otherwise, the symbol table entry has no name.
+    pub st_name: u32,
+
+    /// Every symbol table entry is defined in relation to some section. This
+    /// member holds the relevant section header table index. As the sh_link and
+    /// sh_info interpretation table and the related text describe, some section
+    /// indexes indicate special meanings.
+    ///
+    /// If this member contains SHN_XINDEX, then the actual section header index
+    /// is too large to fit in this field. The actual value is contained in the
+    /// associated section of type SHT_SYMTAB_SHNDX.
+    pub st_shndx: u16,
+
+    /// This member specifies the symbol's type and binding attributes.
+    st_info: u8,
+
+    /// This member currently specifies a symbol's visibility.
+    st_other: u8,
+
+    /// This member gives the value of the associated symbol. Depending on the
+    /// context, this may be an absolute value, an address, and so on.
+    ///
+    /// * In relocatable files, st_value holds alignment constraints for a
+    ///   symbol whose section index is SHN_COMMON.
+    /// * In relocatable files, st_value holds a section offset for a defined
+    ///   symbol. st_value is an offset from the beginning of the section that
+    ///   st_shndx identifies.
+    /// * In executable and shared object files, st_value holds a virtual
+    ///   address. To make these files' symbols more useful for the dynamic
+    ///   linker, the section offset (file interpretation) gives way to a
+    ///   virtual address (memory interpretation) for which the section number
+    ///   is irrelevant.
+    pub st_value: u64,
+
+    /// This member gives the symbol's size.
+    /// For example, a data object's size is the number of bytes contained in
+    /// the object. This member holds 0 if the symbol has no size or an unknown
+    /// size.
+    pub st_size: u64,
+}
+
+impl Symbol {
+    pub fn st_symtype(&self) -> SymbolType {
+        SymbolType(self.st_info & 0xf)
+    }
+
+    pub fn st_bind(&self) -> SymbolBind {
+        SymbolBind(self.st_info >> 4)
+    }
+
+    pub fn st_vis(&self) -> SymbolVis {
+        SymbolVis(self.st_other & 0x3)
+    }
 }
 
 impl<R> Parse<R> for Symbol
@@ -134,37 +177,36 @@ where
     R: ReadExt,
 {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
-        let name: u32;
-        let value: u64;
-        let size: u64;
-        let shndx: u16;
-        let mut info: [u8; 1] = [0u8];
-        let mut other: [u8; 1] = [0u8];
+        let st_name: u32;
+        let st_value: u64;
+        let st_size: u64;
+        let st_shndx: u16;
+        let mut st_info: [u8; 1] = [0u8];
+        let mut st_other: [u8; 1] = [0u8];
 
         if class == gabi::ELFCLASS32 {
-            name = reader.read_u32()?;
-            value = reader.read_u32()? as u64;
-            size = reader.read_u32()? as u64;
-            reader.read_exact(&mut info)?;
-            reader.read_exact(&mut other)?;
-            shndx = reader.read_u16()?;
+            st_name = reader.read_u32()?;
+            st_value = reader.read_u32()? as u64;
+            st_size = reader.read_u32()? as u64;
+            reader.read_exact(&mut st_info)?;
+            reader.read_exact(&mut st_other)?;
+            st_shndx = reader.read_u16()?;
         } else {
-            name = reader.read_u32()?;
-            reader.read_exact(&mut info)?;
-            reader.read_exact(&mut other)?;
-            shndx = reader.read_u16()?;
-            value = reader.read_u64()?;
-            size = reader.read_u64()?;
+            st_name = reader.read_u32()?;
+            reader.read_exact(&mut st_info)?;
+            reader.read_exact(&mut st_other)?;
+            st_shndx = reader.read_u16()?;
+            st_value = reader.read_u64()?;
+            st_size = reader.read_u64()?;
         }
 
         Ok(Symbol {
-            name: name,
-            value: value,
-            size: size,
-            shndx: shndx,
-            symtype: SymbolType(info[0] & 0xf),
-            bind: SymbolBind(info[0] >> 4),
-            vis: SymbolVis(other[0] & 0x3),
+            st_name,
+            st_value,
+            st_size,
+            st_shndx,
+            st_info: st_info[0],
+            st_other: st_other[0],
         })
     }
 }
@@ -174,7 +216,13 @@ impl std::fmt::Display for Symbol {
         write!(
             f,
             "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
-            self.value, self.size, self.symtype, self.bind, self.vis, self.shndx, self.name
+            self.st_value,
+            self.st_size,
+            self.st_symtype(),
+            self.st_bind(),
+            self.st_vis(),
+            self.st_shndx,
+            self.st_name
         )
     }
 }
@@ -249,13 +297,12 @@ mod table_tests {
         assert_eq!(
             table.get(0).unwrap(),
             Symbol {
-                name: 0x03020100,
-                value: 0x07060504,
-                size: 0x0B0A0908,
-                shndx: 0x0F0E,
-                symtype: SymbolType(12),
-                bind: SymbolBind(0),
-                vis: SymbolVis(1)
+                st_name: 0x03020100,
+                st_value: 0x07060504,
+                st_size: 0x0B0A0908,
+                st_shndx: 0x0F0E,
+                st_info: 0x0C,
+                st_other: 0x0D,
             }
         );
         assert!(table.get(42).is_err());
@@ -275,13 +322,12 @@ mod table_tests {
         assert_eq!(
             table.get(0).unwrap(),
             Symbol {
-                name: 0x00010203,
-                value: 0x08090A0B0C0D0E0F,
-                size: 0x1011121314151617,
-                shndx: 0x0607,
-                symtype: SymbolType(4),
-                bind: SymbolBind(0),
-                vis: SymbolVis(1)
+                st_name: 0x00010203,
+                st_value: 0x08090A0B0C0D0E0F,
+                st_size: 0x1011121314151617,
+                st_shndx: 0x0607,
+                st_info: 0x04,
+                st_other: 0x05,
             }
         );
     }
