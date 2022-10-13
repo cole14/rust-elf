@@ -67,63 +67,19 @@ impl File {
         })
     }
 
-    pub fn get_symbols(
+    pub fn get_symbols<'data>(
         &self,
-        section: &section::Section,
-    ) -> Result<Vec<symbol::Symbol>, ParseError> {
-        let mut symbols = Vec::new();
-        if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB)
-            || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM)
-        {
-            let mut cur = io::Cursor::new(section.data.as_ref());
-            let mut reader = Reader::new(&mut cur, self.ehdr.endianness);
+        section: &'data section::Section,
+    ) -> Result<symbol::SymbolTable<'data>, ParseError> {
+        let sh_type = section.shdr.sh_type;
 
-            let num_symbols = section.shdr.sh_size / section.shdr.sh_entsize;
-            for _ in 0..num_symbols {
-                self.parse_symbol(&mut reader, &mut symbols)?;
-            }
+        match sh_type {
+            section::SectionType(gabi::SHT_SYMTAB) =>
+                symbol::SymbolTable::new(self.ehdr.endianness, self.ehdr.class, section.shdr.sh_entsize, section.data),
+            section::SectionType(gabi::SHT_DYNSYM) =>
+                symbol::SymbolTable::new(self.ehdr.endianness, self.ehdr.class, section.shdr.sh_entsize, section.data),
+            _ => Err(ParseError(format!("Invalid request to interpret non-symbol-table section of type {sh_type} as a symbol table.")))
         }
-        Ok(symbols)
-    }
-
-    fn parse_symbol<R: ReadExt>(
-        &self,
-        reader: &mut R,
-        symbols: &mut Vec<symbol::Symbol>,
-    ) -> Result<(), ParseError> {
-        let name: u32;
-        let value: u64;
-        let size: u64;
-        let shndx: u16;
-        let mut info: [u8; 1] = [0u8];
-        let mut other: [u8; 1] = [0u8];
-
-        if self.ehdr.class == gabi::ELFCLASS32 {
-            name = reader.read_u32()?;
-            value = reader.read_u32()? as u64;
-            size = reader.read_u32()? as u64;
-            reader.read_exact(&mut info)?;
-            reader.read_exact(&mut other)?;
-            shndx = reader.read_u16()?;
-        } else {
-            name = reader.read_u32()?;
-            reader.read_exact(&mut info)?;
-            reader.read_exact(&mut other)?;
-            shndx = reader.read_u16()?;
-            value = reader.read_u64()?;
-            size = reader.read_u64()?;
-        }
-
-        symbols.push(symbol::Symbol {
-            name: name,
-            value: value,
-            size: size,
-            shndx: shndx,
-            symtype: symbol::SymbolType(info[0] & 0xf),
-            bind: symbol::SymbolBind(info[0] >> 4),
-            vis: symbol::SymbolVis(other[0] & 0x3),
-        });
-        Ok(())
     }
 
     pub fn get_section(&self, name: &str) -> Option<section::Section> {
