@@ -1,7 +1,5 @@
-use std::fs;
 use std::io;
 use std::io::{Read, Seek};
-use std::path::Path;
 
 use crate::gabi;
 use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
@@ -39,13 +37,6 @@ impl std::fmt::Display for File {
 }
 
 impl File {
-    pub fn open_path<T: AsRef<Path>>(path: T) -> Result<File, ParseError> {
-        // Open the file for reading
-        let mut io_file = fs::File::open(path)?;
-
-        File::open_stream(&mut io_file)
-    }
-
     pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
         let ehdr = FileHeader::parse(io_file)?;
         let mut reader = Reader::new(io_file, ehdr.endianness);
@@ -597,11 +588,12 @@ impl std::fmt::Display for Architecture {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
-    fn test_open_path() {
-        let file = File::open_path(PathBuf::from("tests/samples/test1")).expect("Open test1");
+    fn test_open_stream() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let mut io = std::fs::File::open(path).expect("Could not open file.");
+        let file = File::open_stream(&mut io).expect("Open test1");
         let bss = file
             .get_section(".bss")
             .expect("Could not find .bss section");
