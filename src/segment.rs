@@ -9,21 +9,21 @@ use crate::parse::{Parse, ParseError, ReadExt};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProgramHeader {
     /// Program segment type
-    pub progtype: ProgType,
+    pub p_type: ProgType,
     /// Offset into the ELF file where this segment begins
-    pub offset: u64,
+    pub p_offset: u64,
     /// Virtual adress where this segment should be loaded
-    pub vaddr: u64,
+    pub p_vaddr: u64,
     /// Physical address where this segment should be loaded
-    pub paddr: u64,
+    pub p_paddr: u64,
     /// Size of this segment in the file
-    pub filesz: u64,
+    pub p_filesz: u64,
     /// Size of this segment in memory
-    pub memsz: u64,
+    pub p_memsz: u64,
     /// Flags for this segment
-    pub flags: ProgFlag,
+    pub p_flags: ProgFlag,
     /// file and memory alignment
-    pub align: u64,
+    pub p_align: u64,
 }
 
 impl<R> Parse<R> for ProgramHeader
@@ -32,26 +32,19 @@ where
 {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
         if class == gabi::ELFCLASS32 {
-            let p_type = reader.read_u32()?;
-            let p_offset = reader.read_u32()?;
-            let p_vaddr = reader.read_u32()?;
-            let p_paddr = reader.read_u32()?;
-            let p_filesz = reader.read_u32()?;
-            let p_memsz = reader.read_u32()?;
-            let p_flags = reader.read_u32()?;
-            let p_align = reader.read_u32()?;
             return Ok(ProgramHeader {
-                progtype: ProgType(p_type),
-                offset: p_offset as u64,
-                vaddr: p_vaddr as u64,
-                paddr: p_paddr as u64,
-                filesz: p_filesz as u64,
-                memsz: p_memsz as u64,
-                flags: ProgFlag(p_flags),
-                align: p_align as u64,
+                p_type: ProgType(reader.read_u32()?),
+                p_offset: reader.read_u32()? as u64,
+                p_vaddr: reader.read_u32()? as u64,
+                p_paddr: reader.read_u32()? as u64,
+                p_filesz: reader.read_u32()? as u64,
+                p_memsz: reader.read_u32()? as u64,
+                p_flags: ProgFlag(reader.read_u32()?),
+                p_align: reader.read_u32()? as u64,
             });
         }
 
+        // Note: 64-bit fields are in a different order
         let p_type = reader.read_u32()?;
         let p_flags = reader.read_u32()?;
         let p_offset = reader.read_u64()?;
@@ -61,14 +54,14 @@ where
         let p_memsz = reader.read_u64()?;
         let p_align = reader.read_u64()?;
         Ok(ProgramHeader {
-            progtype: ProgType(p_type),
-            offset: p_offset,
-            vaddr: p_vaddr,
-            paddr: p_paddr,
-            filesz: p_filesz,
-            memsz: p_memsz,
-            flags: ProgFlag(p_flags),
-            align: p_align,
+            p_type: ProgType(p_type),
+            p_offset: p_offset,
+            p_vaddr: p_vaddr,
+            p_paddr: p_paddr,
+            p_filesz: p_filesz,
+            p_memsz: p_memsz,
+            p_flags: ProgFlag(p_flags),
+            p_align: p_align,
         })
     }
 }
@@ -76,8 +69,8 @@ where
 impl std::fmt::Display for ProgramHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Program Header: Type: {} Offset: {:#010x} VirtAddr: {:#010x} PhysAddr: {:#010x} FileSize: {:#06x} MemSize: {:#06x} Flags: {} Align: {:#x}",
-            self.progtype, self.offset, self.vaddr, self.paddr, self.filesz,
-            self.memsz, self.flags, self.align)
+            self.p_type, self.p_offset, self.p_vaddr, self.p_paddr, self.p_filesz,
+            self.p_memsz, self.p_flags, self.p_align)
     }
 }
 
@@ -171,14 +164,14 @@ mod tests {
         assert_eq!(
             ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
             ProgramHeader {
-                progtype: ProgType(0x03020100),
-                offset: 0x07060504,
-                vaddr: 0xB0A0908,
-                paddr: 0x0F0E0D0C,
-                filesz: 0x13121110,
-                memsz: 0x17161514,
-                flags: ProgFlag(0x1B1A1918),
-                align: 0x1F1E1D1C,
+                p_type: ProgType(0x03020100),
+                p_offset: 0x07060504,
+                p_vaddr: 0xB0A0908,
+                p_paddr: 0x0F0E0D0C,
+                p_filesz: 0x13121110,
+                p_memsz: 0x17161514,
+                p_flags: ProgFlag(0x1B1A1918),
+                p_align: 0x1F1E1D1C,
             }
         );
     }
@@ -205,14 +198,14 @@ mod tests {
         assert_eq!(
             ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
             ProgramHeader {
-                progtype: ProgType(0x00010203),
-                offset: 0x08090A0B0C0D0E0F,
-                vaddr: 0x1011121314151617,
-                paddr: 0x18191A1B1C1D1E1F,
-                filesz: 0x2021222324252627,
-                memsz: 0x28292A2B2C2D2E2F,
-                flags: ProgFlag(0x04050607),
-                align: 0x3031323334353637,
+                p_type: ProgType(0x00010203),
+                p_offset: 0x08090A0B0C0D0E0F,
+                p_vaddr: 0x1011121314151617,
+                p_paddr: 0x18191A1B1C1D1E1F,
+                p_filesz: 0x2021222324252627,
+                p_memsz: 0x28292A2B2C2D2E2F,
+                p_flags: ProgFlag(0x04050607),
+                p_align: 0x3031323334353637,
             }
         );
     }
