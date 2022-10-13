@@ -52,29 +52,18 @@ impl<'data> SymbolTable<'data> {
     }
 
     pub fn get(&self, index: u64) -> Result<Symbol, ParseError> {
-        let entsize = self.entsize;
-
-        if self.class == gabi::ELFCLASS32 && self.entsize != ELF32SYMSIZE {
-            return Err(ParseError(format!(
-                "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SYMSIZE}."
-            )));
-        }
-
-        let num_table_entries = self.data.len() as u64 / entsize;
+        let num_table_entries = self.data.len() as u64 / self.entsize;
         if index as u64 > num_table_entries {
             return Err(ParseError(format!(
                 "Invalid symbol table index {index} for table size {num_table_entries}"
             )));
         }
 
-        let start = entsize * index;
         let mut cur = std::io::Cursor::new(self.data);
-        cur.set_position(start);
+        cur.set_position(self.entsize * index);
         let mut reader = Reader::new(&mut cur, self.endianness);
 
-        let symbol = Symbol::parse(self.class, &mut reader)?;
-
-        Ok(symbol)
+        Symbol::parse(self.class, &mut reader)
     }
 
     pub fn iter(&self) -> SymbolTableIterator {
