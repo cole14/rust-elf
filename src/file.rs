@@ -58,10 +58,6 @@ impl File {
         })
     }
 
-    pub fn get_section(&self, name: &str) -> Option<section::Section> {
-        self.sections.get_by_name(name)
-    }
-
     /// Get the string table for the section headers
     pub fn section_strtab<'data>(&'data self) -> Result<StringTable<'data>, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
@@ -604,7 +600,8 @@ mod interface_tests {
         let mut io = std::fs::File::open(path).expect("Could not open file.");
         let file = File::open_stream(&mut io).expect("Open test1");
         let bss = file
-            .get_section(".bss")
+            .sections
+            .get_by_name(".bss")
             .expect("Could not find .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
     }

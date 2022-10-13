@@ -26,7 +26,7 @@ fn main() {
 
     println!("ELF: {}", elf_file.ehdr);
 
-    let text_scn = match elf_file.get_section(".text") {
+    let text_scn = match elf_file.sections.get_by_name(".text") {
         Some(s) => s,
         None => panic!("Failed to find .text section"),
     };
