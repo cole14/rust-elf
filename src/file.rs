@@ -67,19 +67,40 @@ impl File {
         })
     }
 
-    pub fn get_symbols<'data>(
-        &self,
-        section: &'data section::Section,
-    ) -> Result<symbol::SymbolTable<'data>, ParseError> {
-        let sh_type = section.shdr.sh_type;
+    pub fn symbol_table<'data>(
+        &'data self,
+    ) -> Result<Option<symbol::SymbolTable<'data>>, ParseError> {
+        return match self
+            .sections
+            .iter()
+            .find(|section| section.shdr.sh_type == gabi::SHT_SYMTAB)
+        {
+            Some(section) => Ok(Some(symbol::SymbolTable::new(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                section.shdr.sh_entsize,
+                section.data,
+            )?)),
+            None => Ok(None),
+        };
+    }
 
-        match sh_type {
-            section::SectionType(gabi::SHT_SYMTAB) =>
-                symbol::SymbolTable::new(self.ehdr.endianness, self.ehdr.class, section.shdr.sh_entsize, section.data),
-            section::SectionType(gabi::SHT_DYNSYM) =>
-                symbol::SymbolTable::new(self.ehdr.endianness, self.ehdr.class, section.shdr.sh_entsize, section.data),
-            _ => Err(ParseError(format!("Invalid request to interpret non-symbol-table section of type {sh_type} as a symbol table.")))
-        }
+    pub fn dynamic_symbol_table<'data>(
+        &'data self,
+    ) -> Result<Option<symbol::SymbolTable<'data>>, ParseError> {
+        return match self
+            .sections
+            .iter()
+            .find(|section| section.shdr.sh_type == gabi::SHT_DYNSYM)
+        {
+            Some(section) => Ok(Some(symbol::SymbolTable::new(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                section.shdr.sh_entsize,
+                section.data,
+            )?)),
+            None => Ok(None),
+        };
     }
 
     pub fn get_section(&self, name: &str) -> Option<section::Section> {

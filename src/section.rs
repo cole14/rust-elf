@@ -209,6 +209,12 @@ impl std::fmt::Display for SectionHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionType(pub u32);
 
+impl PartialEq<u32> for SectionType {
+    fn eq(&self, other: &u32) -> bool {
+        self.0 == *other
+    }
+}
+
 impl std::fmt::Debug for SectionType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:#x}", self.0)
