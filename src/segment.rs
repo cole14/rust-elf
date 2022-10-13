@@ -66,8 +66,8 @@ where
     }
 }
 
-impl std::fmt::Display for ProgramHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ProgramHeader {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "Program Header: Type: {} Offset: {:#010x} VirtAddr: {:#010x} PhysAddr: {:#010x} FileSize: {:#06x} MemSize: {:#06x} Flags: {} Align: {:#x}",
             self.p_type, self.p_offset, self.p_vaddr, self.p_paddr, self.p_filesz,
             self.p_memsz, self.p_flags, self.p_align)
@@ -78,14 +78,14 @@ impl std::fmt::Display for ProgramHeader {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgFlag(pub u32);
 
-impl std::fmt::Debug for ProgFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for ProgFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for ProgFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ProgFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         if (self.0 & gabi::PF_R) != 0 {
             write!(f, "R")?;
         } else {
@@ -108,14 +108,14 @@ impl std::fmt::Display for ProgFlag {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
 
-impl std::fmt::Debug for ProgType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for ProgType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for ProgType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ProgType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::PT_NULL => "NULL",
             gabi::PT_LOAD => "LOAD",

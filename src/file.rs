@@ -13,14 +13,14 @@ pub struct File {
     pub sections: section::SectionTable,
 }
 
-impl std::fmt::Debug for File {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for File {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
     }
 }
 
-impl std::fmt::Display for File {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for File {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         writeln!(f, "{{ {} }}", self.ehdr)?;
         writeln!(f, "{{ ")?;
         for phdr in self.phdrs.iter() {
@@ -275,8 +275,8 @@ impl FileHeader {
     }
 }
 
-impl std::fmt::Display for FileHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for FileHeader {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
             "File Header for {} {} Elf {} for {} {}",
@@ -296,14 +296,14 @@ impl PartialEq<u8> for Class {
     }
 }
 
-impl std::fmt::Debug for Class {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for Class {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::ELFCLASSNONE => "Invalid",
             gabi::ELFCLASS32 => "32-bit",
@@ -318,14 +318,14 @@ impl std::fmt::Display for Class {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OSABI(pub u8);
 
-impl std::fmt::Debug for OSABI {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for OSABI {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for OSABI {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for OSABI {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::ELFOSABI_SYSV => "UNIX System V",
             gabi::ELFOSABI_HPUX => "HP-UX",
@@ -354,14 +354,14 @@ impl std::fmt::Display for OSABI {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ObjectFileType(pub u16);
 
-impl std::fmt::Debug for ObjectFileType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for ObjectFileType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for ObjectFileType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ObjectFileType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::ET_NONE => "No file type",
             gabi::ET_REL => "Relocatable file",
@@ -378,14 +378,14 @@ impl std::fmt::Display for ObjectFileType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Architecture(pub u16);
 
-impl std::fmt::Debug for Architecture {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for Architecture {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for Architecture {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for Architecture {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::EM_NONE => "No machine",
             gabi::EM_M32 => "AT&T WE 32100",

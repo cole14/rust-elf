@@ -4,8 +4,8 @@ use std::io::{Read, Seek, SeekFrom};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError(pub String);
 
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.write_str(&self.0)
     }
 }
@@ -37,8 +37,8 @@ pub enum Endian {
     Big,
 }
 
-impl std::fmt::Display for Endian {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for Endian {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self {
             Endian::Little => "2's complement, little endian",
             Endian::Big => "2's complement, big endian",

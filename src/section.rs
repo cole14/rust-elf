@@ -133,8 +133,8 @@ pub struct Section<'data> {
     pub data: &'data [u8],
 }
 
-impl<'data> std::fmt::Display for Section<'data> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<'data> core::fmt::Display for Section<'data> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{}", self.shdr)
     }
 }
@@ -199,8 +199,8 @@ where
     }
 }
 
-impl std::fmt::Display for SectionHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SectionHeader {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "Section Header: Name: {} Type: {} Flags: {} Addr: {:#010x} Offset: {:#06x} Size: {:#06x} Link: {} Info: {:#x} AddrAlign: {} EntSize: {}",
             self.sh_name, self.sh_type, self.sh_flags, self.sh_addr, self.sh_offset,
             self.sh_size, self.sh_link, self.sh_info, self.sh_addralign, self.sh_entsize)
@@ -217,14 +217,14 @@ impl PartialEq<u32> for SectionType {
     }
 }
 
-impl std::fmt::Debug for SectionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for SectionType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for SectionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SectionType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::SHT_NULL => "SHT_NULL",
             gabi::SHT_PROGBITS => "SHT_PROGBITS",
@@ -262,14 +262,14 @@ impl std::fmt::Display for SectionType {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionFlag(pub u64);
 
-impl std::fmt::Debug for SectionFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for SectionFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }
 
-impl std::fmt::Display for SectionFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SectionFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
 }

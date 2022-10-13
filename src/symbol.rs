@@ -201,8 +201,8 @@ where
     }
 }
 
-impl std::fmt::Display for Symbol {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for Symbol {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(
             f,
             "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
@@ -220,8 +220,8 @@ impl std::fmt::Display for Symbol {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
 
-impl std::fmt::Display for SymbolType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SymbolType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::STT_NOTYPE => "STT_NOTYPE",
             gabi::STT_OBJECT => "STT_OBJECT",
@@ -240,8 +240,8 @@ impl std::fmt::Display for SymbolType {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolBind(pub u8);
 
-impl std::fmt::Display for SymbolBind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SymbolBind {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::STB_LOCAL => "STB_LOCAL",
             gabi::STB_GLOBAL => "STB_GLOBAL",
@@ -256,8 +256,8 @@ impl std::fmt::Display for SymbolBind {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolVis(pub u8);
 
-impl std::fmt::Display for SymbolVis {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for SymbolVis {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let str = match self.0 {
             gabi::STV_DEFAULT => "STV_DEFAULT",
             gabi::STV_INTERNAL => "STV_INTERNAL",
