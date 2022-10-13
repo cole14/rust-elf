@@ -233,14 +233,14 @@ pub struct SymbolType(pub u8);
 impl std::fmt::Display for SymbolType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match self.0 {
-            gabi::STT_NOTYPE => "unspecified",
-            gabi::STT_OBJECT => "data object",
-            gabi::STT_FUNC => "code object",
-            gabi::STT_SECTION => "section",
-            gabi::STT_FILE => "file name",
-            gabi::STT_COMMON => "common data object",
-            gabi::STT_TLS => "thread-local data object",
-            gabi::STT_GNU_IFUNC => "indirect code object",
+            gabi::STT_NOTYPE => "STT_NOTYPE",
+            gabi::STT_OBJECT => "STT_OBJECT",
+            gabi::STT_FUNC => "STT_FUNC",
+            gabi::STT_SECTION => "STT_SECTION",
+            gabi::STT_FILE => "STT_FILE",
+            gabi::STT_COMMON => "STT_COMMON",
+            gabi::STT_TLS => "STT_TLS",
+            gabi::STT_GNU_IFUNC => "STT_GNU_IFUNC",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -253,10 +253,10 @@ pub struct SymbolBind(pub u8);
 impl std::fmt::Display for SymbolBind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match self.0 {
-            gabi::STB_LOCAL => "local",
-            gabi::STB_GLOBAL => "global",
-            gabi::STB_WEAK => "weak",
-            gabi::STB_GNU_UNIQUE => "unique",
+            gabi::STB_LOCAL => "STB_LOCAL",
+            gabi::STB_GLOBAL => "STB_GLOBAL",
+            gabi::STB_WEAK => "STB_WEAK",
+            gabi::STB_GNU_UNIQUE => "STB_GNU_UNIQUE",
             _ => "Unknown",
         };
         write!(f, "{}", str)
@@ -269,10 +269,10 @@ pub struct SymbolVis(pub u8);
 impl std::fmt::Display for SymbolVis {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let str = match self.0 {
-            gabi::STV_DEFAULT => "default",
-            gabi::STV_INTERNAL => "internal",
-            gabi::STV_HIDDEN => "hidden",
-            gabi::STV_PROTECTED => "protected",
+            gabi::STV_DEFAULT => "STV_DEFAULT",
+            gabi::STV_INTERNAL => "STV_INTERNAL",
+            gabi::STV_HIDDEN => "STV_HIDDEN",
+            gabi::STV_PROTECTED => "STV_PROTECTED",
             _ => "Unknown",
         };
         write!(f, "{}", str)
