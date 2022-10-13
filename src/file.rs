@@ -7,6 +7,7 @@ use crate::gabi;
 use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
 use crate::section;
 use crate::segment;
+use crate::string_table::StringTable;
 use crate::symbol;
 
 pub struct File {
@@ -67,38 +68,58 @@ impl File {
         })
     }
 
+    /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
+    ///
+    /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
     pub fn symbol_table<'data>(
         &'data self,
-    ) -> Result<Option<symbol::SymbolTable<'data>>, ParseError> {
+    ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
         return match self
             .sections
             .iter()
             .find(|section| section.shdr.sh_type == gabi::SHT_SYMTAB)
         {
-            Some(section) => Ok(Some(symbol::SymbolTable::new(
-                self.ehdr.endianness,
-                self.ehdr.class,
-                section.shdr.sh_entsize,
-                section.data,
-            )?)),
+            Some(section) => {
+                let strtab_section = self.sections.get(section.shdr.sh_link as usize)?;
+                let strtab = StringTable::new(strtab_section.data);
+                Ok(Some((
+                    symbol::SymbolTable::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        section.shdr.sh_entsize,
+                        section.data,
+                    )?,
+                    strtab,
+                )))
+            }
             None => Ok(None),
         };
     }
 
+    /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
+    ///
+    /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table<'data>(
         &'data self,
-    ) -> Result<Option<symbol::SymbolTable<'data>>, ParseError> {
+    ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
         return match self
             .sections
             .iter()
             .find(|section| section.shdr.sh_type == gabi::SHT_DYNSYM)
         {
-            Some(section) => Ok(Some(symbol::SymbolTable::new(
-                self.ehdr.endianness,
-                self.ehdr.class,
-                section.shdr.sh_entsize,
-                section.data,
-            )?)),
+            Some(section) => {
+                let strtab_section = self.sections.get(section.shdr.sh_link as usize)?;
+                let strtab = StringTable::new(strtab_section.data);
+                Ok(Some((
+                    symbol::SymbolTable::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        section.shdr.sh_entsize,
+                        section.data,
+                    )?,
+                    strtab,
+                )))
+            }
             None => Ok(None),
         };
     }
