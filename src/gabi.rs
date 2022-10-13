@@ -1,8 +1,8 @@
 /// This file contains constants defined in the ELF GABI
-///     See http://www.sco.com/developers/gabi/latest/ch4.eheader.html#elfid
+///     See <http://www.sco.com/developers/gabi/latest/ch4.eheader.html#elfid>
 /// Note: At least in 2022, it seems like the above site is not being updated. Official communication
 /// occurs on the Generic System V Application Binary Interface mailing list:
-///     https://groups.google.com/g/generic-abi
+///     <https://groups.google.com/g/generic-abi>
 
 /// EI_* define indexes into the ELF File Header's e_ident[] byte array.
 /// We define them as usize in order to use them to easily index into [u8].
