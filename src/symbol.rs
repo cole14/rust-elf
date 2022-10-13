@@ -76,6 +76,40 @@ impl<'data> SymbolTable<'data> {
 
         Ok(symbol)
     }
+
+    pub fn iter(&self) -> SymbolTableIterator {
+        SymbolTableIterator::new(self)
+    }
+}
+
+pub struct SymbolTableIterator<'data> {
+    table: &'data SymbolTable<'data>,
+    idx: u64,
+}
+
+impl<'data> SymbolTableIterator<'data> {
+    pub fn new(table: &'data SymbolTable) -> Self {
+        SymbolTableIterator {
+            table: table,
+            // The GABI defines index 0 to always have a zero-ed out undefined
+            // symbol that we don't want to expose via symbol iterators.
+            idx: 1,
+        }
+    }
+}
+
+impl<'data> Iterator for SymbolTableIterator<'data> {
+    type Item = Symbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx * self.table.entsize >= self.table.data.len() as u64 {
+            return None;
+        }
+
+        let idx = self.idx;
+        self.idx += 1;
+        self.table.get(idx).ok()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
