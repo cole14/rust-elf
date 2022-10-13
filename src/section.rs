@@ -1,4 +1,4 @@
-use crate::file::Class;
+use crate::file::{Class, FileHeader};
 use crate::gabi;
 use crate::parse::{Parse, ParseError, ReadExt};
 use crate::string_table::StringTable;
@@ -17,6 +17,35 @@ impl SectionTable {
             section_data,
             sh_strndx,
         }
+    }
+
+    pub fn parse<R: ReadExt>(ehdr: &FileHeader, reader: &mut R) -> Result<Self, ParseError> {
+        let mut headers = Vec::<SectionHeader>::with_capacity(ehdr.e_shnum as usize);
+        let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
+
+        // Parse the section headers
+        reader.seek(std::io::SeekFrom::Start(ehdr.e_shoff))?;
+        for _ in 0..ehdr.e_shnum {
+            let shdr = SectionHeader::parse(ehdr.class, reader)?;
+            headers.push(shdr);
+        }
+
+        // Read the section data
+        for i in 0..ehdr.e_shnum as usize {
+            let shdr = headers[i];
+            let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
+
+            if shdr.sh_type != SectionType(gabi::SHT_NOBITS) {
+                reader.seek(std::io::SeekFrom::Start(shdr.sh_offset))?;
+
+                data.resize(shdr.sh_size as usize, 0u8);
+                reader.read_exact(&mut data)?;
+            }
+
+            section_data.push(data);
+        }
+
+        Ok(SectionTable::new(headers, section_data, ehdr.e_shstrndx as usize))
     }
 
     pub fn get(&self, index: usize) -> Result<Section, ParseError> {

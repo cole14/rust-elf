@@ -59,32 +59,7 @@ impl File {
             phdrs.push(phdr);
         }
 
-        let mut headers = Vec::<section::SectionHeader>::with_capacity(ehdr.e_shnum as usize);
-        let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
-
-        // Parse the section headers
-        reader.seek(io::SeekFrom::Start(ehdr.e_shoff))?;
-        for _ in 0..ehdr.e_shnum {
-            let shdr = section::SectionHeader::parse(ehdr.class, &mut reader)?;
-            headers.push(shdr);
-        }
-
-        // Read the section data
-        for i in 0..ehdr.e_shnum as usize {
-            let shdr = headers[i];
-            let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
-
-            if shdr.sh_type != section::SectionType(gabi::SHT_NOBITS) {
-                reader.seek(io::SeekFrom::Start(shdr.sh_offset))?;
-
-                data.resize(shdr.sh_size as usize, 0u8);
-                reader.read_exact(&mut data)?;
-            }
-
-            section_data.push(data);
-        }
-
-        let table = section::SectionTable::new(headers, section_data, ehdr.e_shstrndx as usize);
+        let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
         Ok(File {
             ehdr: ehdr,
