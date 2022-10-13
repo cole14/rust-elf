@@ -1,6 +1,7 @@
 use crate::file::Class;
 use crate::gabi;
 use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
+use std::io::Cursor;
 
 #[derive(Debug)]
 pub struct SymbolTable<'data> {
@@ -59,7 +60,7 @@ impl<'data> SymbolTable<'data> {
             )));
         }
 
-        let mut cur = std::io::Cursor::new(self.data);
+        let mut cur = Cursor::new(self.data);
         cur.set_position(self.entsize * index);
         let mut reader = Reader::new(&mut cur, self.endianness);
 

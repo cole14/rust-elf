@@ -1,3 +1,5 @@
+use std::io::SeekFrom;
+
 use crate::file::{Class, FileHeader};
 use crate::gabi;
 use crate::parse::{Parse, ParseError, ReadExt};
@@ -24,7 +26,7 @@ impl SectionTable {
         let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
 
         // Parse the section headers
-        reader.seek(std::io::SeekFrom::Start(ehdr.e_shoff))?;
+        reader.seek(SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
             let shdr = SectionHeader::parse(ehdr.class, reader)?;
             headers.push(shdr);
@@ -36,7 +38,7 @@ impl SectionTable {
             let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
 
             if shdr.sh_type != SectionType(gabi::SHT_NOBITS) {
-                reader.seek(std::io::SeekFrom::Start(shdr.sh_offset))?;
+                reader.seek(SeekFrom::Start(shdr.sh_offset))?;
 
                 data.resize(shdr.sh_size as usize, 0u8);
                 reader.read_exact(&mut data)?;

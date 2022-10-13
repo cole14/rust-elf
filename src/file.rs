@@ -1,5 +1,4 @@
-use std::io;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 
 use crate::gabi;
 use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
@@ -42,7 +41,7 @@ impl File {
         let mut reader = Reader::new(io_file, ehdr.endianness);
 
         // Parse the program headers
-        reader.seek(io::SeekFrom::Start(ehdr.e_phoff))?;
+        reader.seek(SeekFrom::Start(ehdr.e_phoff))?;
         let mut phdrs = Vec::<segment::ProgramHeader>::default();
 
         for _ in 0..ehdr.e_phnum {
@@ -186,7 +185,7 @@ pub struct FileHeader {
 
 // Read the platform-independent ident bytes
 impl FileHeader {
-    fn parse_ident<R: std::io::Read>(
+    fn parse_ident<R: Read>(
         io_file: &mut R,
         buf: &mut [u8; gabi::EI_NIDENT],
     ) -> Result<(), ParseError> {
@@ -215,7 +214,7 @@ impl FileHeader {
         return Ok(());
     }
 
-    pub fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Result<Self, ParseError> {
+    pub fn parse<R: Read + Seek>(reader: &mut R) -> Result<Self, ParseError> {
         let mut ident = [0u8; gabi::EI_NIDENT];
         Self::parse_ident(reader, &mut ident)?;
 

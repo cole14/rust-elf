@@ -1,4 +1,5 @@
 use crate::parse::ParseError;
+use std::str::from_utf8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StringTable<'data> {
@@ -26,7 +27,7 @@ impl<'data> StringTable<'data> {
             )))?;
 
         let substr = start.split_at(end).0;
-        let string = std::str::from_utf8(substr)?;
+        let string = from_utf8(substr)?;
         Ok(string)
     }
 }
