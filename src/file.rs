@@ -8,7 +8,6 @@ use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
 use crate::section;
 use crate::segment;
 use crate::symbol;
-use crate::utils;
 
 pub struct File {
     pub ehdr: FileHeader,
@@ -76,14 +75,12 @@ impl File {
         if section.shdr.sh_type == section::SectionType(gabi::SHT_SYMTAB)
             || section.shdr.sh_type == section::SectionType(gabi::SHT_DYNSYM)
         {
-            let link = &self.sections.get(section.shdr.sh_link as usize)?.data;
-
             let mut cur = io::Cursor::new(section.data.as_ref());
             let mut reader = Reader::new(&mut cur, self.ehdr.endianness);
 
             let num_symbols = section.shdr.sh_size / section.shdr.sh_entsize;
             for _ in 0..num_symbols {
-                self.parse_symbol(&mut reader, &mut symbols, link)?;
+                self.parse_symbol(&mut reader, &mut symbols)?;
             }
         }
         Ok(symbols)
@@ -93,7 +90,6 @@ impl File {
         &self,
         reader: &mut R,
         symbols: &mut Vec<symbol::Symbol>,
-        link: &[u8],
     ) -> Result<(), ParseError> {
         let name: u32;
         let value: u64;
@@ -119,7 +115,7 @@ impl File {
         }
 
         symbols.push(symbol::Symbol {
-            name: utils::get_string(link, name as usize)?,
+            name: name,
             value: value,
             size: size,
             shndx: shndx,

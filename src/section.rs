@@ -45,7 +45,11 @@ impl SectionTable {
             section_data.push(data);
         }
 
-        Ok(SectionTable::new(headers, section_data, ehdr.e_shstrndx as usize))
+        Ok(SectionTable::new(
+            headers,
+            section_data,
+            ehdr.e_shstrndx as usize,
+        ))
     }
 
     pub fn get(&self, index: usize) -> Result<Section, ParseError> {

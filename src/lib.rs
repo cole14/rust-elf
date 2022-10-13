@@ -6,6 +6,5 @@ pub mod symbol;
 
 mod parse;
 mod string_table;
-mod utils;
 
 pub use file::File;
