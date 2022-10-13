@@ -12,20 +12,14 @@ impl core::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-impl std::convert::From<std::io::Error> for ParseError {
+impl core::convert::From<std::io::Error> for ParseError {
     fn from(e: std::io::Error) -> Self {
         ParseError(e.to_string())
     }
 }
 
-impl std::convert::From<std::str::Utf8Error> for ParseError {
-    fn from(e: std::str::Utf8Error) -> Self {
-        ParseError(e.to_string())
-    }
-}
-
-impl std::convert::From<std::string::FromUtf8Error> for ParseError {
-    fn from(e: std::string::FromUtf8Error) -> Self {
+impl core::convert::From<core::str::Utf8Error> for ParseError {
+    fn from(e: core::str::Utf8Error) -> Self {
         ParseError(e.to_string())
     }
 }

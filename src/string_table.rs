@@ -1,5 +1,5 @@
 use crate::parse::ParseError;
-use std::str::from_utf8;
+use core::str::from_utf8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StringTable<'data> {
