@@ -7,19 +7,21 @@ use crate::segment;
 use crate::string_table::StringTable;
 use crate::symbol;
 
-pub struct File {
+pub struct File<'data, D: Read + Seek> {
+    #[allow(dead_code)]
+    reader: Reader<'data, D>,
     pub ehdr: FileHeader,
     phdrs: Vec<segment::ProgramHeader>,
     pub sections: section::SectionTable,
 }
 
-impl core::fmt::Debug for File {
+impl<'data, D: Read + Seek> core::fmt::Debug for File<'data, D> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
     }
 }
 
-impl core::fmt::Display for File {
+impl<'data, D: Read + Seek> core::fmt::Display for File<'data, D> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         writeln!(f, "{{ {} }}", self.ehdr)?;
         writeln!(f, "{{ ")?;
@@ -35,8 +37,8 @@ impl core::fmt::Display for File {
     }
 }
 
-impl File {
-    pub fn open_stream<T: Read + Seek>(io_file: &mut T) -> Result<File, ParseError> {
+impl<'data, D: Read + Seek> File<'data, D> {
+    pub fn open_stream(io_file: &'data mut D) -> Result<File<'data, D>, ParseError> {
         let ehdr = FileHeader::parse(io_file)?;
         let mut reader = Reader::new(io_file, ehdr.endianness);
 
@@ -52,18 +54,19 @@ impl File {
         let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
         Ok(File {
+            reader,
             ehdr: ehdr,
             phdrs: phdrs,
             sections: table,
         })
     }
 
-    pub fn segments<'data>(&'data self) -> Result<&'data Vec<segment::ProgramHeader>, ParseError> {
+    pub fn segments(&'data self) -> Result<&'data Vec<segment::ProgramHeader>, ParseError> {
         Ok(&self.phdrs)
     }
 
     /// Get the string table for the section headers
-    pub fn section_strtab<'data>(&'data self) -> Result<StringTable<'data>, ParseError> {
+    pub fn section_strtab(&'data self) -> Result<StringTable<'data>, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
             return Ok(StringTable::default());
         }
@@ -75,7 +78,7 @@ impl File {
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
-    pub fn symbol_table<'data>(
+    pub fn symbol_table(
         &'data self,
     ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
         return match self
@@ -103,7 +106,7 @@ impl File {
     /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
-    pub fn dynamic_symbol_table<'data>(
+    pub fn dynamic_symbol_table(
         &'data self,
     ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
         return match self
