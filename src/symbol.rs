@@ -1,6 +1,5 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, Parse, ParseError, ReadExt, Reader};
-use std::io::Cursor;
+use crate::parse::{Class, Endian, ParseError, ReadAtExt};
 
 #[derive(Debug)]
 pub struct SymbolTable<'data> {
@@ -54,11 +53,8 @@ impl<'data> SymbolTable<'data> {
             )));
         }
 
-        let mut cur = Cursor::new(self.data);
-        cur.set_position(self.entsize * index);
-        let mut reader = Reader::new(&mut cur, self.endianness);
-
-        Symbol::parse(self.class, &mut reader)
+        let mut offset: usize = (self.entsize * index) as usize;
+        Symbol::parse_at(self.endianness, self.class, &mut offset, &self.data)
     }
 
     pub fn iter(&self) -> SymbolTableIterator {
@@ -143,6 +139,45 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    pub fn parse_at<R: ReadAtExt>(
+        endian: Endian,
+        class: Class,
+        offset: &mut usize,
+        reader: &R,
+    ) -> Result<Self, ParseError> {
+        let st_name: u32;
+        let st_value: u64;
+        let st_size: u64;
+        let st_shndx: u16;
+        let st_info: u8;
+        let st_other: u8;
+
+        if class == Class::ELF32 {
+            st_name = reader.read_u32_at(endian, offset)?;
+            st_value = reader.read_u32_at(endian, offset)? as u64;
+            st_size = reader.read_u32_at(endian, offset)? as u64;
+            st_info = reader.read_u8_at(offset)?;
+            st_other = reader.read_u8_at(offset)?;
+            st_shndx = reader.read_u16_at(endian, offset)?;
+        } else {
+            st_name = reader.read_u32_at(endian, offset)?;
+            st_info = reader.read_u8_at(offset)?;
+            st_other = reader.read_u8_at(offset)?;
+            st_shndx = reader.read_u16_at(endian, offset)?;
+            st_value = reader.read_u64_at(endian, offset)?;
+            st_size = reader.read_u64_at(endian, offset)?;
+        }
+
+        Ok(Symbol {
+            st_name,
+            st_value,
+            st_size,
+            st_shndx,
+            st_info,
+            st_other,
+        })
+    }
+
     pub fn st_symtype(&self) -> SymbolType {
         SymbolType(self.st_info & 0xf)
     }
@@ -153,45 +188,6 @@ impl Symbol {
 
     pub fn st_vis(&self) -> SymbolVis {
         SymbolVis(self.st_other & 0x3)
-    }
-}
-
-impl<R> Parse<R> for Symbol
-where
-    R: ReadExt,
-{
-    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
-        let st_name: u32;
-        let st_value: u64;
-        let st_size: u64;
-        let st_shndx: u16;
-        let mut st_info: [u8; 1] = [0u8];
-        let mut st_other: [u8; 1] = [0u8];
-
-        if class == Class::ELF32 {
-            st_name = reader.read_u32()?;
-            st_value = reader.read_u32()? as u64;
-            st_size = reader.read_u32()? as u64;
-            reader.read_exact(&mut st_info)?;
-            reader.read_exact(&mut st_other)?;
-            st_shndx = reader.read_u16()?;
-        } else {
-            st_name = reader.read_u32()?;
-            reader.read_exact(&mut st_info)?;
-            reader.read_exact(&mut st_other)?;
-            st_shndx = reader.read_u16()?;
-            st_value = reader.read_u64()?;
-            st_size = reader.read_u64()?;
-        }
-
-        Ok(Symbol {
-            st_name,
-            st_value,
-            st_size,
-            st_shndx,
-            st_info: st_info[0],
-            st_other: st_other[0],
-        })
     }
 }
 
