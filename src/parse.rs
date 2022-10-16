@@ -1,3 +1,4 @@
+use std::array::TryFromSliceError;
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +55,68 @@ impl core::fmt::Display for Class {
             Class::ELF64 => "64-bit",
         };
         write!(f, "{}", str)
+    }
+}
+
+pub trait ReadAtExt {
+    fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
+    fn read_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
+    fn read_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
+    fn read_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError>;
+}
+
+#[inline]
+fn read_error(offset: &usize) -> ParseError {
+    ParseError(format!("Could not parse at {offset}: buffer too small"))
+}
+
+impl ReadAtExt for &[u8] {
+    fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
+        let data = self.get(*offset).ok_or(read_error(offset))?;
+        *offset += 1;
+        Ok(*data)
+    }
+
+    fn read_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError> {
+        let range = *offset..*offset + 2;
+        let data: [u8; 2] = self
+            .get(range)
+            .ok_or(read_error(offset))?
+            .try_into()
+            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+        *offset += 2;
+        match endian {
+            Endian::Little => Ok(u16::from_le_bytes(data)),
+            Endian::Big => Ok(u16::from_be_bytes(data)),
+        }
+    }
+
+    fn read_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError> {
+        let range = *offset..*offset + 4;
+        let data: [u8; 4] = self
+            .get(range)
+            .ok_or(read_error(offset))?
+            .try_into()
+            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+        *offset += 4;
+        match endian {
+            Endian::Little => Ok(u32::from_le_bytes(data)),
+            Endian::Big => Ok(u32::from_be_bytes(data)),
+        }
+    }
+
+    fn read_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError> {
+        let range = *offset..*offset + 8;
+        let data: [u8; 8] = self
+            .get(range)
+            .ok_or(read_error(offset))?
+            .try_into()
+            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+        *offset += 8;
+        match endian {
+            Endian::Little => Ok(u64::from_le_bytes(data)),
+            Endian::Big => Ok(u64::from_be_bytes(data)),
+        }
     }
 }
 
