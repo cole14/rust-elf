@@ -20,7 +20,7 @@
 //! [Symbol](symbol::Symbol)s takes place only when symbols are requested.
 //!
 //! **Tiny compiled library size**: At the time of writing this, the release lib
-//! was only ~640KB!
+//! was only ~30kB!
 //!
 //! # Future plans
 //!
