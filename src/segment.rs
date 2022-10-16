@@ -1,6 +1,5 @@
-use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Parse, ParseError, ReadExt};
+use crate::parse::{Class, Parse, ParseError, ReadExt};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -31,7 +30,7 @@ where
     R: ReadExt,
 {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
-        if class == gabi::ELFCLASS32 {
+        if class == Class::ELF32 {
             return Ok(ProgramHeader {
                 p_type: ProgType(reader.read_u32()?),
                 p_offset: reader.read_u32()? as u64,
@@ -136,10 +135,8 @@ impl core::fmt::Display for ProgType {
 
 #[cfg(test)]
 mod tests {
-    use crate::file::Class;
-    use crate::gabi;
-    use crate::parse::{Endian, Parse, Reader};
-    use crate::segment::{ProgFlag, ProgType, ProgramHeader};
+    use super::*;
+    use crate::parse::{Endian, Reader};
     use std::io::Cursor;
 
     #[test]
@@ -148,7 +145,7 @@ mod tests {
         for n in 0..32 {
             let mut cur = Cursor::new(data.split_at(n).0.as_ref());
             let mut reader = Reader::new(&mut cur, Endian::Little);
-            assert!(ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
+            assert!(ProgramHeader::parse(Class::ELF32, &mut reader).is_err());
         }
     }
 
@@ -162,7 +159,7 @@ mod tests {
         let mut cur = Cursor::new(data.as_ref());
         let mut reader = Reader::new(&mut cur, Endian::Little);
         assert_eq!(
-            ProgramHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
+            ProgramHeader::parse(Class::ELF32, &mut reader).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x03020100),
                 p_offset: 0x07060504,
@@ -182,7 +179,7 @@ mod tests {
         for n in 0..56 {
             let mut cur = Cursor::new(data.split_at(n).0.as_ref());
             let mut reader = Reader::new(&mut cur, Endian::Big);
-            assert!(ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
+            assert!(ProgramHeader::parse(Class::ELF64, &mut reader).is_err());
         }
     }
 
@@ -196,7 +193,7 @@ mod tests {
         let mut cur = Cursor::new(data.as_ref());
         let mut reader = Reader::new(&mut cur, Endian::Big);
         assert_eq!(
-            ProgramHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
+            ProgramHeader::parse(Class::ELF64, &mut reader).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x00010203),
                 p_offset: 0x08090A0B0C0D0E0F,

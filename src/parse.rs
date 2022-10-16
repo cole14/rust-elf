@@ -1,4 +1,3 @@
-use crate::file::Class;
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +35,23 @@ impl core::fmt::Display for Endian {
         let str = match self {
             Endian::Little => "2's complement, little endian",
             Endian::Big => "2's complement, big endian",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+/// Represents the ELF file data format (little-endian vs big-endian)
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Class {
+    ELF32,
+    ELF64,
+}
+
+impl core::fmt::Display for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        let str = match self {
+            Class::ELF32 => "32-bit",
+            Class::ELF64 => "64-bit",
         };
         write!(f, "{}", str)
     }

@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::gabi;
-use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
+use crate::parse::{Class, Endian, Parse, ParseError, ReadExt, Reader};
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;
@@ -203,6 +203,11 @@ impl FileHeader {
             return Err(ParseError(format!("Invalid Magic Bytes: {magic:?}")));
         }
 
+        let class = buf[gabi::EI_CLASS];
+        if class != gabi::ELFCLASS32 && class != gabi::ELFCLASS64 {
+            return Err(ParseError(format!("Unsupported ELF Class: {class:?}")));
+        }
+
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
@@ -224,7 +229,12 @@ impl FileHeader {
         let mut ident = [0u8; gabi::EI_NIDENT];
         Self::parse_ident(reader, &mut ident)?;
 
-        let class = Class(ident[gabi::EI_CLASS]);
+        let class = if ident[gabi::EI_CLASS] == gabi::ELFCLASS32 {
+            Class::ELF32
+        } else {
+            Class::ELF64
+        };
+
         let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB {
             Endian::Little
         } else {
@@ -241,7 +251,7 @@ impl FileHeader {
         let phoff: u64;
         let shoff: u64;
 
-        if class == gabi::ELFCLASS32 {
+        if class == Class::ELF32 {
             entry = io_r.read_u32()? as u64;
             phoff = io_r.read_u32()? as u64;
             shoff = io_r.read_u32()? as u64;
@@ -288,35 +298,6 @@ impl core::fmt::Display for FileHeader {
             "File Header for {} {} Elf {} for {} {}",
             self.class, self.endianness, self.elftype, self.osabi, self.arch
         )
-    }
-}
-
-/// Represents the ELF file class (32-bit vs 64-bit)
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Class(pub u8);
-
-// Allows us to do things like (self.ehdr.class == gabi::ELFCLASS32)
-impl PartialEq<u8> for Class {
-    fn eq(&self, other: &u8) -> bool {
-        self.0 == *other
-    }
-}
-
-impl core::fmt::Debug for Class {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl core::fmt::Display for Class {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::ELFCLASSNONE => "Invalid",
-            gabi::ELFCLASS32 => "32-bit",
-            gabi::ELFCLASS64 => "64-bit",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
     }
 }
 
@@ -794,7 +775,7 @@ mod parse_tests {
         assert_eq!(
             FileHeader::parse(&mut cur).unwrap(),
             FileHeader {
-                class: Class(gabi::ELFCLASS32),
+                class: Class::ELF32,
                 endianness: Endian::Little,
                 version: 0x7060504,
                 osabi: OSABI(gabi::ELFOSABI_LINUX),
@@ -873,7 +854,7 @@ mod parse_tests {
         assert_eq!(
             FileHeader::parse(&mut cur).unwrap(),
             FileHeader {
-                class: Class(gabi::ELFCLASS64),
+                class: Class::ELF64,
                 endianness: Endian::Big,
                 version: 0x04050607,
                 osabi: OSABI(gabi::ELFOSABI_LINUX),

@@ -1,8 +1,8 @@
 use std::io::SeekFrom;
 
-use crate::file::{Class, FileHeader};
+use crate::file::FileHeader;
 use crate::gabi;
-use crate::parse::{Parse, ParseError, ReadExt};
+use crate::parse::{Class, Parse, ParseError, ReadExt};
 use crate::string_table::StringTable;
 
 #[derive(Debug)]
@@ -169,8 +169,8 @@ where
     R: ReadExt,
 {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
-        if class == gabi::ELFCLASS32 {
-            return Ok(SectionHeader {
+        match class {
+            Class::ELF32 => Ok(SectionHeader {
                 sh_name: reader.read_u32()?,
                 sh_type: SectionType(reader.read_u32()?),
                 sh_flags: SectionFlag(reader.read_u32()? as u64),
@@ -181,21 +181,20 @@ where
                 sh_info: reader.read_u32()?,
                 sh_addralign: reader.read_u32()? as u64,
                 sh_entsize: reader.read_u32()? as u64,
-            });
+            }),
+            Class::ELF64 => Ok(SectionHeader {
+                sh_name: reader.read_u32()?,
+                sh_type: SectionType(reader.read_u32()?),
+                sh_flags: SectionFlag(reader.read_u64()?),
+                sh_addr: reader.read_u64()?,
+                sh_offset: reader.read_u64()?,
+                sh_size: reader.read_u64()?,
+                sh_link: reader.read_u32()?,
+                sh_info: reader.read_u32()?,
+                sh_addralign: reader.read_u64()?,
+                sh_entsize: reader.read_u64()?,
+            }),
         }
-
-        Ok(SectionHeader {
-            sh_name: reader.read_u32()?,
-            sh_type: SectionType(reader.read_u32()?),
-            sh_flags: SectionFlag(reader.read_u64()?),
-            sh_addr: reader.read_u64()?,
-            sh_offset: reader.read_u64()?,
-            sh_size: reader.read_u64()?,
-            sh_link: reader.read_u32()?,
-            sh_info: reader.read_u32()?,
-            sh_addralign: reader.read_u64()?,
-            sh_entsize: reader.read_u64()?,
-        })
     }
 }
 
@@ -349,10 +348,8 @@ mod table_tests {
 
 #[cfg(test)]
 mod shdr_tests {
-    use crate::file::Class;
-    use crate::gabi;
-    use crate::parse::{Endian, Parse, Reader};
-    use crate::section::{SectionFlag, SectionHeader, SectionType};
+    use super::*;
+    use crate::parse::{Endian, Reader};
     use std::io::Cursor;
 
     #[test]
@@ -361,7 +358,7 @@ mod shdr_tests {
         for n in 0..40 {
             let mut cur = Cursor::new(data.split_at(n).0.as_ref());
             let mut reader = Reader::new(&mut cur, Endian::Little);
-            assert!(SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).is_err());
+            assert!(SectionHeader::parse(Class::ELF32, &mut reader).is_err());
         }
     }
 
@@ -375,7 +372,7 @@ mod shdr_tests {
         let mut cur = Cursor::new(data.as_ref());
         let mut reader = Reader::new(&mut cur, Endian::Little);
         assert_eq!(
-            SectionHeader::parse(Class(gabi::ELFCLASS32), &mut reader).unwrap(),
+            SectionHeader::parse(Class::ELF32, &mut reader).unwrap(),
             SectionHeader {
                 sh_name: 0x03020100,
                 sh_type: SectionType(0x07060504),
@@ -397,7 +394,7 @@ mod shdr_tests {
         for n in 0..64 {
             let mut cur = Cursor::new(data.split_at(n).0.as_ref());
             let mut reader = Reader::new(&mut cur, Endian::Big);
-            assert!(SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).is_err());
+            assert!(SectionHeader::parse(Class::ELF64, &mut reader).is_err());
         }
     }
 
@@ -411,7 +408,7 @@ mod shdr_tests {
         let mut cur = Cursor::new(data.as_ref());
         let mut reader = Reader::new(&mut cur, Endian::Big);
         assert_eq!(
-            SectionHeader::parse(Class(gabi::ELFCLASS64), &mut reader).unwrap(),
+            SectionHeader::parse(Class::ELF64, &mut reader).unwrap(),
             SectionHeader {
                 sh_name: 0x00010203,
                 sh_type: SectionType(0x04050607),

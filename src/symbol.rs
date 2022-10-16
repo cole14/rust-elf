@@ -1,6 +1,5 @@
-use crate::file::Class;
 use crate::gabi;
-use crate::parse::{Endian, Parse, ParseError, ReadExt, Reader};
+use crate::parse::{Class, Endian, Parse, ParseError, ReadExt, Reader};
 use std::io::Cursor;
 
 #[derive(Debug)]
@@ -23,24 +22,19 @@ impl<'data> SymbolTable<'data> {
     ) -> Result<Self, ParseError> {
         // Validate that the entsize matches with what we know how to parse
         match class {
-            Class(gabi::ELFCLASS32) => {
+            Class::ELF32 => {
                 if entsize != ELF32SYMSIZE {
                     return Err(ParseError(format!(
                         "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SYMSIZE}."
                     )));
                 }
             }
-            Class(gabi::ELFCLASS64) => {
+            Class::ELF64 => {
                 if entsize != ELF64SYMSIZE {
                     return Err(ParseError(format!(
                         "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SYMSIZE}."
                     )));
                 }
-            }
-            _ => {
-                return Err(ParseError(format!(
-                    "Cannot parse symbol for unknown ELF class {class}."
-                )));
             }
         }
 
@@ -174,7 +168,7 @@ where
         let mut st_info: [u8; 1] = [0u8];
         let mut st_other: [u8; 1] = [0u8];
 
-        if class == gabi::ELFCLASS32 {
+        if class == Class::ELF32 {
             st_name = reader.read_u32()?;
             st_value = reader.read_u32()? as u64;
             st_size = reader.read_u32()? as u64;
@@ -272,7 +266,6 @@ impl core::fmt::Display for SymbolVis {
 #[cfg(test)]
 mod table_tests {
     use super::*;
-    use crate::gabi;
 
     #[test]
     fn get_32_lsb() {
@@ -281,7 +274,7 @@ mod table_tests {
         for n in 0..ELF32SYMSIZE {
             data[n as usize] = n as u8;
         }
-        let table = SymbolTable::new(Endian::Little, Class(gabi::ELFCLASS32), ELF32SYMSIZE, &data)
+        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data)
             .expect("Failed to create SymbolTable");
 
         assert_eq!(
@@ -306,7 +299,7 @@ mod table_tests {
             data[n as usize] = n as u8;
         }
 
-        let table = SymbolTable::new(Endian::Big, Class(gabi::ELFCLASS64), ELF64SYMSIZE, &data)
+        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data)
             .expect("Failed to create SymbolTable");
 
         assert_eq!(
