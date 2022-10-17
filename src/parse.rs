@@ -1,4 +1,5 @@
-use std::array::TryFromSliceError;
+use core::array::TryFromSliceError;
+use core::ops::Range;
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +60,7 @@ impl core::fmt::Display for Class {
 }
 
 pub trait ReadAtExt {
+    fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
     fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
     fn read_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
     fn read_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
@@ -71,6 +73,14 @@ fn read_error(offset: &usize) -> ParseError {
 }
 
 impl ReadAtExt for &[u8] {
+    fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+        let start = range.start;
+        let end = range.end;
+        self.get(range).ok_or(ParseError(format!(
+            "Could not read bytes in range [{start}, {end})"
+        )))
+    }
+
     fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
         let data = self.get(*offset).ok_or(read_error(offset))?;
         *offset += 1;
