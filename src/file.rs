@@ -9,7 +9,7 @@ use crate::symbol;
 
 pub struct File {
     pub ehdr: FileHeader,
-    pub phdrs: Vec<segment::ProgramHeader>,
+    phdrs: Vec<segment::ProgramHeader>,
     pub sections: section::SectionTable,
 }
 
@@ -56,6 +56,10 @@ impl File {
             phdrs: phdrs,
             sections: table,
         })
+    }
+
+    pub fn segments<'data>(&'data self) -> Result<&'data Vec<segment::ProgramHeader>, ParseError> {
+        Ok(&self.phdrs)
     }
 
     /// Get the string table for the section headers
