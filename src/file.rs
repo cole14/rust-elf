@@ -1,28 +1,28 @@
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 
 use crate::gabi;
-use crate::parse::{Class, Endian, Parse, ParseError, ReadExt, Reader};
+use crate::parse::{CachedReadBytes, Class, Endian, ParseError, ReadBytesAt, ReadExt, Reader};
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;
 use crate::symbol;
 
-pub struct File<'data, D: Read + Seek> {
+pub struct File<D: Read + Seek> {
     #[allow(dead_code)]
-    reader: Reader<'data, D>,
+    reader: CachedReadBytes<D>,
     pub ehdr: FileHeader,
     pub sections: section::SectionTable,
 }
 
-impl<'data, D: Read + Seek> File<'data, D> {
-    pub fn open_stream(io_file: &'data mut D) -> Result<File<'data, D>, ParseError> {
-        let ehdr = FileHeader::parse(io_file)?;
-        let mut reader = Reader::new(io_file, ehdr.endianness);
+impl<'data, D: Read + Seek> File<D> {
+    pub fn open_stream(mut io_file: D) -> Result<File<D>, ParseError> {
+        let ehdr = FileHeader::parse(&mut io_file)?;
+        let mut reader = Reader::new(&mut io_file, ehdr.endianness);
 
         let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
         Ok(File {
-            reader,
+            reader: CachedReadBytes::new(io_file),
             ehdr,
             sections: table,
         })
@@ -35,11 +35,19 @@ impl<'data, D: Read + Seek> File<'data, D> {
             return Ok(Vec::<segment::ProgramHeader>::default());
         }
 
-        let mut phdrs = Vec::<segment::ProgramHeader>::with_capacity(phnum);
+        let start = self.ehdr.e_phoff as usize;
+        let size = self.ehdr.e_phentsize as usize * self.ehdr.e_phnum as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
 
-        self.reader.seek(SeekFrom::Start(self.ehdr.e_phoff))?;
+        let mut offset = 0;
+        let mut phdrs = Vec::<segment::ProgramHeader>::with_capacity(phnum);
         for _ in 0..phnum {
-            let phdr = segment::ProgramHeader::parse(self.ehdr.class, &mut self.reader)?;
+            let phdr = segment::ProgramHeader::parse_at(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &mut offset,
+                &buf,
+            )?;
             phdrs.push(phdr);
         }
         Ok(phdrs)
@@ -563,8 +571,8 @@ mod interface_tests {
     #[test]
     fn test_open_stream() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let mut io = std::fs::File::open(path).expect("Could not open file.");
-        let file = File::open_stream(&mut io).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let file = File::open_stream(io).expect("Open test1");
         let bss = file
             .sections
             .get_by_name(".bss")

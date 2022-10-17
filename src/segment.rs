@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::{Class, Parse, ParseError, ReadExt};
+use crate::parse::{Class, Endian, ParseAtExt, ParseError};
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -25,33 +25,35 @@ pub struct ProgramHeader {
     pub p_align: u64,
 }
 
-impl<R> Parse<R> for ProgramHeader
-where
-    R: ReadExt,
-{
-    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
+impl ProgramHeader {
+    pub fn parse_at<P: ParseAtExt>(
+        endian: Endian,
+        class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError> {
         if class == Class::ELF32 {
             return Ok(ProgramHeader {
-                p_type: ProgType(reader.read_u32()?),
-                p_offset: reader.read_u32()? as u64,
-                p_vaddr: reader.read_u32()? as u64,
-                p_paddr: reader.read_u32()? as u64,
-                p_filesz: reader.read_u32()? as u64,
-                p_memsz: reader.read_u32()? as u64,
-                p_flags: ProgFlag(reader.read_u32()?),
-                p_align: reader.read_u32()? as u64,
+                p_type: ProgType(parser.parse_u32_at(endian, offset)?),
+                p_offset: parser.parse_u32_at(endian, offset)? as u64,
+                p_vaddr: parser.parse_u32_at(endian, offset)? as u64,
+                p_paddr: parser.parse_u32_at(endian, offset)? as u64,
+                p_filesz: parser.parse_u32_at(endian, offset)? as u64,
+                p_memsz: parser.parse_u32_at(endian, offset)? as u64,
+                p_flags: ProgFlag(parser.parse_u32_at(endian, offset)?),
+                p_align: parser.parse_u32_at(endian, offset)? as u64,
             });
         }
 
         // Note: 64-bit fields are in a different order
-        let p_type = reader.read_u32()?;
-        let p_flags = reader.read_u32()?;
-        let p_offset = reader.read_u64()?;
-        let p_vaddr = reader.read_u64()?;
-        let p_paddr = reader.read_u64()?;
-        let p_filesz = reader.read_u64()?;
-        let p_memsz = reader.read_u64()?;
-        let p_align = reader.read_u64()?;
+        let p_type = parser.parse_u32_at(endian, offset)?;
+        let p_flags = parser.parse_u32_at(endian, offset)?;
+        let p_offset = parser.parse_u64_at(endian, offset)?;
+        let p_vaddr = parser.parse_u64_at(endian, offset)?;
+        let p_paddr = parser.parse_u64_at(endian, offset)?;
+        let p_filesz = parser.parse_u64_at(endian, offset)?;
+        let p_memsz = parser.parse_u64_at(endian, offset)?;
+        let p_align = parser.parse_u64_at(endian, offset)?;
         Ok(ProgramHeader {
             p_type: ProgType(p_type),
             p_offset: p_offset,
@@ -136,16 +138,17 @@ impl core::fmt::Display for ProgType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::{Endian, Reader};
-    use std::io::Cursor;
+    use crate::parse::Endian;
 
     #[test]
     fn parse_phdr32_fuzz_too_short() {
         let data = [0u8; 32];
         for n in 0..32 {
-            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
-            let mut reader = Reader::new(&mut cur, Endian::Little);
-            assert!(ProgramHeader::parse(Class::ELF32, &mut reader).is_err());
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            assert!(
+                ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).is_err()
+            );
         }
     }
 
@@ -156,10 +159,10 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut cur = Cursor::new(data.as_ref());
-        let mut reader = Reader::new(&mut cur, Endian::Little);
+        let buf = data.as_ref();
+        let mut offset: usize = 0;
         assert_eq!(
-            ProgramHeader::parse(Class::ELF32, &mut reader).unwrap(),
+            ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x03020100),
                 p_offset: 0x07060504,
@@ -177,9 +180,9 @@ mod tests {
     fn parse_phdr64_fuzz_too_short() {
         let data = [0u8; 56];
         for n in 0..56 {
-            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
-            let mut reader = Reader::new(&mut cur, Endian::Big);
-            assert!(ProgramHeader::parse(Class::ELF64, &mut reader).is_err());
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            assert!(ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).is_err());
         }
     }
 
@@ -190,10 +193,10 @@ mod tests {
             data[n as usize] = n;
         }
 
-        let mut cur = Cursor::new(data.as_ref());
-        let mut reader = Reader::new(&mut cur, Endian::Big);
+        let buf = data.as_ref();
+        let mut offset: usize = 0;
         assert_eq!(
-            ProgramHeader::parse(Class::ELF64, &mut reader).unwrap(),
+            ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x00010203),
                 p_offset: 0x08090A0B0C0D0E0F,

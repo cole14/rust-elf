@@ -84,7 +84,6 @@ pub struct CachedReadBytes<R: Read + Seek> {
 }
 
 impl<R: Read + Seek> CachedReadBytes<R> {
-    #[allow(dead_code)]
     pub fn new(reader: R) -> Self {
         CachedReadBytes {
             reader,
