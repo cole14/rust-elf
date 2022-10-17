@@ -11,7 +11,6 @@ pub struct File<'data, D: Read + Seek> {
     #[allow(dead_code)]
     reader: Reader<'data, D>,
     pub ehdr: FileHeader,
-    phdrs: Vec<segment::ProgramHeader>,
     pub sections: section::SectionTable,
 }
 
@@ -20,27 +19,30 @@ impl<'data, D: Read + Seek> File<'data, D> {
         let ehdr = FileHeader::parse(io_file)?;
         let mut reader = Reader::new(io_file, ehdr.endianness);
 
-        // Parse the program headers
-        reader.seek(SeekFrom::Start(ehdr.e_phoff))?;
-        let mut phdrs = Vec::<segment::ProgramHeader>::default();
-
-        for _ in 0..ehdr.e_phnum {
-            let phdr = segment::ProgramHeader::parse(ehdr.class, &mut reader)?;
-            phdrs.push(phdr);
-        }
-
         let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
         Ok(File {
             reader,
-            ehdr: ehdr,
-            phdrs: phdrs,
+            ehdr,
             sections: table,
         })
     }
 
-    pub fn segments(&'data self) -> Result<&'data Vec<segment::ProgramHeader>, ParseError> {
-        Ok(&self.phdrs)
+    pub fn segments(&mut self) -> Result<Vec<segment::ProgramHeader>, ParseError> {
+        let phnum = self.ehdr.e_phnum as usize;
+        // It's OK to have zero segments
+        if phnum == 0 {
+            return Ok(Vec::<segment::ProgramHeader>::default())
+        }
+
+        let mut phdrs = Vec::<segment::ProgramHeader>::with_capacity(phnum);
+
+        self.reader.seek(SeekFrom::Start(self.ehdr.e_phoff))?;
+        for _ in 0..phnum {
+            let phdr = segment::ProgramHeader::parse(self.ehdr.class, &mut self.reader)?;
+            phdrs.push(phdr);
+        }
+        Ok(phdrs)
     }
 
     /// Get the string table for the section headers
