@@ -1,5 +1,5 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseError, ReadAtExt};
+use crate::parse::{Class, Endian, ParseAtExt, ParseError};
 
 #[derive(Debug)]
 pub struct SymbolTable<'data> {
@@ -139,11 +139,11 @@ pub struct Symbol {
 }
 
 impl Symbol {
-    pub fn parse_at<R: ReadAtExt>(
+    pub fn parse_at<P: ParseAtExt>(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        reader: &R,
+        parser: &P,
     ) -> Result<Self, ParseError> {
         let st_name: u32;
         let st_value: u64;
@@ -153,19 +153,19 @@ impl Symbol {
         let st_other: u8;
 
         if class == Class::ELF32 {
-            st_name = reader.read_u32_at(endian, offset)?;
-            st_value = reader.read_u32_at(endian, offset)? as u64;
-            st_size = reader.read_u32_at(endian, offset)? as u64;
-            st_info = reader.read_u8_at(offset)?;
-            st_other = reader.read_u8_at(offset)?;
-            st_shndx = reader.read_u16_at(endian, offset)?;
+            st_name = parser.parse_u32_at(endian, offset)?;
+            st_value = parser.parse_u32_at(endian, offset)? as u64;
+            st_size = parser.parse_u32_at(endian, offset)? as u64;
+            st_info = parser.parse_u8_at(offset)?;
+            st_other = parser.parse_u8_at(offset)?;
+            st_shndx = parser.parse_u16_at(endian, offset)?;
         } else {
-            st_name = reader.read_u32_at(endian, offset)?;
-            st_info = reader.read_u8_at(offset)?;
-            st_other = reader.read_u8_at(offset)?;
-            st_shndx = reader.read_u16_at(endian, offset)?;
-            st_value = reader.read_u64_at(endian, offset)?;
-            st_size = reader.read_u64_at(endian, offset)?;
+            st_name = parser.parse_u32_at(endian, offset)?;
+            st_info = parser.parse_u8_at(offset)?;
+            st_other = parser.parse_u8_at(offset)?;
+            st_shndx = parser.parse_u16_at(endian, offset)?;
+            st_value = parser.parse_u64_at(endian, offset)?;
+            st_size = parser.parse_u64_at(endian, offset)?;
         }
 
         Ok(Symbol {

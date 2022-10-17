@@ -59,20 +59,14 @@ impl core::fmt::Display for Class {
     }
 }
 
-pub trait ReadAtExt {
+/// Trait which exposes an interface for getting a block of bytes from a data source.
+/// This is the basic reading method for getting a chunk of in-memory ELF data from which
+/// to parse.
+pub trait ReadBytesAt {
     fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
-    fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
-    fn read_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
-    fn read_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
-    fn read_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError>;
 }
 
-#[inline]
-fn read_error(offset: &usize) -> ParseError {
-    ParseError(format!("Could not parse at {offset}: buffer too small"))
-}
-
-impl ReadAtExt for &[u8] {
+impl ReadBytesAt for &[u8] {
     fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
         let start = range.start;
         let end = range.end;
@@ -80,18 +74,35 @@ impl ReadAtExt for &[u8] {
             "Could not read bytes in range [{start}, {end})"
         )))
     }
+}
 
-    fn read_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
-        let data = self.get(*offset).ok_or(read_error(offset))?;
+/// Trait for endian-aware parsing of integer types.
+pub trait ParseAtExt {
+    fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
+    fn parse_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
+    fn parse_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
+    fn parse_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError>;
+}
+
+#[inline]
+fn parse_error(offset: &usize) -> ParseError {
+    ParseError(format!("Could not parse at {offset}: buffer too small"))
+}
+
+/// Extend the byte slice type with endian-aware parsing. These are the basic parsing methods
+/// for our parser-combinator approach to parsing ELF structures from in-memory byte buffers.
+impl ParseAtExt for &[u8] {
+    fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
+        let data = self.get(*offset).ok_or(parse_error(offset))?;
         *offset += 1;
         Ok(*data)
     }
 
-    fn read_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError> {
+    fn parse_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError> {
         let range = *offset..*offset + 2;
         let data: [u8; 2] = self
             .get(range)
-            .ok_or(read_error(offset))?
+            .ok_or(parse_error(offset))?
             .try_into()
             .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
         *offset += 2;
@@ -101,11 +112,11 @@ impl ReadAtExt for &[u8] {
         }
     }
 
-    fn read_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError> {
+    fn parse_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError> {
         let range = *offset..*offset + 4;
         let data: [u8; 4] = self
             .get(range)
-            .ok_or(read_error(offset))?
+            .ok_or(parse_error(offset))?
             .try_into()
             .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
         *offset += 4;
@@ -115,11 +126,11 @@ impl ReadAtExt for &[u8] {
         }
     }
 
-    fn read_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError> {
+    fn parse_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError> {
         let range = *offset..*offset + 8;
         let data: [u8; 8] = self
             .get(range)
-            .ok_or(read_error(offset))?
+            .ok_or(parse_error(offset))?
             .try_into()
             .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
         *offset += 8;
