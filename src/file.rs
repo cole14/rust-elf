@@ -32,7 +32,7 @@ impl<'data, D: Read + Seek> File<'data, D> {
         let phnum = self.ehdr.e_phnum as usize;
         // It's OK to have zero segments
         if phnum == 0 {
-            return Ok(Vec::<segment::ProgramHeader>::default())
+            return Ok(Vec::<segment::ProgramHeader>::default());
         }
 
         let mut phdrs = Vec::<segment::ProgramHeader>::with_capacity(phnum);
@@ -46,7 +46,7 @@ impl<'data, D: Read + Seek> File<'data, D> {
     }
 
     /// Get the string table for the section headers
-    pub fn section_strtab(&'data self) -> Result<StringTable<'data>, ParseError> {
+    pub fn section_strtab(&self) -> Result<StringTable, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
             return Ok(StringTable::default());
         }
@@ -58,9 +58,7 @@ impl<'data, D: Read + Seek> File<'data, D> {
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
-    pub fn symbol_table(
-        &'data self,
-    ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
+    pub fn symbol_table(&self) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
         return match self
             .sections
             .iter()
@@ -87,8 +85,8 @@ impl<'data, D: Read + Seek> File<'data, D> {
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table(
-        &'data self,
-    ) -> Result<Option<(symbol::SymbolTable<'data>, StringTable<'data>)>, ParseError> {
+        &self,
+    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
         return match self
             .sections
             .iter()
