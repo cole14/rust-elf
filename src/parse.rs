@@ -1,5 +1,7 @@
 use core::array::TryFromSliceError;
 use core::ops::Range;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,17 +64,53 @@ impl core::fmt::Display for Class {
 /// Trait which exposes an interface for getting a block of bytes from a data source.
 /// This is the basic reading method for getting a chunk of in-memory ELF data from which
 /// to parse.
-pub trait ReadBytesAt {
-    fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
+pub trait ReadBytesAt<'data> {
+    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
 }
 
-impl ReadBytesAt for &[u8] {
-    fn read_bytes_at<'data>(&'data self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+impl<'data> ReadBytesAt<'data> for &'data [u8] {
+    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
         let start = range.start;
         let end = range.end;
         self.get(range).ok_or(ParseError(format!(
             "Could not read bytes in range [{start}, {end})"
         )))
+    }
+}
+
+pub struct CachedReadBytes<R: Read + Seek> {
+    reader: R,
+    bufs: HashMap<(u64, u64), Box<[u8]>>,
+}
+
+impl<R: Read + Seek> CachedReadBytes<R> {
+    #[allow(dead_code)]
+    pub fn new(reader: R) -> Self {
+        CachedReadBytes {
+            reader,
+            bufs: HashMap::<(u64, u64), Box<[u8]>>::default(),
+        }
+    }
+}
+
+impl<'data, R: Read + Seek> ReadBytesAt<'data> for &'data mut CachedReadBytes<R> {
+    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+        if range.len() == 0 {
+            return Ok(&[]);
+        }
+
+        let start = range.start as u64;
+        let size = range.len() as u64;
+
+        Ok(match self.bufs.entry((start, size)) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                self.reader.seek(SeekFrom::Start(start))?;
+                let mut bytes = vec![0; size as usize].into_boxed_slice();
+                self.reader.read_exact(&mut bytes)?;
+                entry.insert(bytes)
+            }
+        })
     }
 }
 
@@ -207,6 +245,49 @@ pub trait Parse<R>: Sized {
     fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError>
     where
         R: ReadExt;
+}
+
+#[cfg(test)]
+mod read_bytes_tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn byte_slice_read_bytes_at_works() {
+        let data = [1u8, 2u8, 3u8, 4u8];
+        let bytes = data
+            .read_bytes_at(1..3)
+            .expect("Failed to get expected bytes");
+        assert_eq!(bytes, [2u8, 3u8]);
+    }
+
+    #[test]
+    fn byte_slice_read_bytes_at_empty_buffer() {
+        let data = [];
+        assert!(data.read_bytes_at(1..3).is_err());
+    }
+
+    #[test]
+    fn byte_slice_read_bytes_at_past_end_of_buffer() {
+        let data = [1u8, 2u8];
+        assert!(data.read_bytes_at(1..3).is_err());
+    }
+
+    #[test]
+    fn cached_read_bytes_at_works() {
+        let data = [1u8, 2u8, 3u8, 4u8];
+        let cur = Cursor::new(data);
+        let mut cached = CachedReadBytes::new(cur);
+
+        let bytes1 = cached
+            .read_bytes_at(0..2)
+            .expect("Failed to get expected bytes");
+        assert_eq!(bytes1, [1u8, 2u8]);
+        let bytes2 = cached
+            .read_bytes_at(2..4)
+            .expect("Failed to get expected bytes");
+        assert_eq!(bytes2, [3u8, 4u8]);
+    }
 }
 
 #[cfg(test)]
