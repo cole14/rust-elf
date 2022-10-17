@@ -15,28 +15,6 @@ pub struct File<'data, D: Read + Seek> {
     pub sections: section::SectionTable,
 }
 
-impl<'data, D: Read + Seek> core::fmt::Debug for File<'data, D> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:?} {:?} {:?}", self.ehdr, self.phdrs, self.sections)
-    }
-}
-
-impl<'data, D: Read + Seek> core::fmt::Display for File<'data, D> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        writeln!(f, "{{ {} }}", self.ehdr)?;
-        writeln!(f, "{{ ")?;
-        for phdr in self.phdrs.iter() {
-            writeln!(f, "    {}, ", phdr)?;
-        }
-        writeln!(f, "}}")?;
-        writeln!(f, "{{")?;
-        for shdr in self.sections.iter() {
-            writeln!(f, "    {}, ", shdr)?;
-        }
-        write!(f, "}}")
-    }
-}
-
 impl<'data, D: Read + Seek> File<'data, D> {
     pub fn open_stream(io_file: &'data mut D) -> Result<File<'data, D>, ParseError> {
         let ehdr = FileHeader::parse(io_file)?;
