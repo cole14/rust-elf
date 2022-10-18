@@ -234,46 +234,46 @@ impl FileHeader {
         let arch = Architecture(io_r.read_u16()?);
         let version = io_r.read_u32()?;
 
-        let entry: u64;
-        let phoff: u64;
-        let shoff: u64;
+        let e_entry: u64;
+        let e_phoff: u64;
+        let e_shoff: u64;
 
         if class == Class::ELF32 {
-            entry = io_r.read_u32()? as u64;
-            phoff = io_r.read_u32()? as u64;
-            shoff = io_r.read_u32()? as u64;
+            e_entry = io_r.read_u32()? as u64;
+            e_phoff = io_r.read_u32()? as u64;
+            e_shoff = io_r.read_u32()? as u64;
         } else {
-            entry = io_r.read_u64()?;
-            phoff = io_r.read_u64()?;
-            shoff = io_r.read_u64()?;
+            e_entry = io_r.read_u64()?;
+            e_phoff = io_r.read_u64()?;
+            e_shoff = io_r.read_u64()?;
         }
 
-        let flags = io_r.read_u32()?;
-        let ehsize = io_r.read_u16()?;
-        let phentsize = io_r.read_u16()?;
-        let phnum = io_r.read_u16()?;
-        let shentsize = io_r.read_u16()?;
-        let shnum = io_r.read_u16()?;
-        let shstrndx = io_r.read_u16()?;
+        let e_flags = io_r.read_u32()?;
+        let e_ehsize = io_r.read_u16()?;
+        let e_phentsize = io_r.read_u16()?;
+        let e_phnum = io_r.read_u16()?;
+        let e_shentsize = io_r.read_u16()?;
+        let e_shnum = io_r.read_u16()?;
+        let e_shstrndx = io_r.read_u16()?;
 
         return Ok(FileHeader {
-            class: class,
+            class,
             endianness: endian,
-            version: version,
-            elftype: elftype,
-            arch: arch,
+            version,
+            elftype,
+            arch,
             osabi: OSABI(ident[gabi::EI_OSABI]),
             abiversion: ident[gabi::EI_ABIVERSION],
-            e_entry: entry,
-            e_phoff: phoff,
-            e_shoff: shoff,
-            e_flags: flags,
-            e_ehsize: ehsize,
-            e_phentsize: phentsize,
-            e_phnum: phnum,
-            e_shentsize: shentsize,
-            e_shnum: shnum,
-            e_shstrndx: shstrndx,
+            e_entry,
+            e_phoff,
+            e_shoff,
+            e_flags,
+            e_ehsize,
+            e_phentsize,
+            e_phnum,
+            e_shentsize,
+            e_shnum,
+            e_shstrndx,
         });
     }
 }
