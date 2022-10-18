@@ -28,6 +28,18 @@ impl<'data, D: Read + Seek> File<D> {
         })
     }
 
+    /// Get an iterator over the Segments (ELF Program Headers) in the file
+    ///
+    /// The underlying ELF bytes backing the segment table is read all at once
+    /// when the iterator is requested, but parsing is deferred to be lazily
+    /// parsed on demand on each Iterator::next() call.
+    ///
+    /// Returns a `ParseError` if the data bytes for the segment table cannot be
+    /// read i.e. if the ELF [FileHeader]'s
+    /// [e_phnum](FileHeader#structfield.e_phnum),
+    /// [e_phoff](FileHeader#structfield.e_phoff),
+    /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
+    /// to a range in the file data that does not actually exist.
     pub fn segments(&mut self) -> Result<segment::SegmentIterator, ParseError> {
         if self.ehdr.e_phnum == 0 {
             return Ok(segment::SegmentIterator::new(
