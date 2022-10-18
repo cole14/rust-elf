@@ -86,13 +86,13 @@ impl ProgramHeader {
         let p_align = parser.parse_u64_at(endian, offset)?;
         Ok(ProgramHeader {
             p_type: ProgType(p_type),
-            p_offset: p_offset,
-            p_vaddr: p_vaddr,
-            p_paddr: p_paddr,
-            p_filesz: p_filesz,
-            p_memsz: p_memsz,
+            p_offset,
+            p_vaddr,
+            p_paddr,
+            p_filesz,
+            p_memsz,
             p_flags: ProgFlag(p_flags),
-            p_align: p_align,
+            p_align,
         })
     }
 }
