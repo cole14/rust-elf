@@ -28,29 +28,23 @@ impl<'data, D: Read + Seek> File<D> {
         })
     }
 
-    pub fn segments(&mut self) -> Result<Vec<segment::ProgramHeader>, ParseError> {
-        let phnum = self.ehdr.e_phnum as usize;
-        // It's OK to have zero segments
-        if phnum == 0 {
-            return Ok(Vec::<segment::ProgramHeader>::default());
+    pub fn segments(&mut self) -> Result<segment::SegmentIterator, ParseError> {
+        if self.ehdr.e_phnum == 0 {
+            return Ok(segment::SegmentIterator::new(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &[],
+            ));
         }
 
         let start = self.ehdr.e_phoff as usize;
         let size = self.ehdr.e_phentsize as usize * self.ehdr.e_phnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-
-        let mut offset = 0;
-        let mut phdrs = Vec::<segment::ProgramHeader>::with_capacity(phnum);
-        for _ in 0..phnum {
-            let phdr = segment::ProgramHeader::parse_at(
-                self.ehdr.endianness,
-                self.ehdr.class,
-                &mut offset,
-                &buf,
-            )?;
-            phdrs.push(phdr);
-        }
-        Ok(phdrs)
+        Ok(segment::SegmentIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
     }
 
     /// Get the string table for the section headers
