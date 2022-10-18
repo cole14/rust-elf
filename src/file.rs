@@ -11,7 +11,7 @@ pub struct File<D: Read + Seek> {
     #[allow(dead_code)]
     reader: CachedReadBytes<D>,
     pub ehdr: FileHeader,
-    pub sections: section::SectionTable,
+    sections: section::SectionTable,
 }
 
 impl<D: Read + Seek> File<D> {
@@ -59,13 +59,17 @@ impl<D: Read + Seek> File<D> {
         ))
     }
 
+    pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
+        Ok(&self.sections)
+    }
+
     /// Get the string table for the section headers
     pub fn section_strtab(&self) -> Result<StringTable, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
             return Ok(StringTable::default());
         }
 
-        let strtab_section = self.sections.get(self.ehdr.e_shstrndx as usize)?;
+        let strtab_section = self.sections()?.get(self.ehdr.e_shstrndx as usize)?;
         Ok(StringTable::new(strtab_section.data))
     }
 
@@ -73,13 +77,13 @@ impl<D: Read + Seek> File<D> {
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
     pub fn symbol_table(&self) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        return match self
-            .sections
+        let sections = self.sections()?;
+        return match sections
             .iter()
             .find(|section| section.shdr.sh_type == gabi::SHT_SYMTAB)
         {
             Some(section) => {
-                let strtab_section = self.sections.get(section.shdr.sh_link as usize)?;
+                let strtab_section = sections.get(section.shdr.sh_link as usize)?;
                 let strtab = StringTable::new(strtab_section.data);
                 Ok(Some((
                     symbol::SymbolTable::new(
@@ -101,13 +105,13 @@ impl<D: Read + Seek> File<D> {
     pub fn dynamic_symbol_table(
         &self,
     ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        return match self
-            .sections
+        let sections = self.sections()?;
+        return match sections
             .iter()
             .find(|section| section.shdr.sh_type == gabi::SHT_DYNSYM)
         {
             Some(section) => {
-                let strtab_section = self.sections.get(section.shdr.sh_link as usize)?;
+                let strtab_section = sections.get(section.shdr.sh_link as usize)?;
                 let strtab = StringTable::new(strtab_section.data);
                 Ok(Some((
                     symbol::SymbolTable::new(
@@ -580,7 +584,8 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let file = File::open_stream(io).expect("Open test1");
         let bss = file
-            .sections
+            .sections()
+            .expect("Failed to get section table")
             .get_by_name(".bss")
             .expect("Could not find .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
