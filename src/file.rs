@@ -14,7 +14,7 @@ pub struct File<D: Read + Seek> {
     pub sections: section::SectionTable,
 }
 
-impl<'data, D: Read + Seek> File<D> {
+impl<D: Read + Seek> File<D> {
     pub fn open_stream(mut io_file: D) -> Result<File<D>, ParseError> {
         let ehdr = FileHeader::parse(&mut io_file)?;
         let mut reader = Reader::new(&mut io_file, ehdr.endianness);
