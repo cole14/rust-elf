@@ -240,12 +240,6 @@ impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
     }
 }
 
-pub trait Parse<R>: Sized {
-    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError>
-    where
-        R: ReadExt;
-}
-
 #[cfg(test)]
 mod read_bytes_tests {
     use super::*;
