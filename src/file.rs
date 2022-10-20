@@ -196,26 +196,26 @@ impl FileHeader {
         // Verify the magic number
         let magic = buf.split_at(gabi::EI_CLASS).0;
         if magic != gabi::ELFMAGIC {
-            return Err(ParseError(format!("Invalid Magic Bytes: {magic:?}")));
+            return Err(ParseError::BadMagic([
+                magic[0], magic[1], magic[2], magic[3],
+            ]));
         }
 
         let class = buf[gabi::EI_CLASS];
         if class != gabi::ELFCLASS32 && class != gabi::ELFCLASS64 {
-            return Err(ParseError(format!("Unsupported ELF Class: {class:?}")));
+            return Err(ParseError::UnsupportedElfClass(class));
         }
 
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
-            return Err(ParseError(format!("Unsupported ELF Version: {version:?}")));
+            return Err(ParseError::UnsupportedElfVersion(version));
         }
 
         // Verify endianness is something we know how to parse
         let endian = buf[gabi::EI_DATA];
         if endian != gabi::ELFDATA2LSB && endian != gabi::ELFDATA2MSB {
-            return Err(ParseError(format!(
-                "Unsupported ELF Endianness: {endian:?}"
-            )));
+            return Err(ParseError::UnsupportedElfEndianness(endian));
         }
 
         return Ok(());
@@ -641,13 +641,13 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_ok());
+        FileHeader::verify_ident(&mut data.as_ref()).expect("Expected Ok result");
     }
 
     #[test]
     fn test_verify_ident_invalid_mag0() {
         let data: [u8; gabi::EI_NIDENT] = [
-            42,
+            0xFF,
             gabi::ELFMAG1,
             gabi::ELFMAG2,
             gabi::ELFMAG3,
@@ -664,14 +664,18 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
+        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        assert!(
+            matches!(result, ParseError::BadMagic(_)),
+            "Unexpected Error type found: {result}"
+        );
     }
 
     #[test]
     fn test_verify_ident_invalid_mag1() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
-            42,
+            0xFF,
             gabi::ELFMAG2,
             gabi::ELFMAG3,
             gabi::ELFCLASS32,
@@ -687,7 +691,11 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
+        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        assert!(
+            matches!(result, ParseError::BadMagic(_)),
+            "Unexpected Error type found: {result}"
+        );
     }
 
     #[test]
@@ -695,7 +703,7 @@ mod parse_tests {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             gabi::ELFMAG1,
-            42,
+            0xFF,
             gabi::ELFMAG3,
             gabi::ELFCLASS32,
             gabi::ELFDATA2LSB,
@@ -710,7 +718,11 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
+        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        assert!(
+            matches!(result, ParseError::BadMagic(_)),
+            "Unexpected Error type found: {result}"
+        );
     }
 
     #[test]
@@ -719,7 +731,7 @@ mod parse_tests {
             gabi::ELFMAG0,
             gabi::ELFMAG1,
             gabi::ELFMAG2,
-            42,
+            0xFF,
             gabi::ELFCLASS32,
             gabi::ELFDATA2LSB,
             gabi::EV_CURRENT,
@@ -733,7 +745,11 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
+        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        assert!(
+            matches!(result, ParseError::BadMagic(_)),
+            "Unexpected Error type found: {result}"
+        );
     }
 
     #[test]
@@ -756,7 +772,11 @@ mod parse_tests {
             0,
             0,
         ];
-        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
+        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        assert!(
+            matches!(result, ParseError::UnsupportedElfVersion(42)),
+            "Unexpected Error type found: {result}"
+        );
     }
 
     #[test]
@@ -823,7 +843,11 @@ mod parse_tests {
 
         for n in 0..ELF32_EHDR_TAILSIZE {
             let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref();
-            assert!(FileHeader::parse(&mut buf).is_err());
+            let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
+            assert!(
+                matches!(result, ParseError::SliceReadError(_)),
+                "Unexpected Error type found: {result:?}"
+            );
         }
     }
 
@@ -901,7 +925,11 @@ mod parse_tests {
 
         for n in 0..ELF64_EHDR_TAILSIZE {
             let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
-            assert!(FileHeader::parse(&mut buf).is_err());
+            let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
+            assert!(
+                matches!(result, ParseError::SliceReadError(_)),
+                "Unexpected Error type found: {result:?}"
+            );
         }
     }
 }

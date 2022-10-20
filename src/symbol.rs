@@ -23,16 +23,12 @@ impl<'data> SymbolTable<'data> {
         match class {
             Class::ELF32 => {
                 if entsize != ELF32SYMSIZE {
-                    return Err(ParseError(format!(
-                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SYMSIZE}."
-                    )));
+                    return Err(ParseError::BadEntsize((entsize, ELF32SYMSIZE)));
                 }
             }
             Class::ELF64 => {
                 if entsize != ELF64SYMSIZE {
-                    return Err(ParseError(format!(
-                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SYMSIZE}."
-                    )));
+                    return Err(ParseError::BadEntsize((entsize, ELF64SYMSIZE)));
                 }
             }
         }
@@ -48,9 +44,7 @@ impl<'data> SymbolTable<'data> {
     pub fn get(&self, index: u64) -> Result<Symbol, ParseError> {
         let num_table_entries = self.data.len() as u64 / self.entsize;
         if index as u64 > num_table_entries {
-            return Err(ParseError(format!(
-                "Invalid symbol table index {index} for table size {num_table_entries}"
-            )));
+            return Err(ParseError::BadOffset(index));
         }
 
         let mut offset: usize = (self.entsize * index) as usize;
@@ -284,7 +278,11 @@ mod table_tests {
                 st_other: 0x0D,
             }
         );
-        assert!(table.get(42).is_err());
+        let result = table.get(42);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(42))),
+            "Unexpected Error type found: {result:?}"
+        );
     }
 
     #[test]

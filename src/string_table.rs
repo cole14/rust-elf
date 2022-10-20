@@ -13,18 +13,14 @@ impl<'data> StringTable<'data> {
 
     pub fn get(&self, offset: usize) -> Result<&'data str, ParseError> {
         if self.data.is_none() {
-            return Err(ParseError(format!(
-                "Invalid offset into empty string table: {offset}"
-            )));
+            return Err(ParseError::BadOffset(offset as u64));
         }
 
         let start = self.data.unwrap().split_at(offset).1;
         let end = start
             .iter()
             .position(|&b| b == 0u8)
-            .ok_or(ParseError(format!(
-                "Invalid string table contents. Could not find terminating NUL byte."
-            )))?;
+            .ok_or(ParseError::StringTableMissingNul(offset as u64))?;
 
         let substr = start.split_at(end).0;
         let string = from_utf8(substr)?;
@@ -45,8 +41,8 @@ mod tests {
     #[test]
     fn test_empty_table_errors() {
         let st = StringTable::default();
-        assert!(st.get(0).is_err());
-        assert!(st.get(1).is_err());
+        assert!(matches!(st.get(0), Err(ParseError::BadOffset(0))));
+        assert!(matches!(st.get(1), Err(ParseError::BadOffset(1))));
     }
 
     /// Note: ELF string tables are defined to always start with a NUL and use
@@ -70,6 +66,10 @@ mod tests {
     fn test_get_with_malformed_table_no_trailing_nul() {
         let data = [0u8, 0x45, 0x4C, 0x46];
         let st = StringTable::new(&data);
-        assert!(st.get(1).is_err());
+        let result = st.get(1);
+        assert!(
+            matches!(result, Err(ParseError::StringTableMissingNul(1))),
+            "Unexpected Error type found: {result:?}"
+        );
     }
 }

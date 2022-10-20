@@ -25,15 +25,17 @@ impl SectionTable {
         match ehdr.class {
             Class::ELF32 => {
                 if entsize != ELF32SHDRSIZE {
-                    return Err(ParseError(format!(
-                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SHDRSIZE}."
+                    return Err(ParseError::BadEntsize((
+                        entsize as u64,
+                        ELF32SHDRSIZE as u64,
                     )));
                 }
             }
             Class::ELF64 => {
                 if entsize != ELF64SHDRSIZE {
-                    return Err(ParseError(format!(
-                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF64SHDRSIZE}."
+                    return Err(ParseError::BadEntsize((
+                        entsize as u64,
+                        ELF64SHDRSIZE as u64,
                     )));
                 }
             }
@@ -87,13 +89,14 @@ impl SectionTable {
     }
 
     pub fn get(&self, index: usize) -> Result<Section, ParseError> {
-        let table_size = self.headers.len();
-        let shdr = self.headers.get(index).ok_or(ParseError(format!(
-            "Invalid section table index: {index} table_size: {table_size}"
-        )))?;
-        let data = self.section_data.get(index).ok_or(ParseError(format!(
-            "Invalid section table index: {index} table_size: {table_size}"
-        )))?;
+        let shdr = self
+            .headers
+            .get(index)
+            .ok_or(ParseError::BadOffset(index as u64))?;
+        let data = self
+            .section_data
+            .get(index)
+            .ok_or(ParseError::BadOffset(index as u64))?;
 
         Ok(Section { shdr, data })
     }
@@ -107,7 +110,7 @@ impl SectionTable {
         let strings = StringTable::new(strings_scn.unwrap().data);
 
         match core::iter::zip(&self.headers, &self.section_data)
-            .find(|(shdr, _)| strings.get(shdr.sh_name as usize) == Ok(name))
+            .find(|(shdr, _)| strings.get(shdr.sh_name as usize).ok() == Some(name))
         {
             Some((shdr, data)) => Some(Section { shdr, data }),
             None => None,
@@ -318,8 +321,8 @@ mod table_tests {
     #[test]
     fn get_on_empty_table() {
         let table = SectionTable::default();
-        assert!(table.get(0).is_err());
-        assert!(table.get(42).is_err());
+        assert!(matches!(table.get(0), Err(ParseError::BadOffset(0))));
+        assert!(matches!(table.get(42), Err(ParseError::BadOffset(42))));
     }
 
     #[test]
@@ -393,8 +396,10 @@ mod shdr_tests {
         for n in 0..ELF32SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
+            let result = SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf);
             assert!(
-                SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).is_err()
+                matches!(result, Err(ParseError::BadOffset(_))),
+                "Unexpected Error type found: {result:?}"
             );
         }
     }
@@ -431,7 +436,11 @@ mod shdr_tests {
         for n in 0..ELF64SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
-            assert!(SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).is_err());
+            let result = SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf);
+            assert!(
+                matches!(result, Err(ParseError::BadOffset(_))),
+                "Unexpected Error type found: {result:?}"
+            );
         }
     }
 

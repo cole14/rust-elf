@@ -176,8 +176,11 @@ mod tests {
         for n in 0..32 {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
+            let error = ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf)
+                .expect_err("Expected an error");
             assert!(
-                ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).is_err()
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
             );
         }
     }
@@ -212,7 +215,12 @@ mod tests {
         for n in 0..56 {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            assert!(ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).is_err());
+            let error = ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
         }
     }
 

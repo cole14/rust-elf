@@ -1,29 +1,96 @@
-use core::array::TryFromSliceError;
 use core::ops::Range;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseError(pub String);
+#[derive(Debug)]
+pub enum ParseError {
+    BadMagic([u8; 4]),
+    UnsupportedElfClass(u8),
+    UnsupportedElfEndianness(u8),
+    UnsupportedElfVersion(u8),
+    BadOffset(u64),
+    StringTableMissingNul(u64),
+    BadEntsize((u64, u64)),
+    SliceReadError((usize, usize)),
+    Utf8Error(core::str::Utf8Error),
+    TryFromSliceError(core::array::TryFromSliceError),
+    IOError(std::io::Error),
+}
+
+impl std::error::Error for ParseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            ParseError::BadMagic(_) => None,
+            ParseError::UnsupportedElfClass(_) => None,
+            ParseError::UnsupportedElfEndianness(_) => None,
+            ParseError::UnsupportedElfVersion(_) => None,
+            ParseError::BadOffset(_) => None,
+            ParseError::StringTableMissingNul(_) => None,
+            ParseError::BadEntsize(_) => None,
+            ParseError::SliceReadError(_) => None,
+            ParseError::Utf8Error(ref err) => Some(err),
+            ParseError::TryFromSliceError(ref err) => Some(err),
+            ParseError::IOError(ref err) => Some(err),
+        }
+    }
+}
 
 impl core::fmt::Display for ParseError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        f.write_str(&self.0)
+        match *self {
+            ParseError::BadMagic(ref magic) => {
+                write!(f, "Invalid Magic Bytes: {magic:X?}")
+            }
+            ParseError::UnsupportedElfClass(class) => {
+                write!(f, "Unsupported ELF Class: {class}")
+            }
+            ParseError::UnsupportedElfEndianness(endianness) => {
+                write!(f, "Unsupported ELF Endianness: {endianness}")
+            }
+            ParseError::UnsupportedElfVersion(version) => {
+                write!(f, "Unsupported ELF Version: {version}")
+            }
+            ParseError::BadOffset(offset) => {
+                write!(f, "Bad offset: {offset:#X}")
+            }
+            ParseError::StringTableMissingNul(offset) => {
+                write!(
+                    f,
+                    "Could not find terminating NUL byte starting at offset: {offset:#X}"
+                )
+            }
+            ParseError::BadEntsize((found, expected)) => {
+                write!(
+                    f,
+                    "Invalid entsize. Expected: {expected:#X}, Found: {found:#X}"
+                )
+            }
+            ParseError::SliceReadError((start, end)) => {
+                write!(f, "Could not read bytes in range [{start:#X}, {end:#X})")
+            }
+            ParseError::Utf8Error(ref err) => err.fmt(f),
+            ParseError::TryFromSliceError(ref err) => err.fmt(f),
+            ParseError::IOError(ref err) => err.fmt(f),
+        }
     }
 }
 
-impl std::error::Error for ParseError {}
-
-impl core::convert::From<std::io::Error> for ParseError {
-    fn from(e: std::io::Error) -> Self {
-        ParseError(e.to_string())
+impl From<core::str::Utf8Error> for ParseError {
+    fn from(err: core::str::Utf8Error) -> Self {
+        ParseError::Utf8Error(err)
     }
 }
 
-impl core::convert::From<core::str::Utf8Error> for ParseError {
-    fn from(e: core::str::Utf8Error) -> Self {
-        ParseError(e.to_string())
+impl From<core::array::TryFromSliceError> for ParseError {
+    fn from(err: core::array::TryFromSliceError) -> Self {
+        ParseError::TryFromSliceError(err)
+    }
+}
+
+impl From<std::io::Error> for ParseError {
+    fn from(err: std::io::Error) -> ParseError {
+        ParseError::IOError(err)
     }
 }
 
@@ -72,9 +139,8 @@ impl ReadBytesAt for &[u8] {
     fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError> {
         let start = range.start;
         let end = range.end;
-        self.get(range).ok_or(ParseError(format!(
-            "Could not read bytes in range [{start}, {end})"
-        )))
+        self.get(range)
+            .ok_or(ParseError::SliceReadError((start, end)))
     }
 }
 
@@ -121,16 +187,13 @@ pub trait ParseAtExt {
     fn parse_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError>;
 }
 
-#[inline]
-fn parse_error(offset: &usize) -> ParseError {
-    ParseError(format!("Could not parse at {offset}: buffer too small"))
-}
-
 /// Extend the byte slice type with endian-aware parsing. These are the basic parsing methods
 /// for our parser-combinator approach to parsing ELF structures from in-memory byte buffers.
 impl ParseAtExt for &[u8] {
     fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
-        let data = self.get(*offset).ok_or(parse_error(offset))?;
+        let data = self
+            .get(*offset)
+            .ok_or(ParseError::BadOffset(*offset as u64))?;
         *offset += 1;
         Ok(*data)
     }
@@ -139,9 +202,8 @@ impl ParseAtExt for &[u8] {
         let range = *offset..*offset + 2;
         let data: [u8; 2] = self
             .get(range)
-            .ok_or(parse_error(offset))?
-            .try_into()
-            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+            .ok_or(ParseError::BadOffset(*offset as u64))?
+            .try_into()?;
         *offset += 2;
         match endian {
             Endian::Little => Ok(u16::from_le_bytes(data)),
@@ -153,9 +215,8 @@ impl ParseAtExt for &[u8] {
         let range = *offset..*offset + 4;
         let data: [u8; 4] = self
             .get(range)
-            .ok_or(parse_error(offset))?
-            .try_into()
-            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+            .ok_or(ParseError::BadOffset(*offset as u64))?
+            .try_into()?;
         *offset += 4;
         match endian {
             Endian::Little => Ok(u32::from_le_bytes(data)),
@@ -167,9 +228,8 @@ impl ParseAtExt for &[u8] {
         let range = *offset..*offset + 8;
         let data: [u8; 8] = self
             .get(range)
-            .ok_or(parse_error(offset))?
-            .try_into()
-            .map_err(|e: TryFromSliceError| ParseError(e.to_string()))?;
+            .ok_or(ParseError::BadOffset(*offset as u64))?
+            .try_into()?;
         *offset += 8;
         match endian {
             Endian::Little => Ok(u64::from_le_bytes(data)),
@@ -197,13 +257,19 @@ mod read_bytes_tests {
     #[test]
     fn byte_slice_read_bytes_at_empty_buffer() {
         let data = [];
-        assert!(data.as_ref().read_bytes_at(1..3).is_err());
+        assert!(matches!(
+            data.as_ref().read_bytes_at(1..3),
+            Err(ParseError::SliceReadError(_))
+        ));
     }
 
     #[test]
     fn byte_slice_read_bytes_at_past_end_of_buffer() {
         let data = [1u8, 2u8];
-        assert!(data.as_ref().read_bytes_at(1..3).is_err());
+        assert!(matches!(
+            data.as_ref().read_bytes_at(1..3),
+            Err(ParseError::SliceReadError(_))
+        ));
     }
 
     #[test]
@@ -256,7 +322,10 @@ mod parse_tests {
         let data = [0x10u8];
         let mut offset = 0;
         let result = data.as_ref().parse_u16_at(Endian::Big, &mut offset);
-        assert!(result.is_err());
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(0))),
+            "Unexpected Error type found: {result:?}"
+        );
         assert_eq!(offset, 0);
     }
 
@@ -289,7 +358,10 @@ mod parse_tests {
         let data = [0x10u8, 0x20u8];
         let mut offset = 0;
         let result = data.as_ref().parse_u32_at(Endian::Little, &mut offset);
-        assert!(result.is_err());
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(0))),
+            "Unexpected Error type found: {result:?}"
+        );
         assert_eq!(offset, 0);
     }
 
@@ -326,7 +398,10 @@ mod parse_tests {
         let data = [0x10u8, 0x20u8];
         let mut offset = 0;
         let result = data.as_ref().parse_u64_at(Endian::Little, &mut offset);
-        assert!(result.is_err());
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(0))),
+            "Unexpected Error type found: {result:?}"
+        );
         assert_eq!(offset, 0);
     }
 }

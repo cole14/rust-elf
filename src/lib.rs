@@ -61,3 +61,4 @@ pub mod symbol;
 mod parse;
 
 pub use file::File;
+pub use parse::ParseError;
