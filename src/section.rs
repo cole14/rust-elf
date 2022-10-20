@@ -41,6 +41,15 @@ impl SectionTable {
             }
         }
 
+        // It's Ok to have no section headers
+        if ehdr.e_shnum == 0 {
+            return Ok(SectionTable::new(
+                Vec::<SectionHeader>::default(),
+                Vec::<Vec<u8>>::default(),
+                ehdr.e_shstrndx as usize,
+            ));
+        }
+
         let mut headers = Vec::<SectionHeader>::with_capacity(ehdr.e_shnum as usize);
         let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
 
