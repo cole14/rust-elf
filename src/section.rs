@@ -2,7 +2,7 @@ use std::io::SeekFrom;
 
 use crate::file::FileHeader;
 use crate::gabi;
-use crate::parse::{Class, Parse, ParseError, ReadExt};
+use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadExt};
 use crate::string_table::StringTable;
 
 #[derive(Debug)]
@@ -22,13 +22,41 @@ impl SectionTable {
     }
 
     pub fn parse<R: ReadExt>(ehdr: &FileHeader, reader: &mut R) -> Result<Self, ParseError> {
+        // Validate that the entsize matches with what we know how to parse
+        let entsize = ehdr.e_shentsize;
+        match ehdr.class {
+            Class::ELF32 => {
+                if entsize != ELF32SHDRSIZE {
+                    return Err(ParseError(format!(
+                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF32SHDRSIZE}."
+                    )));
+                }
+            }
+            Class::ELF64 => {
+                if entsize != ELF64SHDRSIZE {
+                    return Err(ParseError(format!(
+                        "Invalid symbol entsize {entsize} for ELF32. Should be {ELF64SHDRSIZE}."
+                    )));
+                }
+            }
+        }
+
         let mut headers = Vec::<SectionHeader>::with_capacity(ehdr.e_shnum as usize);
         let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
 
         // Parse the section headers
         reader.seek(SeekFrom::Start(ehdr.e_shoff))?;
         for _ in 0..ehdr.e_shnum {
-            let shdr = SectionHeader::parse(ehdr.class, reader)?;
+            let mut shdr_bytes = [0u8; ELF64SHDRSIZE as usize];
+            reader.read_exact(&mut shdr_bytes)?;
+
+            let mut offset = 0;
+            let shdr = SectionHeader::parse_at(
+                ehdr.endianness,
+                ehdr.class,
+                &mut offset,
+                &shdr_bytes.as_ref(),
+            )?;
             headers.push(shdr);
         }
 
@@ -139,6 +167,9 @@ impl<'data> core::fmt::Display for Section<'data> {
     }
 }
 
+const ELF32SHDRSIZE: u16 = 40;
+const ELF64SHDRSIZE: u16 = 64;
+
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SectionHeader {
@@ -164,35 +195,37 @@ pub struct SectionHeader {
     pub sh_entsize: u64,
 }
 
-impl<R> Parse<R> for SectionHeader
-where
-    R: ReadExt,
-{
-    fn parse(class: Class, reader: &mut R) -> Result<Self, ParseError> {
+impl SectionHeader {
+    pub fn parse_at<P: ParseAtExt>(
+        endian: Endian,
+        class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(SectionHeader {
-                sh_name: reader.read_u32()?,
-                sh_type: SectionType(reader.read_u32()?),
-                sh_flags: SectionFlag(reader.read_u32()? as u64),
-                sh_addr: reader.read_u32()? as u64,
-                sh_offset: reader.read_u32()? as u64,
-                sh_size: reader.read_u32()? as u64,
-                sh_link: reader.read_u32()?,
-                sh_info: reader.read_u32()?,
-                sh_addralign: reader.read_u32()? as u64,
-                sh_entsize: reader.read_u32()? as u64,
+                sh_name: parser.parse_u32_at(endian, offset)?,
+                sh_type: SectionType(parser.parse_u32_at(endian, offset)?),
+                sh_flags: SectionFlag(parser.parse_u32_at(endian, offset)? as u64),
+                sh_addr: parser.parse_u32_at(endian, offset)? as u64,
+                sh_offset: parser.parse_u32_at(endian, offset)? as u64,
+                sh_size: parser.parse_u32_at(endian, offset)? as u64,
+                sh_link: parser.parse_u32_at(endian, offset)?,
+                sh_info: parser.parse_u32_at(endian, offset)?,
+                sh_addralign: parser.parse_u32_at(endian, offset)? as u64,
+                sh_entsize: parser.parse_u32_at(endian, offset)? as u64,
             }),
             Class::ELF64 => Ok(SectionHeader {
-                sh_name: reader.read_u32()?,
-                sh_type: SectionType(reader.read_u32()?),
-                sh_flags: SectionFlag(reader.read_u64()?),
-                sh_addr: reader.read_u64()?,
-                sh_offset: reader.read_u64()?,
-                sh_size: reader.read_u64()?,
-                sh_link: reader.read_u32()?,
-                sh_info: reader.read_u32()?,
-                sh_addralign: reader.read_u64()?,
-                sh_entsize: reader.read_u64()?,
+                sh_name: parser.parse_u32_at(endian, offset)?,
+                sh_type: SectionType(parser.parse_u32_at(endian, offset)?),
+                sh_flags: SectionFlag(parser.parse_u64_at(endian, offset)?),
+                sh_addr: parser.parse_u64_at(endian, offset)?,
+                sh_offset: parser.parse_u64_at(endian, offset)?,
+                sh_size: parser.parse_u64_at(endian, offset)?,
+                sh_link: parser.parse_u32_at(endian, offset)?,
+                sh_info: parser.parse_u32_at(endian, offset)?,
+                sh_addralign: parser.parse_u64_at(endian, offset)?,
+                sh_entsize: parser.parse_u64_at(endian, offset)?,
             }),
         }
     }
@@ -349,16 +382,16 @@ mod table_tests {
 #[cfg(test)]
 mod shdr_tests {
     use super::*;
-    use crate::parse::{Endian, Reader};
-    use std::io::Cursor;
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
         let data = [0u8; 40];
         for n in 0..40 {
-            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
-            let mut reader = Reader::new(&mut cur, Endian::Little);
-            assert!(SectionHeader::parse(Class::ELF32, &mut reader).is_err());
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset = 0;
+            assert!(
+                SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).is_err()
+            );
         }
     }
 
@@ -369,10 +402,10 @@ mod shdr_tests {
             data[n as usize] = n;
         }
 
-        let mut cur = Cursor::new(data.as_ref());
-        let mut reader = Reader::new(&mut cur, Endian::Little);
+        let mut offset = 0;
         assert_eq!(
-            SectionHeader::parse(Class::ELF32, &mut reader).unwrap(),
+            SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+                .unwrap(),
             SectionHeader {
                 sh_name: 0x03020100,
                 sh_type: SectionType(0x07060504),
@@ -392,9 +425,9 @@ mod shdr_tests {
     fn parse_shdr64_fuzz_too_short() {
         let data = [0u8; 64];
         for n in 0..64 {
-            let mut cur = Cursor::new(data.split_at(n).0.as_ref());
-            let mut reader = Reader::new(&mut cur, Endian::Big);
-            assert!(SectionHeader::parse(Class::ELF64, &mut reader).is_err());
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset = 0;
+            assert!(SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).is_err());
         }
     }
 
@@ -405,10 +438,10 @@ mod shdr_tests {
             data[n as usize] = n;
         }
 
-        let mut cur = Cursor::new(data.as_ref());
-        let mut reader = Reader::new(&mut cur, Endian::Big);
+        let mut offset = 0;
         assert_eq!(
-            SectionHeader::parse(Class::ELF64, &mut reader).unwrap(),
+            SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+                .unwrap(),
             SectionHeader {
                 sh_name: 0x00010203,
                 sh_type: SectionType(0x04050607),
