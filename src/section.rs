@@ -385,8 +385,8 @@ mod shdr_tests {
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
-        let data = [0u8; 40];
-        for n in 0..40 {
+        let data = [0u8; ELF32SHDRSIZE as usize];
+        for n in 0..ELF32SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
             assert!(
@@ -397,8 +397,8 @@ mod shdr_tests {
 
     #[test]
     fn parse_shdr32_works() {
-        let mut data = [0u8; 40];
-        for n in 0u8..40 {
+        let mut data = [0u8; ELF32SHDRSIZE as usize];
+        for n in 0..ELF32SHDRSIZE as u8 {
             data[n as usize] = n;
         }
 
@@ -423,8 +423,8 @@ mod shdr_tests {
 
     #[test]
     fn parse_shdr64_fuzz_too_short() {
-        let data = [0u8; 64];
-        for n in 0..64 {
+        let data = [0u8; ELF64SHDRSIZE as usize];
+        for n in 0..ELF64SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
             assert!(SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).is_err());
@@ -433,8 +433,8 @@ mod shdr_tests {
 
     #[test]
     fn parse_shdr64_works() {
-        let mut data = [0u8; 64];
-        for n in 0u8..64 {
+        let mut data = [0u8; ELF64SHDRSIZE as usize];
+        for n in 0..ELF64SHDRSIZE as u8 {
             data[n as usize] = n;
         }
 
