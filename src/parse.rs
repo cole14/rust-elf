@@ -5,16 +5,40 @@ use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug)]
 pub enum ParseError {
+    /// Returned when the ELF File Header's magic bytes weren't ELF's defined
+    /// magic bytes
     BadMagic([u8; 4]),
+    /// Returned when the ELF File Header's `e_ident[EI_CLASS]` wasn't one of the
+    /// defined `ELFCLASS*` constants
     UnsupportedElfClass(u8),
+    /// Returned when the ELF File Header's `e_ident[EI_DATA]` wasn't one of the
+    /// defined `ELFDATA*` constants
     UnsupportedElfEndianness(u8),
+    /// Returned when the ELF File Header's `e_ident[EI_VERSION]` wasn't
+    /// `EV_CURRENT(1)`
     UnsupportedElfVersion(u8),
+    /// Returned when parsing an ELF structure resulted in an offset which fell
+    /// out of bounds of the requested structure
     BadOffset(u64),
+    /// Returned when parsing a string out of a StringTable failed to find the
+    /// terminating NUL byte
     StringTableMissingNul(u64),
+    /// Returned when parsing a table of ELF structures and the file specified
+    /// an entry size for that table that was different than what we had
+    /// expected
     BadEntsize((u64, u64)),
+    /// Returned when parsing an ELF structure out of an in-memory `&[u8]`
+    /// resulted in a request for a section of file bytes outside the range of
+    /// the slice. Commonly caused by truncated file contents.
     SliceReadError((usize, usize)),
+    /// Returned when parsing a string out of a StringTable that contained
+    /// invalid Utf8
     Utf8Error(core::str::Utf8Error),
+    /// Returned when parsing an ELF structure and the underlying structure data
+    /// was truncated and thus the full structure contents could not be parsed.
     TryFromSliceError(core::array::TryFromSliceError),
+    /// Returned when parsing an ELF structure out of an io stream encountered
+    /// an io error.
     IOError(std::io::Error),
 }
 
