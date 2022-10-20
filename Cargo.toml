@@ -1,9 +1,8 @@
 [package]
 name = "elf"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Christopher Cole <chris.cole.09@gmail.com>"]
 license = "MIT/Apache-2.0"
-homepage = "https://github.com/cole14/rust-elf/"
 repository = "https://github.com/cole14/rust-elf/"
 documentation = "https://docs.rs/elf/latest/elf/"
 description = "A pure-rust library for parsing ELF files"
