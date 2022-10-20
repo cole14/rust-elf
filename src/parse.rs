@@ -178,59 +178,6 @@ impl ParseAtExt for &[u8] {
     }
 }
 
-pub trait ReadExt {
-    fn read_u16(&mut self) -> Result<u16, ParseError>;
-    fn read_u32(&mut self) -> Result<u32, ParseError>;
-    fn read_u64(&mut self) -> Result<u64, ParseError>;
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, std::io::Error>;
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error>;
-}
-
-pub struct Reader<'data, D: Read + Seek> {
-    delegate: &'data mut D,
-    endian: Endian,
-}
-
-impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
-    #[inline]
-    fn read_u16(&mut self) -> Result<u16, ParseError> {
-        let mut buf = [0u8; 2];
-        self.delegate.read_exact(&mut buf)?;
-        match self.endian {
-            Endian::Little => Ok(u16::from_le_bytes(buf)),
-            Endian::Big => Ok(u16::from_be_bytes(buf)),
-        }
-    }
-
-    #[inline]
-    fn read_u32(&mut self) -> Result<u32, ParseError> {
-        let mut buf = [0u8; 4];
-        self.delegate.read_exact(&mut buf)?;
-        match self.endian {
-            Endian::Little => Ok(u32::from_le_bytes(buf)),
-            Endian::Big => Ok(u32::from_be_bytes(buf)),
-        }
-    }
-
-    #[inline]
-    fn read_u64(&mut self) -> Result<u64, ParseError> {
-        let mut buf = [0u8; 8];
-        self.delegate.read_exact(&mut buf)?;
-        match self.endian {
-            Endian::Little => Ok(u64::from_le_bytes(buf)),
-            Endian::Big => Ok(u64::from_be_bytes(buf)),
-        }
-    }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), std::io::Error> {
-        self.delegate.read_exact(buf)
-    }
-
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, std::io::Error> {
-        self.delegate.seek(pos)
-    }
-}
-
 #[cfg(test)]
 mod read_bytes_tests {
     use super::ReadBytesAt;
@@ -277,118 +224,109 @@ mod read_bytes_tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod parse_tests {
     use super::*;
 
     #[test]
-    fn test_read_u16_lsb() {
+    fn parse_u16_lsb() {
         let data = [0x10u8, 0x20u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u16().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u16_at(Endian::Little, &mut offset)
+            .expect("Failed to parse u16");
         assert_eq!(result, 0x2010u16);
+        assert_eq!(offset, 2);
     }
 
     #[test]
-    fn test_read_u16_msb() {
+    fn parse_u16_msb() {
         let data = [0x10u8, 0x20u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Big,
-        };
-        let result = reader.read_u16().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u16_at(Endian::Big, &mut offset)
+            .expect("Failed to parse u16");
         assert_eq!(result, 0x1020u16);
+        assert_eq!(offset, 2);
     }
 
     #[test]
-    fn test_read_u16_too_short() {
+    fn parse_u16_too_short() {
         let data = [0x10u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u16();
+        let mut offset = 0;
+        let result = data.as_ref().parse_u16_at(Endian::Big, &mut offset);
         assert!(result.is_err());
+        assert_eq!(offset, 0);
     }
 
     #[test]
-    fn test_read_u32_lsb() {
+    fn parse_u32_lsb() {
         let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u32().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u32_at(Endian::Little, &mut offset)
+            .expect("Failed to parse u32");
         assert_eq!(result, 0x40302010u32);
+        assert_eq!(offset, 4);
     }
 
     #[test]
-    fn test_read_u32_msb() {
+    fn parse_u32_msb() {
         let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Big,
-        };
-        let result = reader.read_u32().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u32_at(Endian::Big, &mut offset)
+            .expect("Failed to parse u32");
         assert_eq!(result, 0x10203040u32);
+        assert_eq!(offset, 4);
     }
 
     #[test]
-    fn test_read_u32_too_short() {
+    fn parse_u32_too_short() {
         let data = [0x10u8, 0x20u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u32();
+        let mut offset = 0;
+        let result = data.as_ref().parse_u32_at(Endian::Little, &mut offset);
         assert!(result.is_err());
+        assert_eq!(offset, 0);
     }
 
     #[test]
-    fn test_read_u64_lsb() {
+    fn parse_u64_lsb() {
         let data = [
             0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
         ];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u64().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u64_at(Endian::Little, &mut offset)
+            .expect("Failed to parse u64");
         assert_eq!(result, 0x8070605040302010u64);
+        assert_eq!(offset, 8);
     }
 
     #[test]
-    fn test_read_u64_msb() {
+    fn parse_u64_msb() {
         let data = [
             0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
         ];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Big,
-        };
-        let result = reader.read_u64().unwrap();
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_u64_at(Endian::Big, &mut offset)
+            .expect("Failed to parse u32");
         assert_eq!(result, 0x1020304050607080u64);
+        assert_eq!(offset, 8);
     }
 
     #[test]
-    fn test_read_u64_too_short() {
+    fn parse_u64_too_short() {
         let data = [0x10u8, 0x20u8];
-        let mut cur = std::io::Cursor::new(data.as_ref());
-        let mut reader = Reader {
-            delegate: &mut cur,
-            endian: Endian::Little,
-        };
-        let result = reader.read_u64();
+        let mut offset = 0;
+        let result = data.as_ref().parse_u64_at(Endian::Little, &mut offset);
         assert!(result.is_err());
+        assert_eq!(offset, 0);
     }
 }
