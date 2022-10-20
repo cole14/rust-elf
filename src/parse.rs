@@ -64,12 +64,12 @@ impl core::fmt::Display for Class {
 /// Trait which exposes an interface for getting a block of bytes from a data source.
 /// This is the basic reading method for getting a chunk of in-memory ELF data from which
 /// to parse.
-pub trait ReadBytesAt<'data> {
-    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
+pub trait ReadBytesAt {
+    fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError>;
 }
 
-impl<'data> ReadBytesAt<'data> for &'data [u8] {
-    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+impl ReadBytesAt for &[u8] {
+    fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError> {
         let start = range.start;
         let end = range.end;
         self.get(range).ok_or(ParseError(format!(
@@ -92,8 +92,8 @@ impl<R: Read + Seek> CachedReadBytes<R> {
     }
 }
 
-impl<'data, R: Read + Seek> ReadBytesAt<'data> for &'data mut CachedReadBytes<R> {
-    fn read_bytes_at(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+impl<R: Read + Seek> ReadBytesAt for &mut CachedReadBytes<R> {
+    fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError> {
         if range.len() == 0 {
             return Ok(&[]);
         }
@@ -191,15 +191,6 @@ pub struct Reader<'data, D: Read + Seek> {
     endian: Endian,
 }
 
-impl<'data, D: Read + Seek> Reader<'data, D> {
-    pub fn new(delegate: &'data mut D, endian: Endian) -> Reader<'data, D> {
-        Reader {
-            delegate: delegate,
-            endian: endian,
-        }
-    }
-}
-
 impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
     #[inline]
     fn read_u16(&mut self) -> Result<u16, ParseError> {
@@ -242,13 +233,15 @@ impl<'data, D: Read + Seek> ReadExt for Reader<'data, D> {
 
 #[cfg(test)]
 mod read_bytes_tests {
+    use super::ReadBytesAt;
     use super::*;
     use std::io::Cursor;
 
     #[test]
     fn byte_slice_read_bytes_at_works() {
         let data = [1u8, 2u8, 3u8, 4u8];
-        let bytes = data
+        let slice = &mut data.as_slice();
+        let bytes = slice
             .read_bytes_at(1..3)
             .expect("Failed to get expected bytes");
         assert_eq!(bytes, [2u8, 3u8]);
@@ -257,20 +250,20 @@ mod read_bytes_tests {
     #[test]
     fn byte_slice_read_bytes_at_empty_buffer() {
         let data = [];
-        assert!(data.read_bytes_at(1..3).is_err());
+        assert!(data.as_ref().read_bytes_at(1..3).is_err());
     }
 
     #[test]
     fn byte_slice_read_bytes_at_past_end_of_buffer() {
         let data = [1u8, 2u8];
-        assert!(data.read_bytes_at(1..3).is_err());
+        assert!(data.as_ref().read_bytes_at(1..3).is_err());
     }
 
     #[test]
     fn cached_read_bytes_at_works() {
         let data = [1u8, 2u8, 3u8, 4u8];
         let cur = Cursor::new(data);
-        let mut cached = CachedReadBytes::new(cur);
+        let mut cached = &mut CachedReadBytes::new(cur);
 
         let bytes1 = cached
             .read_bytes_at(0..2)

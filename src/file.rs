@@ -1,28 +1,23 @@
-use std::io::{Read, Seek};
-
 use crate::gabi;
-use crate::parse::{CachedReadBytes, Class, Endian, ParseError, ReadBytesAt, ReadExt, Reader};
+use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;
 use crate::symbol;
 
-pub struct File<D: Read + Seek> {
-    #[allow(dead_code)]
-    reader: CachedReadBytes<D>,
+pub struct File<R: ReadBytesAt> {
+    reader: R,
     pub ehdr: FileHeader,
     sections: section::SectionTable,
 }
 
-impl<D: Read + Seek> File<D> {
-    pub fn open_stream(mut io_file: D) -> Result<File<D>, ParseError> {
-        let ehdr = FileHeader::parse(&mut io_file)?;
-        let mut reader = Reader::new(&mut io_file, ehdr.endianness);
-
+impl<R: ReadBytesAt> File<R> {
+    pub fn open_stream(mut reader: R) -> Result<File<R>, ParseError> {
+        let ehdr = FileHeader::parse(&mut reader)?;
         let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
         Ok(File {
-            reader: CachedReadBytes::new(io_file),
+            reader,
             ehdr,
             sections: table,
         })
@@ -192,14 +187,12 @@ pub struct FileHeader {
     pub e_shstrndx: u16,
 }
 
+const ELF32_EHDR_TAILSIZE: usize = 36;
+const ELF64_EHDR_TAILSIZE: usize = 48;
+
 // Read the platform-independent ident bytes
 impl FileHeader {
-    fn parse_ident<R: Read>(
-        io_file: &mut R,
-        buf: &mut [u8; gabi::EI_NIDENT],
-    ) -> Result<(), ParseError> {
-        io_file.read_exact(buf)?;
-
+    fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
         // Verify the magic number
         let magic = buf.split_at(gabi::EI_CLASS).0;
         if magic != gabi::ELFMAGIC {
@@ -228,49 +221,65 @@ impl FileHeader {
         return Ok(());
     }
 
-    pub fn parse<R: Read + Seek>(reader: &mut R) -> Result<Self, ParseError> {
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        Self::parse_ident(reader, &mut ident)?;
+    pub fn parse<R: ReadBytesAt>(reader: &mut R) -> Result<Self, ParseError> {
+        let class: Class;
+        let endian: Endian;
+        let osabi: OSABI;
+        let abiversion: u8;
 
-        let class = if ident[gabi::EI_CLASS] == gabi::ELFCLASS32 {
-            Class::ELF32
-        } else {
-            Class::ELF64
+        {
+            let ident = reader.read_bytes_at(0..gabi::EI_NIDENT)?;
+            Self::verify_ident(ident)?;
+
+            class = if ident[gabi::EI_CLASS] == gabi::ELFCLASS32 {
+                Class::ELF32
+            } else {
+                Class::ELF64
+            };
+
+            endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB {
+                Endian::Little
+            } else {
+                Endian::Big
+            };
+
+            osabi = OSABI(ident[gabi::EI_OSABI]);
+            abiversion = ident[gabi::EI_ABIVERSION];
+        }
+
+        let start = gabi::EI_NIDENT;
+        let size = match class {
+            Class::ELF32 => ELF32_EHDR_TAILSIZE,
+            Class::ELF64 => ELF64_EHDR_TAILSIZE,
         };
+        let data = reader.read_bytes_at(start..start + size)?;
 
-        let endian = if ident[gabi::EI_DATA] == gabi::ELFDATA2LSB {
-            Endian::Little
-        } else {
-            Endian::Big
-        };
-
-        let mut io_r = Reader::new(reader, endian);
-
-        let elftype = ObjectFileType(io_r.read_u16()?);
-        let arch = Architecture(io_r.read_u16()?);
-        let version = io_r.read_u32()?;
+        let mut offset = 0;
+        let elftype = ObjectFileType(data.parse_u16_at(endian, &mut offset)?);
+        let arch = Architecture(data.parse_u16_at(endian, &mut offset)?);
+        let version = data.parse_u32_at(endian, &mut offset)?;
 
         let e_entry: u64;
         let e_phoff: u64;
         let e_shoff: u64;
 
         if class == Class::ELF32 {
-            e_entry = io_r.read_u32()? as u64;
-            e_phoff = io_r.read_u32()? as u64;
-            e_shoff = io_r.read_u32()? as u64;
+            e_entry = data.parse_u32_at(endian, &mut offset)? as u64;
+            e_phoff = data.parse_u32_at(endian, &mut offset)? as u64;
+            e_shoff = data.parse_u32_at(endian, &mut offset)? as u64;
         } else {
-            e_entry = io_r.read_u64()?;
-            e_phoff = io_r.read_u64()?;
-            e_shoff = io_r.read_u64()?;
+            e_entry = data.parse_u64_at(endian, &mut offset)?;
+            e_phoff = data.parse_u64_at(endian, &mut offset)?;
+            e_shoff = data.parse_u64_at(endian, &mut offset)?;
         }
 
-        let e_flags = io_r.read_u32()?;
-        let e_ehsize = io_r.read_u16()?;
-        let e_phentsize = io_r.read_u16()?;
-        let e_phnum = io_r.read_u16()?;
-        let e_shentsize = io_r.read_u16()?;
-        let e_shnum = io_r.read_u16()?;
-        let e_shstrndx = io_r.read_u16()?;
+        let e_flags = data.parse_u32_at(endian, &mut offset)?;
+        let e_ehsize = data.parse_u16_at(endian, &mut offset)?;
+        let e_phentsize = data.parse_u16_at(endian, &mut offset)?;
+        let e_phnum = data.parse_u16_at(endian, &mut offset)?;
+        let e_shentsize = data.parse_u16_at(endian, &mut offset)?;
+        let e_shnum = data.parse_u16_at(endian, &mut offset)?;
+        let e_shstrndx = data.parse_u16_at(endian, &mut offset)?;
 
         return Ok(FileHeader {
             class,
@@ -278,8 +287,8 @@ impl FileHeader {
             version,
             elftype,
             arch,
-            osabi: OSABI(ident[gabi::EI_OSABI]),
-            abiversion: ident[gabi::EI_ABIVERSION],
+            osabi,
+            abiversion,
             e_entry,
             e_phoff,
             e_shoff,
@@ -577,12 +586,28 @@ impl core::fmt::Display for Architecture {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::parse::CachedReadBytes;
 
     #[test]
-    fn test_open_stream() {
+    fn test_open_stream_with_cachedreadbytes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let io = std::fs::File::open(path).expect("Could not open file.");
-        let file = File::open_stream(io).expect("Open test1");
+        let mut c_io = CachedReadBytes::new(io);
+        let file = File::open_stream(&mut c_io).expect("Open test1");
+        let bss = file
+            .sections()
+            .expect("Failed to get section table")
+            .get_by_name(".bss")
+            .expect("Could not find .bss section");
+        assert!(bss.data.iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn test_open_stream_with_byte_slice() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = File::open_stream(slice).expect("Open test1");
         let bss = file
             .sections()
             .expect("Failed to get section table")
@@ -594,19 +619,10 @@ mod interface_tests {
 
 #[cfg(test)]
 mod parse_tests {
-    use crate::file::{Architecture, Class, Endian, FileHeader, ObjectFileType, OSABI};
-    use crate::gabi;
-    use std::io::Cursor;
+    use super::*;
 
     #[test]
-    fn test_parse_ident_empty_buf_errors() {
-        let data: [u8; 0] = [];
-        let mut ident: [u8; gabi::EI_NIDENT] = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
-    }
-
-    #[test]
-    fn test_parse_ident_valid() {
+    fn test_verify_ident_valid() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             gabi::ELFMAG1,
@@ -625,12 +641,11 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_ok());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_ok());
     }
 
     #[test]
-    fn test_parse_ident_invalid_mag0() {
+    fn test_verify_ident_invalid_mag0() {
         let data: [u8; gabi::EI_NIDENT] = [
             42,
             gabi::ELFMAG1,
@@ -649,12 +664,11 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
     }
 
     #[test]
-    fn test_parse_ident_invalid_mag1() {
+    fn test_verify_ident_invalid_mag1() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             42,
@@ -673,12 +687,11 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
     }
 
     #[test]
-    fn test_parse_ident_invalid_mag2() {
+    fn test_verify_ident_invalid_mag2() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             gabi::ELFMAG1,
@@ -697,12 +710,11 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
     }
 
     #[test]
-    fn test_parse_ident_invalid_mag3() {
+    fn test_verify_ident_invalid_mag3() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             gabi::ELFMAG1,
@@ -721,12 +733,11 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
     }
 
     #[test]
-    fn test_parse_ident_invalid_version() {
+    fn test_verify_ident_invalid_version() {
         let data: [u8; gabi::EI_NIDENT] = [
             gabi::ELFMAG0,
             gabi::ELFMAG1,
@@ -745,39 +756,27 @@ mod parse_tests {
             0,
             0,
         ];
-        let mut ident = [0u8; gabi::EI_NIDENT];
-        assert!(FileHeader::parse_ident(&mut data.as_ref(), &mut ident).is_err());
+        assert!(FileHeader::verify_ident(&mut data.as_ref()).is_err());
     }
 
     #[test]
     fn test_parse_ehdr32_works() {
-        let mut data: Vec<u8> = vec![
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
-            7,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        data.resize(gabi::EI_NIDENT + 36, 0u8);
-        for n in 0u8..36 {
-            data[gabi::EI_NIDENT + n as usize] = n;
+        let mut data = [0u8; gabi::EI_NIDENT + ELF32_EHDR_TAILSIZE]; // Vec<u8> = vec![
+        data[0] = gabi::ELFMAG0;
+        data[1] = gabi::ELFMAG1;
+        data[2] = gabi::ELFMAG2;
+        data[3] = gabi::ELFMAG3;
+        data[4] = gabi::ELFCLASS32;
+        data[5] = gabi::ELFDATA2LSB;
+        data[6] = gabi::EV_CURRENT;
+        data[7] = gabi::ELFOSABI_LINUX;
+        data[8] = 7;
+        for n in 0..ELF32_EHDR_TAILSIZE {
+            data[gabi::EI_NIDENT + n] = n as u8;
         }
 
-        let slice = data.as_mut_slice();
-        let mut cur = Cursor::new(slice.as_ref());
         assert_eq!(
-            FileHeader::parse(&mut cur).unwrap(),
+            FileHeader::parse(&mut data.as_ref()).unwrap(),
             FileHeader {
                 class: Class::ELF32,
                 endianness: Endian::Little,
@@ -820,11 +819,11 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + 36, 0u8);
+        data.resize(gabi::EI_NIDENT + ELF32_EHDR_TAILSIZE, 0u8);
 
-        for n in 0..36 {
-            let mut cur = Cursor::new(data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref());
-            assert!(FileHeader::parse(&mut cur).is_err());
+        for n in 0..ELF32_EHDR_TAILSIZE {
+            let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref();
+            assert!(FileHeader::parse(&mut buf).is_err());
         }
     }
 
@@ -848,15 +847,14 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + 48, 0u8);
-        for n in 0u8..48 {
+        data.resize(gabi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
+        for n in 0u8..ELF64_EHDR_TAILSIZE as u8 {
             data[gabi::EI_NIDENT + n as usize] = n;
         }
 
-        let slice = data.as_mut_slice();
-        let mut cur = Cursor::new(slice.as_ref());
+        let slice = &mut data.as_slice();
         assert_eq!(
-            FileHeader::parse(&mut cur).unwrap(),
+            FileHeader::parse(slice).unwrap(),
             FileHeader {
                 class: Class::ELF64,
                 endianness: Endian::Big,
@@ -899,11 +897,11 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + 48, 0u8);
+        data.resize(gabi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
 
-        for n in 0..48 {
-            let mut cur = Cursor::new(data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref());
-            assert!(FileHeader::parse(&mut cur).is_err());
+        for n in 0..ELF64_EHDR_TAILSIZE {
+            let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
+            assert!(FileHeader::parse(&mut buf).is_err());
         }
     }
 }

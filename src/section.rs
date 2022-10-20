@@ -1,8 +1,6 @@
-use std::io::SeekFrom;
-
 use crate::file::FileHeader;
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadExt};
+use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
 use crate::string_table::StringTable;
 
 #[derive(Debug)]
@@ -21,7 +19,7 @@ impl SectionTable {
         }
     }
 
-    pub fn parse<R: ReadExt>(ehdr: &FileHeader, reader: &mut R) -> Result<Self, ParseError> {
+    pub fn parse<R: ReadBytesAt>(ehdr: &FileHeader, reader: &mut R) -> Result<Self, ParseError> {
         // Validate that the entsize matches with what we know how to parse
         let entsize = ehdr.e_shentsize;
         match ehdr.class {
@@ -50,22 +48,17 @@ impl SectionTable {
             ));
         }
 
+        // Parse the section headers
+        let start = ehdr.e_shoff as usize;
+        let size = ehdr.e_shentsize as usize * ehdr.e_shnum as usize;
+        let buf = reader.read_bytes_at(start..start + size)?;
+
         let mut headers = Vec::<SectionHeader>::with_capacity(ehdr.e_shnum as usize);
         let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
 
-        // Parse the section headers
-        reader.seek(SeekFrom::Start(ehdr.e_shoff))?;
+        let mut offset = 0;
         for _ in 0..ehdr.e_shnum {
-            let mut shdr_bytes = [0u8; ELF64SHDRSIZE as usize];
-            reader.read_exact(&mut shdr_bytes)?;
-
-            let mut offset = 0;
-            let shdr = SectionHeader::parse_at(
-                ehdr.endianness,
-                ehdr.class,
-                &mut offset,
-                &shdr_bytes.as_ref(),
-            )?;
+            let shdr = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, &buf)?;
             headers.push(shdr);
         }
 
@@ -75,10 +68,12 @@ impl SectionTable {
             let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
 
             if shdr.sh_type != SectionType(gabi::SHT_NOBITS) {
-                reader.seek(SeekFrom::Start(shdr.sh_offset))?;
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                let buf = reader.read_bytes_at(start..start + size)?;
 
                 data.resize(shdr.sh_size as usize, 0u8);
-                reader.read_exact(&mut data)?;
+                data.copy_from_slice(buf);
             }
 
             section_data.push(data);
