@@ -27,6 +27,9 @@ pub enum ParseError {
     /// an entry size for that table that was different than what we had
     /// expected
     BadEntsize((u64, u64)),
+    /// Returned when trying to interpret a section's data as the wrong type.
+    /// For example, trying to treat an SHT_PROGBIGS section as a SHT_STRTAB.
+    UnexpectedSectionType((u32, u32)),
     /// Returned when parsing an ELF structure out of an in-memory `&[u8]`
     /// resulted in a request for a section of file bytes outside the range of
     /// the slice. Commonly caused by truncated file contents.
@@ -52,6 +55,7 @@ impl std::error::Error for ParseError {
             ParseError::BadOffset(_) => None,
             ParseError::StringTableMissingNul(_) => None,
             ParseError::BadEntsize(_) => None,
+            ParseError::UnexpectedSectionType(_) => None,
             ParseError::SliceReadError(_) => None,
             ParseError::Utf8Error(ref err) => Some(err),
             ParseError::TryFromSliceError(ref err) => Some(err),
@@ -88,6 +92,12 @@ impl core::fmt::Display for ParseError {
                 write!(
                     f,
                     "Invalid entsize. Expected: {expected:#X}, Found: {found:#X}"
+                )
+            }
+            ParseError::UnexpectedSectionType((found, expected)) => {
+                write!(
+                    f,
+                    "Could not interpret section of type {found} as type {expected}"
                 )
             }
             ParseError::SliceReadError((start, end)) => {

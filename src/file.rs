@@ -1,9 +1,9 @@
-use crate::gabi;
 use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;
 use crate::symbol;
+use crate::{gabi, string_table};
 
 pub struct File<R: ReadBytesAt> {
     reader: R,
@@ -29,7 +29,7 @@ impl<R: ReadBytesAt> File<R> {
     /// when the iterator is requested, but parsing is deferred to be lazily
     /// parsed on demand on each Iterator::next() call.
     ///
-    /// Returns a `ParseError` if the data bytes for the segment table cannot be
+    /// Returns a [ParseError] if the data bytes for the segment table cannot be
     /// read i.e. if the ELF [FileHeader]'s
     /// [e_phnum](FileHeader#structfield.e_phnum),
     /// [e_phoff](FileHeader#structfield.e_phoff),
@@ -60,7 +60,7 @@ impl<R: ReadBytesAt> File<R> {
     /// when the iterator is requested, but parsing is deferred to be lazily
     /// parsed on demand on each Iterator::next() call.
     ///
-    /// Returns a `ParseError` if the data bytes for the segment table cannot be
+    /// Returns a [ParseError] if the data bytes for the segment table cannot be
     /// read i.e. if the ELF [FileHeader]'s
     /// [e_shnum](FileHeader#structfield.e_shnum),
     /// [e_shoff](FileHeader#structfield.e_shoff),
@@ -85,6 +85,8 @@ impl<R: ReadBytesAt> File<R> {
         ))
     }
 
+    /// Read and parse the [SectionHeader](section::SectionHeader) at the given
+    /// index into the section table.
     pub fn section_header_by_index(
         &mut self,
         index: usize,
@@ -100,18 +102,49 @@ impl<R: ReadBytesAt> File<R> {
         section::SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
     }
 
-    pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
-        Ok(&self.sections)
+    /// Read the section data for the given
+    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
+    /// [StringTable](string_table::StringTable).
+    ///
+    /// Returns a [ParseError] if the
+    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [SHT_STRTAB](gabi::SHT_STRTAB).
+    pub fn section_data_as_strtab(
+        &mut self,
+        shdr: &section::SectionHeader,
+    ) -> Result<string_table::StringTable, ParseError> {
+        if shdr.sh_type != gabi::SHT_STRTAB {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type.0,
+                gabi::SHT_STRTAB,
+            )));
+        }
+        let start = shdr.sh_offset as usize;
+        let size = shdr.sh_size as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(StringTable::new(buf))
     }
 
-    /// Get the string table for the section headers
-    pub fn section_strtab(&self) -> Result<StringTable, ParseError> {
+    /// Read and return the string table for the section headers.
+    ///
+    /// If the file has no section header string table, then an empty
+    /// [StringTable](string_table::StringTable) is returned.
+    ///
+    /// This is a convenience wrapper for interpreting the section at
+    /// [FileHeader.e_shstrndx](FileHeader#structfield.e_shstrndx) as
+    /// a [StringTable](string_table::StringTable) via
+    /// [section_data_as_strtab()](File::section_data_as_strtab).
+    pub fn section_strtab(&mut self) -> Result<StringTable, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
             return Ok(StringTable::default());
         }
 
-        let strtab_section = self.sections()?.get(self.ehdr.e_shstrndx as usize)?;
-        Ok(StringTable::new(strtab_section.data))
+        let strtab_shdr = self.section_header_by_index(self.ehdr.e_shstrndx as usize)?;
+        self.section_data_as_strtab(&strtab_shdr)
+    }
+
+    pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
+        Ok(&self.sections)
     }
 
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
@@ -685,6 +718,37 @@ mod interface_tests {
                 sh_addralign: 1,
                 sh_entsize: 0,
             }
+        );
+    }
+
+    #[test]
+    fn section_data_as_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(file.ehdr.e_shstrndx as usize)
+            .expect("Failed to parse shdr");
+        let strtab = file
+            .section_data_as_strtab(&shdr)
+            .expect("Failed to read strtab");
+        assert_eq!(
+            strtab.get(1).expect("Failed to get strtab entry"),
+            ".symtab"
+        );
+    }
+
+    #[test]
+    fn section_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let strtab = file.section_strtab().expect("Failed to read strtab");
+        assert_eq!(
+            strtab.get(1).expect("Failed to get strtab entry"),
+            ".symtab"
         );
     }
 }
