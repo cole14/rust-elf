@@ -4,6 +4,12 @@
 //!
 //! # Capabilities
 //!
+//! ### Zero-alloc parser:
+//! This crate implements parsing in a way that avoids all heap allocations. ELF structures
+//! are parsed and stored on the stack and provided by patterns such as lazily parsed iterators
+//! that yield stack allocated structures. The structures are copy-converted as
+//! needed from the underlying file data into Rust's native struct representation.
+//!
 //! ### Endian-aware:
 //! This crate properly handles translating between file and host endianness
 //! when parsing the ELF contents.
