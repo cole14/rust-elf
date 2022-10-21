@@ -162,11 +162,43 @@ impl core::fmt::Display for Class {
     }
 }
 
-/// Trait which exposes an interface for getting a block of bytes from a data source.
-/// This is the basic reading method for getting a chunk of in-memory ELF data from which
-/// to parse.
+/// Trait which exposes an interface for getting blocks of bytes from a data source.
 pub trait ReadBytesAt {
+    /// This is the standard reading method for getting a chunk of in-memory ELF
+    /// data from which to parse.
+    ///
+    /// Note that self is mut here, as this method acts as a "read and return" combination
+    /// where the "read" step allows implementers to mutate internal state to serve the read,
+    /// and the "return" step returns a reference to the read data.
+    ///
+    /// If you're wanting to read multiple disjoint chunks of data then the borrowing
+    /// semantics here won't let you keep a reference to the first chunk while reading
+    /// the next. If you want to do that, try the load_bytes_at() + get_loaded_bytes_at() pairing.
     fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError>;
+
+    /// Load a chunk of data from the underlying data source, but don't return a reference to it.
+    /// The loaded chunk can be requested by get_loaded_bytes_at().
+    ///
+    /// This method allows implementers to do multiple disjoint mutating reads on the
+    /// underlying data source in a row in order to later provide concurrent immuntable
+    /// references to those disjoint chunks of data via get_loaded_bytes_at().
+    fn load_bytes_at(&mut self, range: Range<usize>) -> Result<(), ParseError> {
+        // Validate that the underlying data does in fact contain the requested range
+        self.read_bytes_at(range)?;
+
+        // Now that we did the load/validate step, we're done
+        Ok(())
+    }
+
+    /// Get a reference to a chunk of data that was previously loaded by load_bytes_at()
+    ///
+    /// This method allows implementers to do multiple disjoint mutating reads on the
+    /// underlying data source in a row in order to later provide concurrent immuntable
+    /// references to those disjoint chunks of data via get_loaded_bytes_at().
+    ///
+    /// Panics if the range was not previously loaded via load_bytes_at()
+    /// (logic bug when using this interface)
+    fn get_loaded_bytes_at(&self, range: Range<usize>) -> &[u8];
 }
 
 impl ReadBytesAt for &[u8] {
@@ -175,6 +207,14 @@ impl ReadBytesAt for &[u8] {
         let end = range.end;
         self.get(range)
             .ok_or(ParseError::SliceReadError((start, end)))
+    }
+
+    fn get_loaded_bytes_at(&self, range: Range<usize>) -> &[u8] {
+        let start = range.start;
+        let end = range.end;
+        self.get(range)
+            .ok_or(ParseError::SliceReadError((start, end)))
+            .unwrap()
     }
 }
 
@@ -210,6 +250,12 @@ impl<R: Read + Seek> ReadBytesAt for &mut CachedReadBytes<R> {
                 entry.insert(bytes)
             }
         })
+    }
+
+    fn get_loaded_bytes_at(&self, range: Range<usize>) -> &[u8] {
+        let start = range.start as u64;
+        let size = range.len() as u64;
+        self.bufs.get(&(start, size)).unwrap()
     }
 }
 
@@ -307,7 +353,27 @@ mod read_bytes_tests {
     }
 
     #[test]
-    fn cached_read_bytes_at_works() {
+    fn byte_slice_multiple_overlapping_reference_lifetimes() {
+        let data = [1u8, 2u8, 3u8, 4u8];
+        let slice = data.as_ref();
+
+        slice
+            .as_ref()
+            .load_bytes_at(0..2)
+            .expect("Failed to get expected bytes");
+        slice
+            .as_ref()
+            .load_bytes_at(2..4)
+            .expect("Failed to get expected bytes");
+
+        let bytes1 = slice.get_loaded_bytes_at(0..2);
+        let bytes2 = slice.get_loaded_bytes_at(2..4);
+        assert_eq!(bytes1, [1u8, 2u8]);
+        assert_eq!(bytes2, [3u8, 4u8]);
+    }
+
+    #[test]
+    fn cached_read_bytes_multiple_non_overlapping_reference_lifetimes() {
         let data = [1u8, 2u8, 3u8, 4u8];
         let cur = Cursor::new(data);
         let mut cached = &mut CachedReadBytes::new(cur);
@@ -319,6 +385,25 @@ mod read_bytes_tests {
         let bytes2 = cached
             .read_bytes_at(2..4)
             .expect("Failed to get expected bytes");
+        assert_eq!(bytes2, [3u8, 4u8]);
+    }
+
+    #[test]
+    fn cached_read_bytes_multiple_overlapping_reference_lifetimes() {
+        let data = [1u8, 2u8, 3u8, 4u8];
+        let cur = Cursor::new(data);
+        let mut cached = &mut CachedReadBytes::new(cur);
+
+        cached
+            .load_bytes_at(0..2)
+            .expect("Failed to get expected bytes");
+        cached
+            .load_bytes_at(2..4)
+            .expect("Failed to get expected bytes");
+
+        let bytes1 = cached.get_loaded_bytes_at(0..2);
+        let bytes2 = cached.get_loaded_bytes_at(2..4);
+        assert_eq!(bytes1, [1u8, 2u8]);
         assert_eq!(bytes2, [3u8, 4u8]);
     }
 }
