@@ -54,6 +54,37 @@ impl<R: ReadBytesAt> File<R> {
         ))
     }
 
+    /// Get an iterator over the Section Headers in the file.
+    ///
+    /// The underlying ELF bytes backing the segment table are read all at once
+    /// when the iterator is requested, but parsing is deferred to be lazily
+    /// parsed on demand on each Iterator::next() call.
+    ///
+    /// Returns a `ParseError` if the data bytes for the segment table cannot be
+    /// read i.e. if the ELF [FileHeader]'s
+    /// [e_shnum](FileHeader#structfield.e_shnum),
+    /// [e_shoff](FileHeader#structfield.e_shoff),
+    /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
+    /// to a range in the file data that does not actually exist.
+    pub fn section_headers(&mut self) -> Result<section::SectionHeaderIterator, ParseError> {
+        if self.ehdr.e_shnum == 0 {
+            return Ok(section::SectionHeaderIterator::new(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &[],
+            ));
+        }
+
+        let start = self.ehdr.e_shoff as usize;
+        let size = self.ehdr.e_shentsize as usize * self.ehdr.e_shnum as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(section::SectionHeaderIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
+    }
+
     pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
         Ok(&self.sections)
     }
