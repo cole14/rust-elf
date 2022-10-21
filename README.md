@@ -17,21 +17,19 @@ when parsing the ELF contents.
 
 ### Lazy parsing:
 This crate strives for lazy evaluation and parsing when possible.
-[File::open_stream()][File::open_stream] reads, parses and validates the ELF
+`File::open_stream()` reads, parses and validates the ELF
 File Header, then stops there. All other i/o and parsing is deferred to
-being performed on-demand by other methods on [File]. For example,
-[File::symbol_table()](File::symbol_table) reads the data for the symbol
-table and associated string table then returns them with types like
-[SymbolTable](symbol::SymbolTable) and
-[StringTable](string_table::StringTable) which simply act as an
-interpretation layer on top of `&[u8]`s, where parsing of
-[Symbol](symbol::Symbol)s and strings take place only when they are
-requested.
+being performed on-demand by other methods on `File`. For example,
+`File::symbol_table()` reads the data for the symbol table and associated string
+table then returns them with types like `symbol::SymbolTable` and
+`string_table::StringTable` which simply act as an interpretation layer on top
+of `&[u8]`s, where parsing of `symbol::Symbol`s and strings take place only when
+they are requested.
 
 ### Lazy i/o:
 This crate provides two ways of parsing ELF files:
 * From a `&[u8]` into which the user has already read the full contents of the file
-* From a Read + Seek (such as a [std::file::File]) where file contents are read
+* From a Read + Seek (such as a `std::file::File`) where file contents are read
   lazily on-demand based on what the user wants to inspect.
 
 These allow you to decide what tradeoff you want to make. If you're going to be working
