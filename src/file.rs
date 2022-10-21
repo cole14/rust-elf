@@ -147,58 +147,65 @@ impl<R: ReadBytesAt> File<R> {
         Ok(&self.sections)
     }
 
+    fn get_symbol_table_of_type(
+        &mut self,
+        symtab_type: section::SectionType,
+    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
+        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        let symtab_shdr = match self
+            .section_headers()?
+            .find(|shdr| shdr.sh_type == symtab_type)
+        {
+            Some(shdr) => shdr,
+            None => return Ok(None),
+        };
+
+        // Load the section bytes for the symtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let symtab_start = symtab_shdr.sh_offset as usize;
+        let symtab_size = symtab_shdr.sh_size as usize;
+        self.reader
+            .load_bytes_at(symtab_start..symtab_start + symtab_size)?;
+
+        // Load the section bytes for the strtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let strtab = self.section_header_by_index(symtab_shdr.sh_link as usize)?;
+        let strtab_start = strtab.sh_offset as usize;
+        let strtab_size = strtab.sh_size as usize;
+        self.reader
+            .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
+
+        // Return the (symtab, strtab)
+        let symtab = symbol::SymbolTable::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            symtab_shdr.sh_entsize,
+            self.reader
+                .get_loaded_bytes_at(symtab_start..symtab_start + symtab_size),
+        )?;
+        let strtab = StringTable::new(
+            self.reader
+                .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
+        );
+        Ok(Some((symtab, strtab)))
+    }
+
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
-    pub fn symbol_table(&self) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        let sections = self.sections()?;
-        return match sections
-            .iter()
-            .find(|section| section.shdr.sh_type == gabi::SHT_SYMTAB)
-        {
-            Some(section) => {
-                let strtab_section = sections.get(section.shdr.sh_link as usize)?;
-                let strtab = StringTable::new(strtab_section.data);
-                Ok(Some((
-                    symbol::SymbolTable::new(
-                        self.ehdr.endianness,
-                        self.ehdr.class,
-                        section.shdr.sh_entsize,
-                        section.data,
-                    )?,
-                    strtab,
-                )))
-            }
-            None => Ok(None),
-        };
+    pub fn symbol_table(
+        &mut self,
+    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
+        self.get_symbol_table_of_type(section::SectionType(gabi::SHT_SYMTAB))
     }
 
     /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table(
-        &self,
+        &mut self,
     ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        let sections = self.sections()?;
-        return match sections
-            .iter()
-            .find(|section| section.shdr.sh_type == gabi::SHT_DYNSYM)
-        {
-            Some(section) => {
-                let strtab_section = sections.get(section.shdr.sh_link as usize)?;
-                let strtab = StringTable::new(strtab_section.data);
-                Ok(Some((
-                    symbol::SymbolTable::new(
-                        self.ehdr.endianness,
-                        self.ehdr.class,
-                        section.shdr.sh_entsize,
-                        section.data,
-                    )?,
-                    strtab,
-                )))
-            }
-            None => Ok(None),
-        };
+        self.get_symbol_table_of_type(section::SectionType(gabi::SHT_DYNSYM))
     }
 }
 
@@ -773,6 +780,66 @@ mod interface_tests {
                 p_align: 8,
             }
         )
+    }
+
+    #[test]
+    fn symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let (symtab, strtab) = file
+            .symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(30).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            symbol::Symbol {
+                st_name: 19,
+                st_value: 6293200,
+                st_size: 0,
+                st_shndx: 21,
+                st_info: 1,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "__JCR_LIST__"
+        );
+    }
+
+    #[test]
+    fn dynamic_symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let (symtab, strtab) = file
+            .dynamic_symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(1).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            symbol::Symbol {
+                st_name: 11,
+                st_value: 0,
+                st_size: 0,
+                st_shndx: 0,
+                st_info: 18,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "memset"
+        );
     }
 }
 

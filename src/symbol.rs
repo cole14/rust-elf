@@ -105,10 +105,10 @@ pub struct Symbol {
     pub st_shndx: u16,
 
     /// This member specifies the symbol's type and binding attributes.
-    st_info: u8,
+    pub(super) st_info: u8,
 
     /// This member currently specifies a symbol's visibility.
-    st_other: u8,
+    pub(super) st_other: u8,
 
     /// This member gives the value of the associated symbol. Depending on the
     /// context, this may be an absolute value, an address, and so on.
