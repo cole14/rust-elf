@@ -85,6 +85,21 @@ impl<R: ReadBytesAt> File<R> {
         ))
     }
 
+    pub fn section_header_by_index(
+        &mut self,
+        index: usize,
+    ) -> Result<section::SectionHeader, ParseError> {
+        if self.ehdr.e_shnum == 0 || index >= self.ehdr.e_shnum as usize {
+            return Err(ParseError::BadOffset(index as u64));
+        }
+
+        let start = self.ehdr.e_shoff as usize + (index * self.ehdr.e_shentsize as usize);
+        let size = self.ehdr.e_shentsize as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        let mut offset = 0;
+        section::SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
+    }
+
     pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
         Ok(&self.sections)
     }
@@ -645,6 +660,32 @@ mod interface_tests {
             .get_by_name(".bss")
             .expect("Could not find .bss section");
         assert!(bss.data.iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn section_header_by_index() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(file.ehdr.e_shstrndx as usize)
+            .expect("Failed to parse shdr");
+        assert_eq!(
+            shdr,
+            section::SectionHeader {
+                sh_name: 17,
+                sh_type: section::SectionType(3),
+                sh_flags: section::SectionFlag(0),
+                sh_addr: 0,
+                sh_offset: 4532,
+                sh_size: 268,
+                sh_link: 0,
+                sh_info: 0,
+                sh_addralign: 1,
+                sh_entsize: 0,
+            }
+        );
     }
 }
 
