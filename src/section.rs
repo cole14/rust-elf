@@ -1,7 +1,5 @@
-use crate::file::FileHeader;
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
-use crate::string_table::StringTable;
+use crate::parse::{Class, Endian, ParseAtExt, ParseError};
 
 pub struct SectionHeaderIterator<'data> {
     endianness: Endian,
@@ -32,180 +30,6 @@ impl<'data> Iterator for SectionHeaderIterator<'data> {
         SectionHeader::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
     }
 }
-
-#[derive(Debug)]
-pub struct SectionTable {
-    headers: Vec<SectionHeader>,
-    section_data: Vec<Vec<u8>>,
-    sh_strndx: usize,
-}
-
-impl SectionTable {
-    pub fn new(headers: Vec<SectionHeader>, section_data: Vec<Vec<u8>>, sh_strndx: usize) -> Self {
-        SectionTable {
-            headers,
-            section_data,
-            sh_strndx,
-        }
-    }
-
-    pub fn parse<R: ReadBytesAt>(ehdr: &FileHeader, reader: &mut R) -> Result<Self, ParseError> {
-        // Validate that the entsize matches with what we know how to parse
-        let entsize = ehdr.e_shentsize;
-        match ehdr.class {
-            Class::ELF32 => {
-                if entsize != ELF32SHDRSIZE {
-                    return Err(ParseError::BadEntsize((
-                        entsize as u64,
-                        ELF32SHDRSIZE as u64,
-                    )));
-                }
-            }
-            Class::ELF64 => {
-                if entsize != ELF64SHDRSIZE {
-                    return Err(ParseError::BadEntsize((
-                        entsize as u64,
-                        ELF64SHDRSIZE as u64,
-                    )));
-                }
-            }
-        }
-
-        // It's Ok to have no section headers
-        if ehdr.e_shnum == 0 {
-            return Ok(SectionTable::new(
-                Vec::<SectionHeader>::default(),
-                Vec::<Vec<u8>>::default(),
-                ehdr.e_shstrndx as usize,
-            ));
-        }
-
-        // Parse the section headers
-        let start = ehdr.e_shoff as usize;
-        let size = ehdr.e_shentsize as usize * ehdr.e_shnum as usize;
-        let buf = reader.read_bytes_at(start..start + size)?;
-
-        let mut headers = Vec::<SectionHeader>::with_capacity(ehdr.e_shnum as usize);
-        let mut section_data = Vec::<Vec<u8>>::with_capacity(ehdr.e_shnum as usize);
-
-        let mut offset = 0;
-        for _ in 0..ehdr.e_shnum {
-            let shdr = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, &buf)?;
-            headers.push(shdr);
-        }
-
-        // Read the section data
-        for i in 0..ehdr.e_shnum as usize {
-            let shdr = headers[i];
-            let mut data = Vec::<u8>::with_capacity(shdr.sh_size as usize);
-
-            if shdr.sh_type != SectionType(gabi::SHT_NOBITS) {
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                let buf = reader.read_bytes_at(start..start + size)?;
-
-                data.resize(shdr.sh_size as usize, 0u8);
-                data.copy_from_slice(buf);
-            }
-
-            section_data.push(data);
-        }
-
-        Ok(SectionTable::new(
-            headers,
-            section_data,
-            ehdr.e_shstrndx as usize,
-        ))
-    }
-
-    pub fn get(&self, index: usize) -> Result<Section, ParseError> {
-        let shdr = self
-            .headers
-            .get(index)
-            .ok_or(ParseError::BadOffset(index as u64))?;
-        let data = self
-            .section_data
-            .get(index)
-            .ok_or(ParseError::BadOffset(index as u64))?;
-
-        Ok(Section { shdr, data })
-    }
-
-    pub fn get_by_name(&self, name: &str) -> Option<Section> {
-        let strings_scn = self.get(self.sh_strndx);
-        if strings_scn.is_err() {
-            return None;
-        }
-
-        let strings = StringTable::new(strings_scn.unwrap().data);
-
-        match core::iter::zip(&self.headers, &self.section_data)
-            .find(|(shdr, _)| strings.get(shdr.sh_name as usize).ok() == Some(name))
-        {
-            Some((shdr, data)) => Some(Section { shdr, data }),
-            None => None,
-        }
-    }
-
-    pub fn iter(&self) -> SectionTableIterator {
-        SectionTableIterator::new(self)
-    }
-}
-
-impl Default for SectionTable {
-    fn default() -> Self {
-        SectionTable {
-            headers: Vec::<SectionHeader>::default(),
-            section_data: Vec::<Vec<u8>>::default(),
-            sh_strndx: 0,
-        }
-    }
-}
-
-pub struct SectionTableIterator<'data> {
-    table: &'data SectionTable,
-    idx: usize,
-}
-
-impl<'data> SectionTableIterator<'data> {
-    pub fn new(table: &'data SectionTable) -> Self {
-        SectionTableIterator {
-            table: table,
-            idx: 0,
-        }
-    }
-}
-
-impl<'data> Iterator for SectionTableIterator<'data> {
-    type Item = Section<'data>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.idx == self.table.headers.len() {
-            return None;
-        }
-        let idx = self.idx;
-        self.idx += 1;
-        Some(Section {
-            shdr: &self.table.headers[idx],
-            data: &self.table.section_data[idx],
-        })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Section<'data> {
-    pub shdr: &'data SectionHeader,
-    pub data: &'data [u8],
-}
-
-impl<'data> core::fmt::Display for Section<'data> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{}", self.shdr)
-    }
-}
-
-const ELF32SHDRSIZE: u16 = 40;
-const ELF64SHDRSIZE: u16 = 64;
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -344,81 +168,11 @@ impl core::fmt::Display for SectionFlag {
 }
 
 #[cfg(test)]
-mod table_tests {
-    use super::*;
-    use crate::gabi;
-
-    #[test]
-    fn get_on_empty_table() {
-        let table = SectionTable::default();
-        assert!(matches!(table.get(0), Err(ParseError::BadOffset(0))));
-        assert!(matches!(table.get(42), Err(ParseError::BadOffset(42))));
-    }
-
-    #[test]
-    fn get_by_name_does_not_exist() {
-        let table = SectionTable::default();
-        assert!(table.get_by_name(".footab").is_none());
-    }
-
-    #[test]
-    fn get_variants_work() {
-        // Set up 1 .bss section, 1 .strtab section
-        let mut headers = Vec::<SectionHeader>::with_capacity(2);
-        headers.push(SectionHeader {
-            sh_name: 1,
-            sh_type: SectionType(gabi::SHT_NOBITS),
-            sh_flags: SectionFlag(0),
-            sh_addr: 0,
-            sh_offset: 0,
-            sh_size: 0,
-            sh_link: 0,
-            sh_info: 0,
-            sh_addralign: 0,
-            sh_entsize: 0,
-        });
-        headers.push(SectionHeader {
-            sh_name: 6,
-            sh_type: SectionType(gabi::SHT_STRTAB),
-            sh_flags: SectionFlag(0),
-            sh_addr: 0,
-            sh_offset: 0,
-            sh_size: 0,
-            sh_link: 0,
-            sh_info: 0,
-            sh_addralign: 0,
-            sh_entsize: 0,
-        });
-
-        let mut section_data = Vec::<Vec<u8>>::with_capacity(2);
-        // .bss section has no data
-        section_data.push(Vec::<u8>::default());
-        // .strtab is the string table
-        section_data.push(vec![
-            0u8, 0x2E, 0x62, 0x73, 0x73, 0u8, 0x2E, 0x73, 0x74, 0x72, 0x74, 0x61, 0x62, 0u8,
-        ]);
-
-        // SUT
-        let table = SectionTable::new(headers, section_data, 1);
-
-        let bss_by_name = table.get_by_name(".bss").expect("Couldn't find .bss");
-        assert_eq!(bss_by_name.shdr.sh_type, SectionType(gabi::SHT_NOBITS));
-        assert_eq!(bss_by_name.data.len(), 0);
-
-        let strtab_by_name = table.get_by_name(".strtab").expect("Couldn't find .strtab");
-        assert_eq!(strtab_by_name.shdr.sh_type, SectionType(gabi::SHT_STRTAB));
-        assert_eq!(strtab_by_name.data.len(), 14);
-
-        let bss_by_index = table.get(0).expect("Couldn't find .bss");
-        let strtab_by_index = table.get(1).expect("Couldn't find .strtab");
-        assert_eq!(bss_by_index, bss_by_name);
-        assert_eq!(strtab_by_index, strtab_by_name);
-    }
-}
-
-#[cfg(test)]
 mod iter_tests {
     use super::*;
+
+    const ELF32SHDRSIZE: u16 = 40;
+    const ELF64SHDRSIZE: u16 = 64;
 
     #[test]
     fn get_32_lsb() {
@@ -510,6 +264,9 @@ mod iter_tests {
 #[cfg(test)]
 mod shdr_tests {
     use super::*;
+
+    const ELF32SHDRSIZE: u16 = 40;
+    const ELF64SHDRSIZE: u16 = 64;
 
     #[test]
     fn parse_shdr32_fuzz_too_short() {
