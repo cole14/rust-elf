@@ -276,7 +276,9 @@ pub trait ParseAtExt {
     fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
     fn parse_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
     fn parse_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
+    fn parse_i32_at(&self, endian: Endian, offset: &mut usize) -> Result<i32, ParseError>;
     fn parse_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError>;
+    fn parse_i64_at(&self, endian: Endian, offset: &mut usize) -> Result<i64, ParseError>;
 }
 
 /// Extend the byte slice type with endian-aware parsing. These are the basic parsing methods
@@ -316,6 +318,19 @@ impl ParseAtExt for &[u8] {
         }
     }
 
+    fn parse_i32_at(&self, endian: Endian, offset: &mut usize) -> Result<i32, ParseError> {
+        let range = *offset..*offset + 4;
+        let data: [u8; 4] = self
+            .get(range)
+            .ok_or(ParseError::BadOffset(*offset as u64))?
+            .try_into()?;
+        *offset += 4;
+        match endian {
+            Endian::Little => Ok(i32::from_le_bytes(data)),
+            Endian::Big => Ok(i32::from_be_bytes(data)),
+        }
+    }
+
     fn parse_u64_at(&self, endian: Endian, offset: &mut usize) -> Result<u64, ParseError> {
         let range = *offset..*offset + 8;
         let data: [u8; 8] = self
@@ -326,6 +341,19 @@ impl ParseAtExt for &[u8] {
         match endian {
             Endian::Little => Ok(u64::from_le_bytes(data)),
             Endian::Big => Ok(u64::from_be_bytes(data)),
+        }
+    }
+
+    fn parse_i64_at(&self, endian: Endian, offset: &mut usize) -> Result<i64, ParseError> {
+        let range = *offset..*offset + 8;
+        let data: [u8; 8] = self
+            .get(range)
+            .ok_or(ParseError::BadOffset(*offset as u64))?
+            .try_into()?;
+        *offset += 8;
+        match endian {
+            Endian::Little => Ok(i64::from_le_bytes(data)),
+            Endian::Big => Ok(i64::from_be_bytes(data)),
         }
     }
 }
@@ -497,6 +525,42 @@ mod parse_tests {
     }
 
     #[test]
+    fn parse_i32_lsb() {
+        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_i32_at(Endian::Little, &mut offset)
+            .expect("Failed to parse i32");
+        assert_eq!(result, 0x40302010i32);
+        assert_eq!(offset, 4);
+    }
+
+    #[test]
+    fn parse_i32_msb() {
+        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_i32_at(Endian::Big, &mut offset)
+            .expect("Failed to parse i32");
+        assert_eq!(result, 0x10203040i32);
+        assert_eq!(offset, 4);
+    }
+
+    #[test]
+    fn parse_i32_too_short() {
+        let data = [0x10u8, 0x20u8];
+        let mut offset = 0;
+        let result = data.as_ref().parse_i32_at(Endian::Little, &mut offset);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(0))),
+            "Unexpected Error type found: {result:?}"
+        );
+        assert_eq!(offset, 0);
+    }
+
+    #[test]
     fn parse_u64_lsb() {
         let data = [
             0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
@@ -529,6 +593,46 @@ mod parse_tests {
         let data = [0x10u8, 0x20u8];
         let mut offset = 0;
         let result = data.as_ref().parse_u64_at(Endian::Little, &mut offset);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(0))),
+            "Unexpected Error type found: {result:?}"
+        );
+        assert_eq!(offset, 0);
+    }
+
+    #[test]
+    fn parse_i64_lsb() {
+        let data = [
+            0x00u8, 0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8,
+        ];
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_i64_at(Endian::Little, &mut offset)
+            .expect("Failed to parse i64");
+        assert_eq!(result, 0x7060504030201000i64);
+        assert_eq!(offset, 8);
+    }
+
+    #[test]
+    fn parse_i64_msb() {
+        let data = [
+            0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
+        ];
+        let mut offset = 0;
+        let result = data
+            .as_ref()
+            .parse_i64_at(Endian::Big, &mut offset)
+            .expect("Failed to parse u32");
+        assert_eq!(result, 0x1020304050607080i64);
+        assert_eq!(offset, 8);
+    }
+
+    #[test]
+    fn parse_i64_too_short() {
+        let data = [0x10u8, 0x20u8];
+        let mut offset = 0;
+        let result = data.as_ref().parse_i64_at(Endian::Little, &mut offset);
         assert!(
             matches!(result, Err(ParseError::BadOffset(0))),
             "Unexpected Error type found: {result:?}"
