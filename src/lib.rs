@@ -4,51 +4,48 @@
 //!
 //! # Capabilities
 //!
-//! **Contains no unsafe code**: Many of the other rust ELF parsers out there
-//! contain bits of unsafe code deep down or in dependencies to
-//! reinterpret/transmute byte contents as structures in order to drive
-//! zero-copy parsing. They're slick, and that also introduces unsafe code
-//! blocks (albeit small ones). This crate strives to serve as an alternate
-//! implementation with zero unsafe code blocks.
+//! ### Endian-aware:
+//! This crate properly handles translating between file and host endianness
+//! when parsing the ELF contents.
 //!
-//! **Endian-aware**: This crate properly handles translating between file and
-//! host endianness when parsing the ELF contents.
+//! ### Lazy parsing:
+//! This crate strives for lazy evaluation and parsing when possible.
+//! [File::open_stream()][File::open_stream] reads, parses and validates the ELF
+//! File Header, then stops there. All other i/o and parsing is deferred to
+//! being performed on-demand by other methods on [File]. For example,
+//! [File::symbol_table()](File::symbol_table) reads the data for the symbol
+//! table and associated string table then returns them with types like
+//! [SymbolTable](symbol::SymbolTable) and
+//! [StringTable](string_table::StringTable) which simply act as an
+//! interpretation layer on top of `&[u8]`s, where parsing of
+//! [Symbol](symbol::Symbol)s and strings take place only when they are
+//! requested.
 //!
-//! **Lazy parsing**: This crate strives for lazy evaluation and parsing when
-//! possible. For example, the [SymbolTable](symbol::SymbolTable) simply
-//! acts as an interpretation layer on top of a `&[u8]`. Parsing of
-//! [Symbol](symbol::Symbol)s takes place only when symbols are requested.
+//! ### Lazy i/o:
+//! This crate provides two ways of parsing ELF files:
+//! * From a `&[u8]` into which the user has already read the full contents of the file
+//! * From a Read + Seek (such as a `std::file::File`) where file contents are read
+//!   lazily on-demand based on what the user wants to inspect.
 //!
-//! **Tiny compiled library size**: At the time of writing this, the release lib
-//! was only ~30kB!
+//! These allow you to decide what tradeoff you want to make. If you're going to be working
+//! with the whole file at once, then the byte slice approach is probably worthwhile to minimize
+//! i/o overhead by streaming the whole file into memory at once. If you're only going to
+//! be inspecting part of the file, then the Read + Seek approach would help avoid the
+//! overhead of reading a bunch of unused file data just to parse out a few things.
+//!
+//! ### No unsafe code:
+//! Many of the other rust ELF parsers out there contain bits of unsafe code
+//! deep down or in dependencies to reinterpret/transmute byte contents as
+//! structures in order to drive zero-copy parsing. They're slick, and there's
+//! typically appropriate checking to validate the assumptions to make that
+//! unsafe code work, but nevertheless it introduces unsafe code blocks (albeit
+//! small ones). This crate strives to serve as an alternate implementation with
+//! zero unsafe code blocks.
 //!
 //! # Future plans
 //!
-//! **Add no_std option**: Currently, the main impediment to a no_std option is the
-//! use of allocating datastructures, such as the parsed section contents' Vec<u8>.
-//!
-//! **Lazily loading section contents**: Currently, all of the section data is read
-//! from the input stream into allocated Vec<u8> when the stream is opened. This can
-//! be unnecessarily expensive for use-cases that don't need to inspect all the section
-//! contents.
-//!
-//! A potential future vision for both of these issues is to rework the parsing
-//! code's reader trait implementations to provide two options:
-//!
-//! * A wrapper around a `&[u8]` which already contains the full ELF contents. This
-//!   could be used for a no_std option where we want to simply parse out the ELF
-//!   structures from the existing data without needing to heap-allocate buffers
-//!   in which to store the reads.
-//! * An allocating CachedReader type which wraps a stream which can allocate
-//!   and remember Vec<u8> buffers in which to land the data from file reads.
-//!
-//! The former no_std option is useful when you need no_std, however it forces
-//! the user to invoke the performance penalty of reading the entire file
-//! contents up front.
-//!
-//! The latter option is useful for use-cases that only want to interpret parts
-//! of an ELF object, where allocating buffers to store the reads is a much
-//! smaller cost than reading in the whole large object contents.
+//! **Add no_std option** This would disable the Read + Seek interface and limit
+//! the library to the `&[u8]` parsing impl.
 //!
 
 pub mod file;

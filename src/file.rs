@@ -8,19 +8,13 @@ use crate::{gabi, string_table};
 pub struct File<R: ReadBytesAt> {
     reader: R,
     pub ehdr: FileHeader,
-    sections: section::SectionTable,
 }
 
 impl<R: ReadBytesAt> File<R> {
     pub fn open_stream(mut reader: R) -> Result<File<R>, ParseError> {
         let ehdr = FileHeader::parse(&mut reader)?;
-        let table = section::SectionTable::parse(&ehdr, &mut reader)?;
 
-        Ok(File {
-            reader,
-            ehdr,
-            sections: table,
-        })
+        Ok(File { reader, ehdr })
     }
 
     /// Get an iterator over the Segments (ELF Program Headers) in the file
@@ -141,10 +135,6 @@ impl<R: ReadBytesAt> File<R> {
 
         let strtab_shdr = self.section_header_by_index(self.ehdr.e_shstrndx as usize)?;
         self.section_data_as_strtab(&strtab_shdr)
-    }
-
-    pub fn sections(&self) -> Result<&section::SectionTable, ParseError> {
-        Ok(&self.sections)
     }
 
     fn get_symbol_table_of_type(
@@ -680,12 +670,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut c_io = CachedReadBytes::new(io);
         let file = File::open_stream(&mut c_io).expect("Open test1");
-        let bss = file
-            .sections()
-            .expect("Failed to get section table")
-            .get_by_name(".bss")
-            .expect("Could not find .bss section");
-        assert!(bss.data.iter().all(|&b| b == 0));
+        assert_eq!(file.ehdr.elftype, ObjectFileType(gabi::ET_EXEC));
     }
 
     #[test]
@@ -694,12 +679,7 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = File::open_stream(slice).expect("Open test1");
-        let bss = file
-            .sections()
-            .expect("Failed to get section table")
-            .get_by_name(".bss")
-            .expect("Could not find .bss section");
-        assert!(bss.data.iter().all(|&b| b == 0));
+        assert_eq!(file.ehdr.elftype, ObjectFileType(gabi::ET_EXEC));
     }
 
     #[test]
