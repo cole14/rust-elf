@@ -751,6 +751,29 @@ mod interface_tests {
             ".symtab"
         );
     }
+
+    #[test]
+    fn segments() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let segments: Vec<segment::ProgramHeader> =
+            file.segments().expect("Failed to read segments").collect();
+        assert_eq!(
+            segments[0],
+            segment::ProgramHeader {
+                p_type: segment::ProgType(gabi::PT_PHDR),
+                p_offset: 64,
+                p_vaddr: 4194368,
+                p_paddr: 4194368,
+                p_filesz: 448,
+                p_memsz: 448,
+                p_flags: segment::ProgFlag(5),
+                p_align: 8,
+            }
+        )
+    }
 }
 
 #[cfg(test)]
