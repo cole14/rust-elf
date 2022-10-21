@@ -5,13 +5,9 @@
 
 # rust-elf
 
-The `elf` crate provides a pure-rust interface for reading ELF object files.
+The `elf` crate provides a pure-rust interface for reading and parsing ELF object files.
 
 [Documentation](https://docs.rs/elf/)
-
-# `elf`
-
-The `elf` crate provides an interface for reading ELF object files.
 
 # Capabilities
 
