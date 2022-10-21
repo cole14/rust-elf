@@ -1,6 +1,10 @@
 use core::ops::Range;
+
+#[cfg(feature = "std")]
 use std::collections::hash_map::Entry;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(feature = "std")]
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug)]
@@ -40,11 +44,13 @@ pub enum ParseError {
     /// Returned when parsing an ELF structure and the underlying structure data
     /// was truncated and thus the full structure contents could not be parsed.
     TryFromSliceError(core::array::TryFromSliceError),
+    #[cfg(feature = "std")]
     /// Returned when parsing an ELF structure out of an io stream encountered
     /// an io error.
     IOError(std::io::Error),
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for ParseError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
@@ -59,6 +65,7 @@ impl std::error::Error for ParseError {
             ParseError::SliceReadError(_) => None,
             ParseError::Utf8Error(ref err) => Some(err),
             ParseError::TryFromSliceError(ref err) => Some(err),
+            #[cfg(feature = "std")]
             ParseError::IOError(ref err) => Some(err),
         }
     }
@@ -105,6 +112,7 @@ impl core::fmt::Display for ParseError {
             }
             ParseError::Utf8Error(ref err) => err.fmt(f),
             ParseError::TryFromSliceError(ref err) => err.fmt(f),
+            #[cfg(feature = "std")]
             ParseError::IOError(ref err) => err.fmt(f),
         }
     }
@@ -122,6 +130,7 @@ impl From<core::array::TryFromSliceError> for ParseError {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<std::io::Error> for ParseError {
     fn from(err: std::io::Error) -> ParseError {
         ParseError::IOError(err)
@@ -218,11 +227,13 @@ impl ReadBytesAt for &[u8] {
     }
 }
 
+#[cfg(feature = "std")]
 pub struct CachedReadBytes<R: Read + Seek> {
     reader: R,
     bufs: HashMap<(u64, u64), Box<[u8]>>,
 }
 
+#[cfg(feature = "std")]
 impl<R: Read + Seek> CachedReadBytes<R> {
     pub fn new(reader: R) -> Self {
         CachedReadBytes {
@@ -232,6 +243,7 @@ impl<R: Read + Seek> CachedReadBytes<R> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<R: Read + Seek> ReadBytesAt for &mut CachedReadBytes<R> {
     fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError> {
         if range.len() == 0 {

@@ -14,3 +14,7 @@ edition = "2021"
 name = "elf"
 
 [dependencies]
+
+[features]
+default = ["std"]
+std = []

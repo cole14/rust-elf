@@ -42,11 +42,12 @@
 //! small ones). This crate strives to serve as an alternate implementation with
 //! zero unsafe code blocks.
 //!
-//! # Future plans
+//! ### no_std option:
+//! Only disables the std:: Read + Seek interface and limits the library to the
+//! `&[u8]` parsing impl. All other ELF parsing functionality is still available!
 //!
-//! **Add no_std option** This would disable the Read + Seek interface and limit
-//! the library to the `&[u8]` parsing impl.
-//!
+
+#![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod file;
 pub mod gabi;
