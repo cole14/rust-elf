@@ -7,6 +7,7 @@ repository = "https://github.com/cole14/rust-elf/"
 documentation = "https://docs.rs/elf/latest/elf/"
 description = "A pure-rust library for parsing ELF files"
 keywords = ["binary", "elf", "object", "parser"]
+categories = ["no-std", "os", "embedded"]
 readme = "README.md"
 edition = "2021"
 
