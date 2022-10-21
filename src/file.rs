@@ -143,7 +143,17 @@ impl<R: ReadBytesAt> File<R> {
             return Ok(StringTable::default());
         }
 
-        let strtab_shdr = self.section_header_by_index(self.ehdr.e_shstrndx as usize)?;
+        // If the section name string table section index is greater than or
+        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
+        // (0xffff) and the actual index of the section name string table section
+        // is contained in the sh_link field of the section header at index 0.
+        let mut shstrndx = self.ehdr.e_shstrndx as u32;
+        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+            let shdr_0 = self.section_header_by_index(0)?;
+            shstrndx = shdr_0.sh_link;
+        }
+
+        let strtab_shdr = self.section_header_by_index(shstrndx as usize)?;
         self.section_data_as_strtab(&strtab_shdr)
     }
 
