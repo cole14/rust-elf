@@ -61,7 +61,8 @@ impl<R: ReadBytesAt> File<R> {
     /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
     pub fn section_headers(&mut self) -> Result<section::SectionHeaderIterator, ParseError> {
-        if self.ehdr.e_shnum == 0 {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
             return Ok(section::SectionHeaderIterator::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
@@ -69,8 +70,17 @@ impl<R: ReadBytesAt> File<R> {
             ));
         }
 
+        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+        // e_shnum is zero and the actual number of section header table entries
+        // is contained in the sh_size field of the section header at index 0.
+        let mut shnum = self.ehdr.e_shnum as u64;
+        if self.ehdr.e_shoff > 0 && self.ehdr.e_shnum == 0 {
+            let shdr_0 = self.section_header_by_index(0)?;
+            shnum = shdr_0.sh_size;
+        }
+
         let start = self.ehdr.e_shoff as usize;
-        let size = self.ehdr.e_shentsize as usize * self.ehdr.e_shnum as usize;
+        let size = self.ehdr.e_shentsize as usize * shnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
         Ok(section::SectionHeaderIterator::new(
             self.ehdr.endianness,
@@ -85,7 +95,7 @@ impl<R: ReadBytesAt> File<R> {
         &mut self,
         index: usize,
     ) -> Result<section::SectionHeader, ParseError> {
-        if self.ehdr.e_shnum == 0 || index >= self.ehdr.e_shnum as usize {
+        if self.ehdr.e_shnum > 0 && index >= self.ehdr.e_shnum as usize {
             return Err(ParseError::BadOffset(index as u64));
         }
 
