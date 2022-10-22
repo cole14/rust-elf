@@ -1,3 +1,4 @@
+use crate::dynamic;
 use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
 use crate::section;
 use crate::segment;
@@ -233,6 +234,41 @@ impl<R: ReadBytesAt> File<R> {
         &mut self,
     ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
         self.get_symbol_table_of_type(section::SectionType(gabi::SHT_DYNSYM))
+    }
+
+    /// Get the .dynamic section/segment contents.
+    pub fn dynamic_section(&mut self) -> Result<Option<dynamic::DynIterator>, ParseError> {
+        // If we have section headers, then look it up there
+        if self.ehdr.e_shoff > 0 {
+            if let Some(shdr) = self
+                .section_headers()?
+                .find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC)
+            {
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                let buf = self.reader.read_bytes_at(start..start + size)?;
+                return Ok(Some(dynamic::DynIterator::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                )));
+            }
+        } else {
+            if let Some(phdr) = self
+                .segments()?
+                .find(|phdr| phdr.p_type == gabi::PT_DYNAMIC)
+            {
+                let start = phdr.p_offset as usize;
+                let size = phdr.p_filesz as usize;
+                let buf = self.reader.read_bytes_at(start..start + size)?;
+                return Ok(Some(dynamic::DynIterator::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                )));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -888,6 +924,32 @@ mod interface_tests {
                 .get(symbol.st_name as usize)
                 .expect("Failed to get name from strtab"),
             "memset"
+        );
+    }
+
+    #[test]
+    fn dynamic_section() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let mut dynamic = file
+            .dynamic_section()
+            .expect("Failed to parse .dynamic")
+            .expect("Failed to find .dynamic");
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            dynamic::Dyn {
+                d_tag: gabi::DT_NEEDED,
+                d_un: 1
+            }
+        );
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            dynamic::Dyn {
+                d_tag: gabi::DT_INIT,
+                d_un: 4195216
+            }
         );
     }
 }

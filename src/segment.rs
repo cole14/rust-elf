@@ -139,6 +139,12 @@ impl core::fmt::Display for ProgFlag {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
 
+impl PartialEq<u32> for ProgType {
+    fn eq(&self, other: &u32) -> bool {
+        self.0 == *other
+    }
+}
+
 impl core::fmt::Debug for ProgType {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)

@@ -604,28 +604,28 @@ pub const STV_HIDDEN: u8 = 2;
 pub const STV_PROTECTED: u8 = 3;
 
 /// An entry with a DT_NULL tag marks the end of the _DYNAMIC array.
-pub const DT_NULL: u64 = 0;
+pub const DT_NULL: i64 = 0;
 /// This element holds the string table offset of a null-terminated string,
 /// giving the name of a needed library. The offset is an index into the table
 /// recorded in the DT_STRTAB code. The dynamic array may contain multiple
 /// entries with this type. These entries' relative order is significant, though
 /// their relation to entries of other types is not.
-pub const DT_NEEDED: u64 = 1;
+pub const DT_NEEDED: i64 = 1;
 /// This element holds the total size, in bytes, of the relocation entries
 /// associated with the procedure linkage table. If an entry of type DT_JMPREL
 /// is present, a DT_PLTRELSZ must accompany it.
-pub const DT_PLTRELSZ: u64 = 2;
+pub const DT_PLTRELSZ: i64 = 2;
 /// This element holds an address associated with the procedure linkage table
 /// and/or the global offset table.
-pub const DT_PLTGOT: u64 = 3;
+pub const DT_PLTGOT: i64 = 3;
 /// This element holds the address of the symbol hash table. This hash table
 /// refers to the symbol table referenced by the DT_SYMTAB element.
-pub const DT_HASH: u64 = 4;
+pub const DT_HASH: i64 = 4;
 /// This element holds the address of the string table. Symbol names, library
 /// names, and other strings reside in this table.
-pub const DT_STRTAB: u64 = 5;
+pub const DT_STRTAB: i64 = 5;
 /// This element holds the address of the symbol table.
-pub const DT_SYMTAB: u64 = 6;
+pub const DT_SYMTAB: i64 = 6;
 /// This element holds the address of a relocation table. Entries in the table
 /// have explicit addends, (Rela). An object file may have multiple relocation
 /// sections. When building the relocation table for an executable or shared
@@ -637,27 +637,27 @@ pub const DT_SYMTAB: u64 = 6;
 /// If this element is present, the dynamic structure must also have DT_RELASZ
 /// and DT_RELAENT elements. When relocation is mandatory for a file, either
 /// DT_RELA or DT_REL may occur (both are permitted but not required).
-pub const DT_RELA: u64 = 7;
+pub const DT_RELA: i64 = 7;
 /// This element holds the total size, in bytes, of the DT_RELA relocation table.
-pub const DT_RELASZ: u64 = 8;
+pub const DT_RELASZ: i64 = 8;
 /// This element holds the size, in bytes, of the DT_RELA relocation entry.
-pub const DT_RELAENT: u64 = 9;
+pub const DT_RELAENT: i64 = 9;
 /// This element holds the size, in bytes, of the string table.
-pub const DT_STRSZ: u64 = 10;
+pub const DT_STRSZ: i64 = 10;
 /// This element holds the size, in bytes, of a symbol table entry.
-pub const DT_SYMENT: u64 = 11;
+pub const DT_SYMENT: i64 = 11;
 /// This element holds the address of the initialization function.
-pub const DT_INIT: u64 = 12;
+pub const DT_INIT: i64 = 12;
 /// This element holds the address of the termination function.
-pub const DT_FINI: u64 = 13;
+pub const DT_FINI: i64 = 13;
 /// This element holds the string table offset of a null-terminated string,
 /// giving the name of the shared object. The offset is an index into the table
 /// recorded in the DT_STRTAB entry.
-pub const DT_SONAME: u64 = 14;
+pub const DT_SONAME: i64 = 14;
 /// This element holds the string table offset of a null-terminated search
 /// library search path string. The offset is an index into the table recorded
 /// in the DT_STRTAB entry. Its use has been superseded by DT_RUNPATH.
-pub const DT_RPATH: u64 = 15;
+pub const DT_RPATH: i64 = 15;
 /// This element's presence in a shared object library alters the dynamic
 /// linker's symbol resolution algorithm for references within the library.
 /// Instead of starting a symbol search with the executable file, the dynamic
@@ -665,111 +665,111 @@ pub const DT_RPATH: u64 = 15;
 /// supply the referenced symbol, the dynamic linker then searches the
 /// executable file and other shared objects as usual. Its use has been
 /// superseded by the DF_SYMBOLIC flag.
-pub const DT_SYMBOLIC: u64 = 16;
+pub const DT_SYMBOLIC: i64 = 16;
 /// This element is similar to DT_RELA, except its table has implicit addends (Rel).
 /// If this element is present, the dynamic structure must also have DT_RELSZ
 /// and DT_RELENT elements.
-pub const DT_REL: u64 = 17;
+pub const DT_REL: i64 = 17;
 /// This element holds the total size, in bytes, of the DT_REL relocation table.
-pub const DT_RELSZ: u64 = 18;
+pub const DT_RELSZ: i64 = 18;
 /// This element holds the size, in bytes, of the DT_REL relocation entry.
-pub const DT_RELENT: u64 = 19;
+pub const DT_RELENT: i64 = 19;
 /// This member specifies the type of relocation entry to which the procedure
 /// linkage table refers. The d_val member holds DT_REL or DT_RELA, as
 /// appropriate. All relocations in a procedure linkage table must use the same
 /// relocation.
-pub const DT_PLTREL: u64 = 20;
+pub const DT_PLTREL: i64 = 20;
 /// This member is used for debugging. Its contents are not specified for the
 /// ABI; programs that access this entry are not ABI-conforming.
-pub const DT_DEBUG: u64 = 21;
+pub const DT_DEBUG: i64 = 21;
 /// This member's absence signifies that no relocation entry should cause a
 /// modification to a non-writable segment, as specified by the segment
 /// permissions in the program header table. If this member is present, one or
 /// more relocation entries might request modifications to a non-writable
 /// segment, and the dynamic linker can prepare accordingly. Its use has been
 /// superseded by the DF_TEXTREL flag.
-pub const DT_TEXTREL: u64 = 22;
+pub const DT_TEXTREL: i64 = 22;
 /// If present, this entry's d_ptr member holds the address of relocation
 /// entries associated solely with the procedure linkage table. Separating these
 /// relocation entries lets the dynamic linker ignore them during process
 /// initialization, if lazy binding is enabled. If this entry is present, the
 /// related entries of types DT_PLTRELSZ and DT_PLTREL must also be present.
-pub const DT_JMPREL: u64 = 23;
+pub const DT_JMPREL: i64 = 23;
 /// If present in a shared object or executable, this entry instructs the
 /// dynamic linker to process all relocations for the object containing this
 /// entry before transferring control to the program. The presence of this entry
 /// takes precedence over a directive to use lazy binding for this object when
 /// specified through the environment or via dlopen(BA_LIB). Its use has been
 /// superseded by the DF_BIND_NOW flag.
-pub const DT_BIND_NOW: u64 = 24;
+pub const DT_BIND_NOW: i64 = 24;
 /// This element holds the address of the array of pointers to initialization functions.
-pub const DT_INIT_ARRAY: u64 = 25;
+pub const DT_INIT_ARRAY: i64 = 25;
 /// This element holds the address of the array of pointers to termination functions.
-pub const DT_FINI_ARRAY: u64 = 26;
+pub const DT_FINI_ARRAY: i64 = 26;
 /// This element holds the size in bytes of the array of initialization
 /// functions pointed to by the DT_INIT_ARRAY entry. If an object has a
 /// DT_INIT_ARRAY entry, it must also have a DT_INIT_ARRAYSZ entry.
-pub const DT_INIT_ARRAYSZ: u64 = 27;
+pub const DT_INIT_ARRAYSZ: i64 = 27;
 /// This element holds the size in bytes of the array of termination functions
 /// pointed to by the DT_FINI_ARRAY entry. If an object has a DT_FINI_ARRAY
 /// entry, it must also have a DT_FINI_ARRAYSZ entry.
-pub const DT_FINI_ARRAYSZ: u64 = 28;
+pub const DT_FINI_ARRAYSZ: i64 = 28;
 /// This element holds the string table offset of a null-terminated library
 /// search path string. The offset is an index into the table recorded in the
 /// DT_STRTAB entry.
-pub const DT_RUNPATH: u64 = 29;
+pub const DT_RUNPATH: i64 = 29;
 /// This element holds flag values specific to the object being loaded. Each
 /// flag value will have the name DF_flag_name. Defined values and their
 /// meanings are described below. All other values are reserved.
-pub const DT_FLAGS: u64 = 30;
+pub const DT_FLAGS: i64 = 30;
 /// This element holds the address of the array of pointers to
 /// pre-initialization functions. The DT_PREINIT_ARRAY table is processed only
 /// in an executable file; it is ignored if contained in a shared object.
-pub const DT_PREINIT_ARRAY: u64 = 32;
+pub const DT_PREINIT_ARRAY: i64 = 32;
 /// This element holds the size in bytes of the array of pre-initialization
 /// functions pointed to by the DT_PREINIT_ARRAY entry. If an object has a
 /// DT_PREINIT_ARRAY entry, it must also have a DT_PREINIT_ARRAYSZ entry. As
 /// with DT_PREINIT_ARRAY, this entry is ignored if it appears in a shared
 /// object.
-pub const DT_PREINIT_ARRAYSZ: u64 = 33;
+pub const DT_PREINIT_ARRAYSZ: i64 = 33;
 /// This element holds the address of the SHT_SYMTAB_SHNDX section associated
 /// with the dynamic symbol table referenced by the DT_SYMTAB element.
-pub const DT_SYMTAB_SHNDX: u64 = 34;
+pub const DT_SYMTAB_SHNDX: i64 = 34;
 /// Values in [DT_LOOS, DT_HIOS] are reserved for operating system-specific semantics.
-pub const DT_LOOS: u64 = 0x6000000D;
+pub const DT_LOOS: i64 = 0x6000000D;
 /// Values in [DT_LOOS, DT_HIOS] are reserved for operating system-specific semantics.
-pub const DT_HIOS: u64 = 0x6ffff000;
+pub const DT_HIOS: i64 = 0x6ffff000;
 /// Values in [DT_LOPROC, DT_HIPROC] are reserved for processor-specific semantics.
-pub const DT_LOPROC: u64 = 0x70000000;
+pub const DT_LOPROC: i64 = 0x70000000;
 /// Values in [DT_LOPROC, DT_HIPROC] are reserved for processor-specific semantics.
-pub const DT_HIPROC: u64 = 0x7fffffff;
+pub const DT_HIPROC: i64 = 0x7fffffff;
 
 /// This flag signifies that the object being loaded may make reference to the
 /// $ORIGIN substitution string. The dynamic linker must determine the pathname
 /// of the object containing this entry when the object is loaded.
-pub const DF_ORIGIN: u64 = 0x1;
+pub const DF_ORIGIN: i64 = 0x1;
 /// If this flag is set in a shared object library, the dynamic linker's symbol
 /// resolution algorithm for references within the library is changed. Instead
 /// of starting a symbol search with the executable file, the dynamic linker
 /// starts from the shared object itself. If the shared object fails to supply
 /// the referenced symbol, the dynamic linker then searches the executable file
 /// and other shared objects as usual.
-pub const DF_SYMBOLIC: u64 = 0x2;
+pub const DF_SYMBOLIC: i64 = 0x2;
 /// If this flag is not set, no relocation entry should cause a modification to
 /// a non-writable segment, as specified by the segment permissions in the
 /// program header table. If this flag is set, one or more relocation entries
 /// might request modifications to a non-writable segment, and the dynamic
 /// linker can prepare accordingly.
-pub const DF_TEXTREL: u64 = 0x4;
+pub const DF_TEXTREL: i64 = 0x4;
 /// If set in a shared object or executable, this flag instructs the dynamic
 /// linker to process all relocations for the object containing this entry
 /// before transferring control to the program. The presence of this entry takes
 /// precedence over a directive to use lazy binding for this object when
 /// specified through the environment or via dlopen(BA_LIB).
-pub const DF_BIND_NOW: u64 = 0x8;
+pub const DF_BIND_NOW: i64 = 0x8;
 /// If set in a shared object or executable, this flag instructs the dynamic
 /// linker to reject attempts to load this file dynamically. It indicates that
 /// the shared object or executable contains code using a static thread-local
 /// storage scheme. Implementations need not support any form of thread-local
 /// storage.
-pub const DF_STATIC_TLS: u64 = 0x10;
+pub const DF_STATIC_TLS: i64 = 0x10;

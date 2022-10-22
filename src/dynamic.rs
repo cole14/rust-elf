@@ -33,7 +33,7 @@ impl<'data> Iterator for DynIterator<'data> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
     pub d_tag: i64,
-    d_un: i64,
+    pub(super) d_un: i64,
 }
 
 impl Dyn {
@@ -127,7 +127,7 @@ mod iter_tests {
 }
 
 #[cfg(test)]
-mod table_tests {
+mod parse_tests {
     use super::*;
 
     const ELF32DYNSIZE: usize = 8;
