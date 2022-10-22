@@ -743,3 +743,33 @@ pub const DT_HIOS: u64 = 0x6ffff000;
 pub const DT_LOPROC: u64 = 0x70000000;
 /// Values in [DT_LOPROC, DT_HIPROC] are reserved for processor-specific semantics.
 pub const DT_HIPROC: u64 = 0x7fffffff;
+
+/// This flag signifies that the object being loaded may make reference to the
+/// $ORIGIN substitution string. The dynamic linker must determine the pathname
+/// of the object containing this entry when the object is loaded.
+pub const DF_ORIGIN: u64 = 0x1;
+/// If this flag is set in a shared object library, the dynamic linker's symbol
+/// resolution algorithm for references within the library is changed. Instead
+/// of starting a symbol search with the executable file, the dynamic linker
+/// starts from the shared object itself. If the shared object fails to supply
+/// the referenced symbol, the dynamic linker then searches the executable file
+/// and other shared objects as usual.
+pub const DF_SYMBOLIC: u64 = 0x2;
+/// If this flag is not set, no relocation entry should cause a modification to
+/// a non-writable segment, as specified by the segment permissions in the
+/// program header table. If this flag is set, one or more relocation entries
+/// might request modifications to a non-writable segment, and the dynamic
+/// linker can prepare accordingly.
+pub const DF_TEXTREL: u64 = 0x4;
+/// If set in a shared object or executable, this flag instructs the dynamic
+/// linker to process all relocations for the object containing this entry
+/// before transferring control to the program. The presence of this entry takes
+/// precedence over a directive to use lazy binding for this object when
+/// specified through the environment or via dlopen(BA_LIB).
+pub const DF_BIND_NOW: u64 = 0x8;
+/// If set in a shared object or executable, this flag instructs the dynamic
+/// linker to reject attempts to load this file dynamically. It indicates that
+/// the shared object or executable contains code using a static thread-local
+/// storage scheme. Implementations need not support any form of thread-local
+/// storage.
+pub const DF_STATIC_TLS: u64 = 0x10;
