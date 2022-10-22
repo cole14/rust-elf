@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::ops::Range;
 
 #[cfg(feature = "std")]
@@ -271,8 +272,50 @@ impl<R: Read + Seek> ReadBytesAt for &mut CachedReadBytes<R> {
     }
 }
 
+pub trait ParseAt: Sized {
+    fn parse_at<P: EndianParseExt>(
+        endian: Endian,
+        class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError>;
+}
+
+pub struct ParsingIterator<'data, P: ParseAt> {
+    endianness: Endian,
+    class: Class,
+    data: &'data [u8],
+    offset: usize,
+    // This struct doesn't technically own a P, but it yields them
+    // as it iterates
+    pd: PhantomData<&'data P>,
+}
+
+impl<'data, P: ParseAt> ParsingIterator<'data, P> {
+    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
+        ParsingIterator {
+            endianness,
+            class,
+            data,
+            offset: 0,
+            pd: PhantomData,
+        }
+    }
+}
+
+impl<'data, P: ParseAt> Iterator for ParsingIterator<'data, P> {
+    type Item = P;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 {
+            return None;
+        }
+
+        Self::Item::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
+    }
+}
+
 /// Trait for endian-aware parsing of integer types.
-pub trait ParseAtExt {
+pub trait EndianParseExt {
     fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError>;
     fn parse_u16_at(&self, endian: Endian, offset: &mut usize) -> Result<u16, ParseError>;
     fn parse_u32_at(&self, endian: Endian, offset: &mut usize) -> Result<u32, ParseError>;
@@ -283,7 +326,7 @@ pub trait ParseAtExt {
 
 /// Extend the byte slice type with endian-aware parsing. These are the basic parsing methods
 /// for our parser-combinator approach to parsing ELF structures from in-memory byte buffers.
-impl ParseAtExt for &[u8] {
+impl EndianParseExt for &[u8] {
     fn parse_u8_at(&self, offset: &mut usize) -> Result<u8, ParseError> {
         let data = self
             .get(*offset)

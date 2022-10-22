@@ -1,35 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError};
+use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
 
-pub struct SectionHeaderIterator<'data> {
-    endianness: Endian,
-    class: Class,
-    data: &'data [u8],
-    offset: usize,
-}
-
-impl<'data> SectionHeaderIterator<'data> {
-    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
-        SectionHeaderIterator {
-            endianness,
-            class,
-            data,
-            offset: 0,
-        }
-    }
-}
-
-impl<'data> Iterator for SectionHeaderIterator<'data> {
-    type Item = SectionHeader;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 {
-            return None;
-        }
-
-        SectionHeader::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
-    }
-}
+pub type SectionHeaderIterator<'data> = ParsingIterator<'data, SectionHeader>;
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -56,8 +28,8 @@ pub struct SectionHeader {
     pub sh_entsize: u64,
 }
 
-impl SectionHeader {
-    pub fn parse_at<P: ParseAtExt>(
+impl ParseAt for SectionHeader {
+    fn parse_at<P: EndianParseExt>(
         endian: Endian,
         class: Class,
         offset: &mut usize,

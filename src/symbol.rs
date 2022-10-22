@@ -1,5 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError};
+use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+
+pub type SymbolIterator<'data> = ParsingIterator<'data, Symbol>;
 
 #[derive(Debug)]
 pub struct SymbolTable<'data> {
@@ -51,38 +53,8 @@ impl<'data> SymbolTable<'data> {
         Symbol::parse_at(self.endianness, self.class, &mut offset, &self.data)
     }
 
-    pub fn iter(&self) -> SymbolTableIterator {
-        SymbolTableIterator::new(self)
-    }
-}
-
-pub struct SymbolTableIterator<'data> {
-    table: &'data SymbolTable<'data>,
-    idx: u64,
-}
-
-impl<'data> SymbolTableIterator<'data> {
-    pub fn new(table: &'data SymbolTable) -> Self {
-        SymbolTableIterator {
-            table: table,
-            // The GABI defines index 0 to always have a zero-ed out undefined
-            // symbol that we don't want to expose via symbol iterators.
-            idx: 1,
-        }
-    }
-}
-
-impl<'data> Iterator for SymbolTableIterator<'data> {
-    type Item = Symbol;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.idx * self.table.entsize >= self.table.data.len() as u64 {
-            return None;
-        }
-
-        let idx = self.idx;
-        self.idx += 1;
-        self.table.get(idx).ok()
+    pub fn iter(&self) -> SymbolIterator {
+        SymbolIterator::new(self.endianness, self.class, self.data)
     }
 }
 
@@ -133,7 +105,21 @@ pub struct Symbol {
 }
 
 impl Symbol {
-    pub fn parse_at<P: ParseAtExt>(
+    pub fn st_symtype(&self) -> SymbolType {
+        SymbolType(self.st_info & 0xf)
+    }
+
+    pub fn st_bind(&self) -> SymbolBind {
+        SymbolBind(self.st_info >> 4)
+    }
+
+    pub fn st_vis(&self) -> SymbolVis {
+        SymbolVis(self.st_other & 0x3)
+    }
+}
+
+impl ParseAt for Symbol {
+    fn parse_at<P: EndianParseExt>(
         endian: Endian,
         class: Class,
         offset: &mut usize,
@@ -170,18 +156,6 @@ impl Symbol {
             st_info,
             st_other,
         })
-    }
-
-    pub fn st_symtype(&self) -> SymbolType {
-        SymbolType(self.st_info & 0xf)
-    }
-
-    pub fn st_bind(&self) -> SymbolBind {
-        SymbolBind(self.st_info >> 4)
-    }
-
-    pub fn st_vis(&self) -> SymbolVis {
-        SymbolVis(self.st_other & 0x3)
     }
 }
 

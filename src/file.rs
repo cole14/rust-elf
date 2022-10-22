@@ -1,5 +1,5 @@
 use crate::dynamic;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError, ReadBytesAt};
+use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;

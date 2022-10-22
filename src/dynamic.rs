@@ -1,34 +1,6 @@
-use crate::parse::{Class, Endian, ParseAtExt, ParseError};
+use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
 
-pub struct DynIterator<'data> {
-    endianness: Endian,
-    class: Class,
-    data: &'data [u8],
-    offset: usize,
-}
-
-impl<'data> DynIterator<'data> {
-    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
-        DynIterator {
-            endianness,
-            class,
-            data,
-            offset: 0,
-        }
-    }
-}
-
-impl<'data> Iterator for DynIterator<'data> {
-    type Item = Dyn;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 {
-            return None;
-        }
-
-        Dyn::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
-    }
-}
+pub type DynIterator<'data> = ParsingIterator<'data, Dyn>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
@@ -37,7 +9,17 @@ pub struct Dyn {
 }
 
 impl Dyn {
-    pub fn parse_at<P: ParseAtExt>(
+    pub fn d_val(self) -> u64 {
+        self.d_un
+    }
+
+    pub fn d_ptr(self) -> u64 {
+        self.d_un
+    }
+}
+
+impl ParseAt for Dyn {
+    fn parse_at<P: EndianParseExt>(
         endian: Endian,
         class: Class,
         offset: &mut usize,
@@ -53,14 +35,6 @@ impl Dyn {
                 d_un: parser.parse_u64_at(endian, offset)?,
             }),
         }
-    }
-
-    pub fn d_val(self) -> u64 {
-        self.d_un
-    }
-
-    pub fn d_ptr(self) -> u64 {
-        self.d_un
     }
 }
 

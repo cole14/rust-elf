@@ -1,35 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, ParseAtExt, ParseError};
+use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
 
-pub struct SegmentIterator<'data> {
-    endianness: Endian,
-    class: Class,
-    data: &'data [u8],
-    offset: usize,
-}
-
-impl<'data> SegmentIterator<'data> {
-    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
-        SegmentIterator {
-            endianness,
-            class,
-            data,
-            offset: 0,
-        }
-    }
-}
-
-impl<'data> Iterator for SegmentIterator<'data> {
-    type Item = ProgramHeader;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 {
-            return None;
-        }
-
-        ProgramHeader::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
-    }
-}
+pub type SegmentIterator<'data> = ParsingIterator<'data, ProgramHeader>;
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -55,8 +27,8 @@ pub struct ProgramHeader {
     pub p_align: u64,
 }
 
-impl ProgramHeader {
-    pub fn parse_at<P: ParseAtExt>(
+impl ParseAt for ProgramHeader {
+    fn parse_at<P: EndianParseExt>(
         endian: Endian,
         class: Class,
         offset: &mut usize,
