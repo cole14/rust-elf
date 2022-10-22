@@ -33,7 +33,7 @@ impl<'data> Iterator for DynIterator<'data> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
     pub d_tag: i64,
-    pub(super) d_un: i64,
+    pub(super) d_un: u64,
 }
 
 impl Dyn {
@@ -46,20 +46,20 @@ impl Dyn {
         match class {
             Class::ELF32 => Ok(Dyn {
                 d_tag: parser.parse_i32_at(endian, offset)? as i64,
-                d_un: parser.parse_i32_at(endian, offset)? as i64,
+                d_un: parser.parse_u32_at(endian, offset)? as u64,
             }),
             Class::ELF64 => Ok(Dyn {
                 d_tag: parser.parse_i64_at(endian, offset)?,
-                d_un: parser.parse_i64_at(endian, offset)?,
+                d_un: parser.parse_u64_at(endian, offset)?,
             }),
         }
     }
 
-    pub fn d_val(self) -> i64 {
+    pub fn d_val(self) -> u64 {
         self.d_un
     }
 
-    pub fn d_ptr(self) -> i64 {
+    pub fn d_ptr(self) -> u64 {
         self.d_un
     }
 }
