@@ -55,6 +55,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod dynamic;
 pub mod file;
 pub mod gabi;
 pub mod section;
