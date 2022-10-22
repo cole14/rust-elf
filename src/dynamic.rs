@@ -1,5 +1,35 @@
 use crate::parse::{Class, Endian, ParseAtExt, ParseError};
 
+pub struct DynIterator<'data> {
+    endianness: Endian,
+    class: Class,
+    data: &'data [u8],
+    offset: usize,
+}
+
+impl<'data> DynIterator<'data> {
+    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
+        DynIterator {
+            endianness,
+            class,
+            data,
+            offset: 0,
+        }
+    }
+}
+
+impl<'data> Iterator for DynIterator<'data> {
+    type Item = Dyn;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 {
+            return None;
+        }
+
+        Dyn::parse_at(self.endianness, self.class, &mut self.offset, &self.data).ok()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
     pub d_tag: i64,
@@ -31,6 +61,68 @@ impl Dyn {
 
     pub fn d_ptr(self) -> i64 {
         self.d_un
+    }
+}
+
+#[cfg(test)]
+mod iter_tests {
+    use super::*;
+
+    const ELF32DYNSIZE: usize = 8;
+    const ELF64DYNSIZE: usize = 16;
+
+    #[test]
+    fn get_32_lsb() {
+        // init data buf with two header's worth of increasing byte values
+        let mut data = [0u8; 2 * ELF32DYNSIZE as usize];
+        for n in 0..(2 * ELF32DYNSIZE) {
+            data[n as usize] = n as u8;
+        }
+        let mut iter = DynIterator::new(Endian::Little, Class::ELF32, &data);
+
+        assert_eq!(
+            iter.next().unwrap(),
+            Dyn {
+                d_tag: 0x03020100,
+                d_un: 0x07060504,
+            }
+        );
+        assert_eq!(
+            iter.next().unwrap(),
+            Dyn {
+                d_tag: 0xB0A0908,
+                d_un: 0x0F0E0D0C,
+            }
+        );
+        let next = iter.next();
+        assert!(next.is_none());
+    }
+
+    #[test]
+    fn get_64_msb() {
+        // init data buf with two header's worth of increasing byte values
+        let mut data = [0u8; 2 * ELF64DYNSIZE as usize];
+        for n in 0..(2 * ELF64DYNSIZE) {
+            data[n as usize] = n as u8;
+        }
+        let mut iter = DynIterator::new(Endian::Big, Class::ELF64, &data);
+
+        assert_eq!(
+            iter.next().unwrap(),
+            Dyn {
+                d_tag: 0x0001020304050607,
+                d_un: 0x08090A0B0C0D0E0F,
+            }
+        );
+        assert_eq!(
+            iter.next().unwrap(),
+            Dyn {
+                d_tag: 0x1011121314151617,
+                d_un: 0x18191A1B1C1D1E1F,
+            }
+        );
+        let next = iter.next();
+        assert!(next.is_none());
     }
 }
 
