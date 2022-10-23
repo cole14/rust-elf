@@ -741,8 +741,8 @@ mod interface_tests {
     fn test_open_stream_with_cachedreadbytes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let io = std::fs::File::open(path).expect("Could not open file.");
-        let mut c_io = CachedReadBytes::new(io);
-        let file = File::open_stream(&mut c_io).expect("Open test1");
+        let c_io = CachedReadBytes::new(io);
+        let file = File::open_stream(c_io).expect("Open test1");
         assert_eq!(file.ehdr.elftype, ObjectFileType(gabi::ET_EXEC));
     }
 
