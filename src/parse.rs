@@ -245,7 +245,7 @@ impl<R: Read + Seek> CachedReadBytes<R> {
 }
 
 #[cfg(feature = "std")]
-impl<R: Read + Seek> ReadBytesAt for &mut CachedReadBytes<R> {
+impl<R: Read + Seek> ReadBytesAt for CachedReadBytes<R> {
     fn read_bytes_at(&mut self, range: Range<usize>) -> Result<&[u8], ParseError> {
         if range.len() == 0 {
             return Ok(&[]);
@@ -459,7 +459,7 @@ mod read_bytes_tests {
     fn cached_read_bytes_multiple_non_overlapping_reference_lifetimes() {
         let data = [1u8, 2u8, 3u8, 4u8];
         let cur = Cursor::new(data);
-        let mut cached = &mut CachedReadBytes::new(cur);
+        let cached = &mut CachedReadBytes::new(cur);
 
         let bytes1 = cached
             .read_bytes_at(0..2)
@@ -475,7 +475,7 @@ mod read_bytes_tests {
     fn cached_read_bytes_multiple_overlapping_reference_lifetimes() {
         let data = [1u8, 2u8, 3u8, 4u8];
         let cur = Cursor::new(data);
-        let mut cached = &mut CachedReadBytes::new(cur);
+        let cached = &mut CachedReadBytes::new(cur);
 
         cached
             .load_bytes_at(0..2)
