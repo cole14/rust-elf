@@ -58,6 +58,7 @@
 pub mod dynamic;
 pub mod file;
 pub mod gabi;
+pub mod relocation;
 pub mod section;
 pub mod segment;
 pub mod string_table;
