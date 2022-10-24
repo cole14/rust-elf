@@ -35,6 +35,9 @@ pub enum ParseError {
     /// Returned when trying to interpret a section's data as the wrong type.
     /// For example, trying to treat an SHT_PROGBIGS section as a SHT_STRTAB.
     UnexpectedSectionType((u32, u32)),
+    /// Returned when trying to interpret a segment's data as the wrong type.
+    /// For example, trying to treat an PT_LOAD section as a PT_NOTE.
+    UnexpectedSegmentType((u32, u32)),
     /// Returned when a section has a sh_addralign value that was different
     /// than we expected.
     UnexpectedAlignment(usize),
@@ -66,6 +69,7 @@ impl std::error::Error for ParseError {
             ParseError::StringTableMissingNul(_) => None,
             ParseError::BadEntsize(_) => None,
             ParseError::UnexpectedSectionType(_) => None,
+            ParseError::UnexpectedSegmentType(_) => None,
             ParseError::UnexpectedAlignment(_) => None,
             ParseError::SliceReadError(_) => None,
             ParseError::Utf8Error(ref err) => Some(err),
@@ -107,6 +111,12 @@ impl core::fmt::Display for ParseError {
                 )
             }
             ParseError::UnexpectedSectionType((found, expected)) => {
+                write!(
+                    f,
+                    "Could not interpret section of type {found} as type {expected}"
+                )
+            }
+            ParseError::UnexpectedSegmentType((found, expected)) => {
                 write!(
                     f,
                     "Could not interpret section of type {found} as type {expected}"

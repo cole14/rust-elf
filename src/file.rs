@@ -423,6 +423,34 @@ impl<R: ReadBytesAt> File<R> {
             buf,
         ))
     }
+
+    /// Read the segment data for the given
+    /// [Segment](segment::ProgramHeader) and interpret it in-place as a
+    /// [NoteIterator](note::NoteIterator).
+    ///
+    /// Returns a [ParseError] if the
+    /// [p_type](segment::ProgramHeader#structfield.p_type) is not
+    /// [PT_RELA](gabi::PT_NOTE).
+    pub fn segment_data_as_notes(
+        &mut self,
+        phdr: &segment::ProgramHeader,
+    ) -> Result<note::NoteIterator, ParseError> {
+        if phdr.p_type != gabi::PT_NOTE {
+            return Err(ParseError::UnexpectedSegmentType((
+                phdr.p_type.0,
+                gabi::PT_NOTE,
+            )));
+        }
+        let start = phdr.p_offset as usize;
+        let size = phdr.p_filesz as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(note::NoteIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            phdr.p_align as usize,
+            buf,
+        ))
+    }
 }
 
 /// Encapsulates the contents of the ELF File Header
@@ -1196,6 +1224,41 @@ mod interface_tests {
                 n_type: 1,
                 name: "GNU",
                 desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn segment_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let phdrs: Vec<segment::ProgramHeader> = file
+            .segments()
+            .expect("Failed to get .note.ABI-tag shdr")
+            .collect();
+        let mut notes = file
+            .segment_data_as_notes(&phdrs[5])
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            note::Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert_eq!(
+            notes.next().expect("Failed to get second note"),
+            note::Note {
+                n_type: 3,
+                name: "GNU",
+                desc: &[
+                    119, 65, 159, 13, 165, 16, 131, 12, 87, 167, 200, 204, 176, 238, 133, 95, 238,
+                    211, 118, 163
+                ]
             }
         );
         assert!(notes.next().is_none());
