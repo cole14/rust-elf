@@ -344,11 +344,11 @@ impl<R: ReadBytesAt> File<R> {
 
     /// Read the section data for the given
     /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [RelaIterator](relocation::RelaIterator).
+    /// [RelIterator](relocation::RelIterator).
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](section::SectionHeader#structfield.sh_type) is not
-    /// [SHT_RELA](gabi::SHT_RELA).
+    /// [SHT_REL](gabi::SHT_REL).
     pub fn section_data_as_rels(
         &mut self,
         shdr: &section::SectionHeader,
@@ -371,7 +371,7 @@ impl<R: ReadBytesAt> File<R> {
 
     /// Read the section data for the given
     /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [RelIterator](relocation::RelIterator).
+    /// [RelaIterator](relocation::RelaIterator).
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](section::SectionHeader#structfield.sh_type) is not
