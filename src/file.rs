@@ -1,5 +1,6 @@
 use crate::dynamic;
 use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
+use crate::relocation;
 use crate::section;
 use crate::segment;
 use crate::string_table::StringTable;
@@ -269,6 +270,60 @@ impl<R: ReadBytesAt> File<R> {
             }
         }
         Ok(None)
+    }
+
+    /// Read the section data for the given
+    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
+    /// [RelaIterator](relocation::RelaIterator).
+    ///
+    /// Returns a [ParseError] if the
+    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [SHT_RELA](gabi::SHT_RELA).
+    pub fn section_data_as_rels(
+        &mut self,
+        shdr: &section::SectionHeader,
+    ) -> Result<relocation::RelaIterator, ParseError> {
+        if shdr.sh_type != gabi::SHT_REL {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type.0,
+                gabi::SHT_REL,
+            )));
+        }
+        let start = shdr.sh_offset as usize;
+        let size = shdr.sh_size as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(relocation::RelaIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
+    }
+
+    /// Read the section data for the given
+    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
+    /// [RelIterator](relocation::RelIterator).
+    ///
+    /// Returns a [ParseError] if the
+    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [SHT_RELA](gabi::SHT_RELA).
+    pub fn section_data_as_relas(
+        &mut self,
+        shdr: &section::SectionHeader,
+    ) -> Result<relocation::RelaIterator, ParseError> {
+        if shdr.sh_type != gabi::SHT_RELA {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type.0,
+                gabi::SHT_RELA,
+            )));
+        }
+        let start = shdr.sh_offset as usize;
+        let size = shdr.sh_size as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(relocation::RelaIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
     }
 }
 
@@ -951,6 +1006,52 @@ mod interface_tests {
                 d_un: 4195216
             }
         );
+    }
+
+    #[test]
+    fn section_data_as_rels() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(10)
+            .expect("Failed to get rela shdr");
+        file.section_data_as_rels(&shdr)
+            .expect_err("Expected error parsing non-REL scn as RELs");
+    }
+
+    #[test]
+    fn section_data_as_relas() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(10)
+            .expect("Failed to get rela shdr");
+        let mut relas = file
+            .section_data_as_relas(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            relocation::Rela {
+                r_offset: 6293704,
+                r_sym: 1,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            relocation::Rela {
+                r_offset: 6293712,
+                r_sym: 2,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert!(relas.next().is_none());
     }
 }
 

@@ -281,6 +281,7 @@ pub trait ParseAt: Sized {
     ) -> Result<Self, ParseError>;
 }
 
+#[derive(Debug)]
 pub struct ParsingIterator<'data, P: ParseAt> {
     endianness: Endian,
     class: Class,
