@@ -1,4 +1,5 @@
 use crate::dynamic;
+use crate::note;
 use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
 use crate::relocation;
 use crate::section;
@@ -391,6 +392,34 @@ impl<R: ReadBytesAt> File<R> {
         Ok(relocation::RelaIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
+            buf,
+        ))
+    }
+
+    /// Read the section data for the given
+    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
+    /// [NoteIterator](note::NoteIterator).
+    ///
+    /// Returns a [ParseError] if the
+    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [SHT_RELA](gabi::SHT_NOTE).
+    pub fn section_data_as_notes(
+        &mut self,
+        shdr: &section::SectionHeader,
+    ) -> Result<note::NoteIterator, ParseError> {
+        if shdr.sh_type != gabi::SHT_NOTE {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type.0,
+                gabi::SHT_NOTE,
+            )));
+        }
+        let start = shdr.sh_offset as usize;
+        let size = shdr.sh_size as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(note::NoteIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            shdr.sh_addralign as usize,
             buf,
         ))
     }
@@ -1147,6 +1176,29 @@ mod interface_tests {
             }
         );
         assert!(relas.next().is_none());
+    }
+
+    #[test]
+    fn section_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(2)
+            .expect("Failed to get .note.ABI-tag shdr");
+        let mut notes = file
+            .section_data_as_notes(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            note::Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert!(notes.next().is_none());
     }
 }
 
