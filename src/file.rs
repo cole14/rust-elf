@@ -50,9 +50,34 @@ impl<R: ReadBytesAt> File<R> {
         ))
     }
 
+    fn shnum(&mut self) -> Result<u64, ParseError> {
+        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+        // e_shnum is zero and the actual number of section header table entries
+        // is contained in the sh_size field of the section header at index 0.
+        let mut shnum = self.ehdr.e_shnum as u64;
+        if self.ehdr.e_shoff > 0 && self.ehdr.e_shnum == 0 {
+            let shdr_0 = self.section_header_by_index(0)?;
+            shnum = shdr_0.sh_size;
+        }
+        Ok(shnum)
+    }
+
+    fn shstrndx(&mut self) -> Result<u32, ParseError> {
+        // If the section name string table section index is greater than or
+        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
+        // (0xffff) and the actual index of the section name string table section
+        // is contained in the sh_link field of the section header at index 0.
+        let mut shstrndx = self.ehdr.e_shstrndx as u32;
+        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+            let shdr_0 = self.section_header_by_index(0)?;
+            shstrndx = shdr_0.sh_link;
+        }
+        Ok(shstrndx)
+    }
+
     /// Get an iterator over the Section Headers in the file.
     ///
-    /// The underlying ELF bytes backing the segment table are read all at once
+    /// The underlying ELF bytes backing the section headers table are read all at once
     /// when the iterator is requested, but parsing is deferred to be lazily
     /// parsed on demand on each Iterator::next() call.
     ///
@@ -72,14 +97,8 @@ impl<R: ReadBytesAt> File<R> {
             ));
         }
 
-        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
-        // e_shnum is zero and the actual number of section header table entries
-        // is contained in the sh_size field of the section header at index 0.
-        let mut shnum = self.ehdr.e_shnum as u64;
-        if self.ehdr.e_shoff > 0 && self.ehdr.e_shnum == 0 {
-            let shdr_0 = self.section_header_by_index(0)?;
-            shnum = shdr_0.sh_size;
-        }
+        // Get the number of section headers (could be in ehdr or shdrs[0])
+        let shnum = self.shnum()?;
 
         let start = self.ehdr.e_shoff as usize;
         let size = self.ehdr.e_shentsize as usize * shnum as usize;
@@ -106,6 +125,63 @@ impl<R: ReadBytesAt> File<R> {
         let buf = self.reader.read_bytes_at(start..start + size)?;
         let mut offset = 0;
         section::SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
+    }
+
+    /// Get Bothan iterator over the Section Headers and its associated StringTable.
+    ///
+    /// The underlying ELF bytes backing the section headers and string table
+    /// are read all at once as part of this method. Parsing of section headers and
+    /// names from the string table are deferred to be done lazily on demand on
+    /// each Iterator::next() and StringTable.get() call.
+    ///
+    /// Returns a [ParseError] if the data bytes for these tables cannot be
+    /// read i.e. if the ELF [FileHeader]'s
+    /// [e_shnum](FileHeader#structfield.e_shnum),
+    /// [e_shoff](FileHeader#structfield.e_shoff),
+    /// [e_shentsize](FileHeader#structfield.e_shentsize),
+    /// [e_shstrndx](FileHeader#structfield.e_shstrndx) are invalid and point
+    /// to a ranges in the file data that does not actually exist.
+    pub fn section_headers_with_strtab(
+        &mut self,
+    ) -> Result<(section::SectionHeaderIterator, StringTable), ParseError> {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
+            return Ok((
+                section::SectionHeaderIterator::new(self.ehdr.endianness, self.ehdr.class, &[]),
+                StringTable::default(),
+            ));
+        }
+
+        // Load the section header table bytes (we want concurrent referneces to strtab too)
+        let shnum = self.shnum()?;
+        let shdrs_start = self.ehdr.e_shoff as usize;
+        let shdrs_size = self.ehdr.e_shentsize as usize * shnum as usize;
+        self.reader
+            .load_bytes_at(shdrs_start..shdrs_start + shdrs_size)?;
+
+        // Load the section bytes for the strtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        // Get the index of section headers' strtab (could be in ehdr or shdrs[0])
+        let shstrndx = self.shstrndx()?;
+
+        let strtab = self.section_header_by_index(shstrndx as usize)?;
+        let strtab_start = strtab.sh_offset as usize;
+        let strtab_size = strtab.sh_size as usize;
+        self.reader
+            .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
+
+        // Return the (symtab, strtab)
+        let shdrs = section::SectionHeaderIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            self.reader
+                .get_loaded_bytes_at(shdrs_start..shdrs_start + shdrs_size),
+        );
+        let strtab = StringTable::new(
+            self.reader
+                .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
+        );
+        Ok((shdrs, strtab))
     }
 
     /// Read the section data for the given [SectionHeader](section::SectionHeader).
@@ -162,15 +238,8 @@ impl<R: ReadBytesAt> File<R> {
             return Ok(StringTable::default());
         }
 
-        // If the section name string table section index is greater than or
-        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
-        // (0xffff) and the actual index of the section name string table section
-        // is contained in the sh_link field of the section header at index 0.
-        let mut shstrndx = self.ehdr.e_shstrndx as u32;
-        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
-            let shdr_0 = self.section_header_by_index(0)?;
-            shstrndx = shdr_0.sh_link;
-        }
+        // Get the index of section headers' strtab (could be in ehdr or shdrs[0])
+        let shstrndx = self.shstrndx()?;
 
         let strtab_shdr = self.section_header_by_index(shstrndx as usize)?;
         self.section_data_as_strtab(&strtab_shdr)
@@ -834,6 +903,32 @@ mod interface_tests {
                 sh_entsize: 0,
             }
         );
+    }
+
+    #[test]
+    fn section_headers_with_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let (shdrs, strtab) = file
+            .section_headers_with_strtab()
+            .expect("Failed to get shdrs");
+
+        let with_names: Vec<(&str, section::SectionHeader)> = shdrs
+            .map(|shdr| {
+                (
+                    strtab
+                        .get(shdr.sh_name as usize)
+                        .expect("Failed to get section name"),
+                    shdr,
+                )
+            })
+            .collect();
+
+        let (name, shdr) = with_names[4];
+        assert_eq!(name, ".gnu.hash");
+        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
     }
 
     #[test]
