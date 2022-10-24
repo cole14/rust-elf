@@ -98,7 +98,7 @@ impl<'data> Note<'data> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct NoteHeader {
+struct NoteHeader {
     pub n_namesz: u64,
     pub n_descsz: u64,
     pub n_type: u64,
