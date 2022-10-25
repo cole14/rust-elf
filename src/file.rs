@@ -352,7 +352,7 @@ impl<R: ReadBytesAt> File<R> {
     pub fn section_data_as_rels(
         &mut self,
         shdr: &section::SectionHeader,
-    ) -> Result<relocation::RelaIterator, ParseError> {
+    ) -> Result<relocation::RelIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type.0,
@@ -362,7 +362,7 @@ impl<R: ReadBytesAt> File<R> {
         let start = shdr.sh_offset as usize;
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(relocation::RelaIterator::new(
+        Ok(relocation::RelIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             buf,
