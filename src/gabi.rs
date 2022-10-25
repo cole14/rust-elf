@@ -773,3 +773,16 @@ pub const DF_BIND_NOW: i64 = 0x8;
 /// storage scheme. Implementations need not support any form of thread-local
 /// storage.
 pub const DF_STATIC_TLS: i64 = 0x10;
+
+/// ZLIB/DEFLATE
+pub const ELFCOMPRESS_ZLIB: u32 = 1;
+/// zstd algorithm
+pub const ELFCOMPRESS_ZSTD: u32 = 2;
+/// Values in [ELFCOMPRESS_LOOS, ELFCOMPRESS_HIOS] are reserved for operating system-specific semantics.
+pub const ELFCOMPRESS_LOOS: u32 = 0x60000000;
+/// Values in [ELFCOMPRESS_LOOS, ELFCOMPRESS_HIOS] are reserved for operating system-specific semantics.
+pub const ELFCOMPRESS_HIOS: u32 = 0x6fffffff;
+/// Values in [ELFCOMPRESS_LOPROC, ELFCOMPRESS_HIPROC] are reserved for processor-specific semantics.
+pub const ELFCOMPRESS_LOPROC: u32 = 0x70000000;
+/// Values in [ELFCOMPRESS_LOPROC, ELFCOMPRESS_HIPROC] are reserved for processor-specific semantics.
+pub const ELFCOMPRESS_HIPROC: u32 = 0x7fffffff;
