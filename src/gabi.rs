@@ -423,6 +423,8 @@ pub const SHT_GROUP: u32 = 17;
 pub const SHT_SYMTAB_SHNDX: u32 = 18;
 /// Number of reserved SHT_* values
 pub const SHT_NUM: u32 = 19;
+/// Values in [SHT_LOOS, SHT_HIOS] are reserved for operating system-specific semantics.
+pub const SHT_LOOS: u32 = 0x60000000;
 /// Object attributes
 pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5;
 /// GNU-style hash section
@@ -435,6 +437,30 @@ pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd;
 pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe;
 /// Version symbol table
 pub const SHT_GNU_VERSYM: u32 = 0x6fffffff;
+/// Values in [SHT_LOOS, SHT_HIOS] are reserved for operating system-specific semantics.
+pub const SHT_HIOS: u32 = 0x6fffffff;
+/// Values in [SHT_LOPROC, SHT_HIPROC] are reserved for processor-specific semantics.
+pub const SHT_LOPROC: u32 = 0x70000000;
+/// ARM unwind section
+pub const SHT_ARM_EXIDX: u32 = 0x70000001; // SHT_LOPROC + 1;
+/// ARM Preemption details
+pub const SHT_ARM_PREEMPTMAP: u32 = 0x70000002; // SHT_LOPROC + 2;
+/// ARM attributes section
+pub const SHT_ARM_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
+/// IA_64 extension bits
+pub const SHT_IA_64_EXT: u32 = 0x70000000; // SHT_LOPROC + 0;
+/// IA_64 unwind section
+pub const SHT_IA_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
+/// RISCV Attributers
+pub const SHT_RISCV_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
+/// X86_64 unwind section
+pub const SHT_X86_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
+/// Values in [SHT_LOPROC, SHT_HIPROC] are reserved for processor-specific semantics.
+pub const SHT_HIPROC: u32 = 0x7fffffff;
+/// Values in [SHT_LOUSER, SHT_HIUSER] are reserved for application-specific semantics.
+pub const SHT_LOUSER: u32 = 0x80000000;
+/// Values in [SHT_LOUSER, SHT_HIUSER] are reserved for application-specific semantics.
+pub const SHT_HIUSER: u32 = 0x8fffffff;
 
 /// This value marks an undefined, missing, irrelevant, or otherwise meaningless
 /// section reference.
