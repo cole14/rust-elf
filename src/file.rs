@@ -1,14 +1,14 @@
-use crate::compression;
-use crate::dynamic;
-use crate::gabi::SHF_COMPRESSED;
-use crate::note;
+use crate::compression::CompressionHeader;
+use crate::dynamic::DynIterator;
+use crate::gabi;
+use crate::note::NoteIterator;
 use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
-use crate::relocation;
-use crate::section;
-use crate::segment;
+use crate::relocation::{RelIterator, RelaIterator};
+use crate::section::{SectionHeader, SectionHeaderIterator, SectionType};
+use crate::segment::ProgramHeader;
+use crate::segment::SegmentIterator;
 use crate::string_table::StringTable;
-use crate::symbol;
-use crate::{gabi, string_table};
+use crate::symbol::SymbolTable;
 
 pub struct File<R: ReadBytesAt> {
     reader: R,
@@ -34,9 +34,9 @@ impl<R: ReadBytesAt> File<R> {
     /// [e_phoff](FileHeader#structfield.e_phoff),
     /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
-    pub fn segments(&mut self) -> Result<segment::SegmentIterator, ParseError> {
+    pub fn segments(&mut self) -> Result<SegmentIterator, ParseError> {
         if self.ehdr.e_phnum == 0 {
-            return Ok(segment::SegmentIterator::new(
+            return Ok(SegmentIterator::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
                 &[],
@@ -46,7 +46,7 @@ impl<R: ReadBytesAt> File<R> {
         let start = self.ehdr.e_phoff as usize;
         let size = self.ehdr.e_phentsize as usize * self.ehdr.e_phnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(segment::SegmentIterator::new(
+        Ok(SegmentIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             buf,
@@ -90,10 +90,10 @@ impl<R: ReadBytesAt> File<R> {
     /// [e_shoff](FileHeader#structfield.e_shoff),
     /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
-    pub fn section_headers(&mut self) -> Result<section::SectionHeaderIterator, ParseError> {
+    pub fn section_headers(&mut self) -> Result<SectionHeaderIterator, ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
-            return Ok(section::SectionHeaderIterator::new(
+            return Ok(SectionHeaderIterator::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
                 &[],
@@ -106,19 +106,16 @@ impl<R: ReadBytesAt> File<R> {
         let start = self.ehdr.e_shoff as usize;
         let size = self.ehdr.e_shentsize as usize * shnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(section::SectionHeaderIterator::new(
+        Ok(SectionHeaderIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             buf,
         ))
     }
 
-    /// Read and parse the [SectionHeader](section::SectionHeader) at the given
+    /// Read and parse the [SectionHeader](SectionHeader) at the given
     /// index into the section table.
-    pub fn section_header_by_index(
-        &mut self,
-        index: usize,
-    ) -> Result<section::SectionHeader, ParseError> {
+    pub fn section_header_by_index(&mut self, index: usize) -> Result<SectionHeader, ParseError> {
         if self.ehdr.e_shnum > 0 && index >= self.ehdr.e_shnum as usize {
             return Err(ParseError::BadOffset(index as u64));
         }
@@ -127,10 +124,10 @@ impl<R: ReadBytesAt> File<R> {
         let size = self.ehdr.e_shentsize as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
         let mut offset = 0;
-        section::SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
+        SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
     }
 
-    /// Get Bothan iterator over the Section Headers and its associated StringTable.
+    /// Get an iterator over the Section Headers and its associated StringTable.
     ///
     /// The underlying ELF bytes backing the section headers and string table
     /// are read all at once as part of this method. Parsing of section headers and
@@ -146,11 +143,11 @@ impl<R: ReadBytesAt> File<R> {
     /// to a ranges in the file data that does not actually exist.
     pub fn section_headers_with_strtab(
         &mut self,
-    ) -> Result<(section::SectionHeaderIterator, StringTable), ParseError> {
+    ) -> Result<(SectionHeaderIterator, StringTable), ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
             return Ok((
-                section::SectionHeaderIterator::new(self.ehdr.endianness, self.ehdr.class, &[]),
+                SectionHeaderIterator::new(self.ehdr.endianness, self.ehdr.class, &[]),
                 StringTable::default(),
             ));
         }
@@ -174,7 +171,7 @@ impl<R: ReadBytesAt> File<R> {
             .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
 
         // Return the (symtab, strtab)
-        let shdrs = section::SectionHeaderIterator::new(
+        let shdrs = SectionHeaderIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             self.reader
@@ -187,14 +184,11 @@ impl<R: ReadBytesAt> File<R> {
         Ok((shdrs, strtab))
     }
 
-    /// Read the section data for the given [SectionHeader](section::SectionHeader).
+    /// Read the section data for the given [SectionHeader](SectionHeader).
     ///
     /// This returns the data as-is from the file. SHT_NOBITS sections yield an empty slice.
     #[deprecated(note = "Deprecated in favor of File::section_data()")]
-    pub fn section_data_for_header(
-        &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<&[u8], ParseError> {
+    pub fn section_data_for_header(&mut self, shdr: &SectionHeader) -> Result<&[u8], ParseError> {
         if shdr.sh_type == gabi::SHT_NOBITS {
             return Ok(&[]);
         }
@@ -205,13 +199,13 @@ impl<R: ReadBytesAt> File<R> {
         Ok(buf)
     }
 
-    /// Read the section data for the given [SectionHeader](section::SectionHeader).
+    /// Read the section data for the given [SectionHeader](SectionHeader).
     /// Returns both the secion data and an optional CompressionHeader.
     ///
     /// No compression header signals that the section contents are uncompressed and can be used as-is.
     ///
     /// Some(chdr) signals that the section contents are compressed and need to be uncompressed via the
-    /// compression algorithm described in [ch_type](compression::CompressionHeader#structfield.ch_type).
+    /// compression algorithm described in [ch_type](CompressionHeader#structfield.ch_type).
     /// The returned buffer represents the compressed section bytes as found in the file, without the
     /// CompressionHeader.
     ///
@@ -221,8 +215,8 @@ impl<R: ReadBytesAt> File<R> {
     /// SHT_NOBITS sections yield an empty slice.
     pub fn section_data(
         &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<(&[u8], Option<compression::CompressionHeader>), ParseError> {
+        shdr: &SectionHeader,
+    ) -> Result<(&[u8], Option<CompressionHeader>), ParseError> {
         if shdr.sh_type == gabi::SHT_NOBITS {
             return Ok((&[], None));
         }
@@ -231,11 +225,11 @@ impl<R: ReadBytesAt> File<R> {
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
 
-        if shdr.sh_flags.0 & SHF_COMPRESSED as u64 == 0 {
+        if shdr.sh_flags.0 & gabi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
         } else {
             let mut offset = 0;
-            let chdr = compression::CompressionHeader::parse_at(
+            let chdr = CompressionHeader::parse_at(
                 self.ehdr.endianness,
                 self.ehdr.class,
                 &mut offset,
@@ -249,16 +243,16 @@ impl<R: ReadBytesAt> File<R> {
     }
 
     /// Read the section data for the given
-    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [StringTable](string_table::StringTable).
+    /// [SectionHeader](SectionHeader) and interpret it in-place as a
+    /// [StringTable](StringTable).
     ///
     /// Returns a [ParseError] if the
-    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
     /// [SHT_STRTAB](gabi::SHT_STRTAB).
     pub fn section_data_as_strtab(
         &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<string_table::StringTable, ParseError> {
+        shdr: &SectionHeader,
+    ) -> Result<StringTable, ParseError> {
         if shdr.sh_type != gabi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type.0,
@@ -274,11 +268,11 @@ impl<R: ReadBytesAt> File<R> {
     /// Read and return the string table for the section headers.
     ///
     /// If the file has no section header string table, then an empty
-    /// [StringTable](string_table::StringTable) is returned.
+    /// [StringTable](StringTable) is returned.
     ///
     /// This is a convenience wrapper for interpreting the section at
     /// [FileHeader.e_shstrndx](FileHeader#structfield.e_shstrndx) as
-    /// a [StringTable](string_table::StringTable) via
+    /// a [StringTable](StringTable) via
     /// [section_data_as_strtab()](File::section_data_as_strtab).
     pub fn section_strtab(&mut self) -> Result<StringTable, ParseError> {
         if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
@@ -294,8 +288,8 @@ impl<R: ReadBytesAt> File<R> {
 
     fn get_symbol_table_of_type(
         &mut self,
-        symtab_type: section::SectionType,
-    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
+        symtab_type: SectionType,
+    ) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
         let symtab_shdr = match self
             .section_headers()?
@@ -321,7 +315,7 @@ impl<R: ReadBytesAt> File<R> {
             .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
 
         // Return the (symtab, strtab)
-        let symtab = symbol::SymbolTable::new(
+        let symtab = SymbolTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
             symtab_shdr.sh_entsize,
@@ -338,10 +332,8 @@ impl<R: ReadBytesAt> File<R> {
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
-    pub fn symbol_table(
-        &mut self,
-    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(section::SectionType(gabi::SHT_SYMTAB))
+    pub fn symbol_table(&mut self) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
+        self.get_symbol_table_of_type(SectionType(gabi::SHT_SYMTAB))
     }
 
     /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
@@ -349,12 +341,12 @@ impl<R: ReadBytesAt> File<R> {
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table(
         &mut self,
-    ) -> Result<Option<(symbol::SymbolTable, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(section::SectionType(gabi::SHT_DYNSYM))
+    ) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
+        self.get_symbol_table_of_type(SectionType(gabi::SHT_DYNSYM))
     }
 
     /// Get the .dynamic section/segment contents.
-    pub fn dynamic_section(&mut self) -> Result<Option<dynamic::DynIterator>, ParseError> {
+    pub fn dynamic_section(&mut self) -> Result<Option<DynIterator>, ParseError> {
         // If we have section headers, then look it up there
         if self.ehdr.e_shoff > 0 {
             if let Some(shdr) = self
@@ -364,7 +356,7 @@ impl<R: ReadBytesAt> File<R> {
                 let start = shdr.sh_offset as usize;
                 let size = shdr.sh_size as usize;
                 let buf = self.reader.read_bytes_at(start..start + size)?;
-                return Ok(Some(dynamic::DynIterator::new(
+                return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
                     self.ehdr.class,
                     buf,
@@ -378,7 +370,7 @@ impl<R: ReadBytesAt> File<R> {
                 let start = phdr.p_offset as usize;
                 let size = phdr.p_filesz as usize;
                 let buf = self.reader.read_bytes_at(start..start + size)?;
-                return Ok(Some(dynamic::DynIterator::new(
+                return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
                     self.ehdr.class,
                     buf,
@@ -389,16 +381,16 @@ impl<R: ReadBytesAt> File<R> {
     }
 
     /// Read the section data for the given
-    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [RelIterator](relocation::RelIterator).
+    /// [SectionHeader](SectionHeader) and interpret it in-place as a
+    /// [RelIterator](RelIterator).
     ///
     /// Returns a [ParseError] if the
-    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
     /// [SHT_REL](gabi::SHT_REL).
     pub fn section_data_as_rels(
         &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<relocation::RelIterator, ParseError> {
+        shdr: &SectionHeader,
+    ) -> Result<RelIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type.0,
@@ -408,24 +400,20 @@ impl<R: ReadBytesAt> File<R> {
         let start = shdr.sh_offset as usize;
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(relocation::RelIterator::new(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            buf,
-        ))
+        Ok(RelIterator::new(self.ehdr.endianness, self.ehdr.class, buf))
     }
 
     /// Read the section data for the given
-    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [RelaIterator](relocation::RelaIterator).
+    /// [SectionHeader](SectionHeader) and interpret it in-place as a
+    /// [RelaIterator](RelaIterator).
     ///
     /// Returns a [ParseError] if the
-    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
     /// [SHT_RELA](gabi::SHT_RELA).
     pub fn section_data_as_relas(
         &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<relocation::RelaIterator, ParseError> {
+        shdr: &SectionHeader,
+    ) -> Result<RelaIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type.0,
@@ -435,7 +423,7 @@ impl<R: ReadBytesAt> File<R> {
         let start = shdr.sh_offset as usize;
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(relocation::RelaIterator::new(
+        Ok(RelaIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             buf,
@@ -443,16 +431,16 @@ impl<R: ReadBytesAt> File<R> {
     }
 
     /// Read the section data for the given
-    /// [SectionHeader](section::SectionHeader) and interpret it in-place as a
-    /// [NoteIterator](note::NoteIterator).
+    /// [SectionHeader](SectionHeader) and interpret it in-place as a
+    /// [NoteIterator](NoteIterator).
     ///
     /// Returns a [ParseError] if the
-    /// [sh_type](section::SectionHeader#structfield.sh_type) is not
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
     /// [SHT_RELA](gabi::SHT_NOTE).
     pub fn section_data_as_notes(
         &mut self,
-        shdr: &section::SectionHeader,
-    ) -> Result<note::NoteIterator, ParseError> {
+        shdr: &SectionHeader,
+    ) -> Result<NoteIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type.0,
@@ -462,7 +450,7 @@ impl<R: ReadBytesAt> File<R> {
         let start = shdr.sh_offset as usize;
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(note::NoteIterator::new(
+        Ok(NoteIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             shdr.sh_addralign as usize,
@@ -471,16 +459,16 @@ impl<R: ReadBytesAt> File<R> {
     }
 
     /// Read the segment data for the given
-    /// [Segment](segment::ProgramHeader) and interpret it in-place as a
-    /// [NoteIterator](note::NoteIterator).
+    /// [Segment](ProgramHeader) and interpret it in-place as a
+    /// [NoteIterator](NoteIterator).
     ///
     /// Returns a [ParseError] if the
-    /// [p_type](segment::ProgramHeader#structfield.p_type) is not
+    /// [p_type](ProgramHeader#structfield.p_type) is not
     /// [PT_RELA](gabi::PT_NOTE).
     pub fn segment_data_as_notes(
         &mut self,
-        phdr: &segment::ProgramHeader,
-    ) -> Result<note::NoteIterator, ParseError> {
+        phdr: &ProgramHeader,
+    ) -> Result<NoteIterator, ParseError> {
         if phdr.p_type != gabi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type.0,
@@ -490,7 +478,7 @@ impl<R: ReadBytesAt> File<R> {
         let start = phdr.p_offset as usize;
         let size = phdr.p_filesz as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(note::NoteIterator::new(
+        Ok(NoteIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
             phdr.p_align as usize,
@@ -962,7 +950,13 @@ impl core::fmt::Display for Architecture {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::dynamic::Dyn;
+    use crate::note::Note;
     use crate::parse::CachedReadBytes;
+    use crate::relocation::Rela;
+    use crate::section::SectionFlag;
+    use crate::segment::{ProgFlag, ProgType};
+    use crate::symbol::Symbol;
 
     #[test]
     fn test_open_stream_with_cachedreadbytes() {
@@ -993,10 +987,10 @@ mod interface_tests {
             .expect("Failed to parse shdr");
         assert_eq!(
             shdr,
-            section::SectionHeader {
+            SectionHeader {
                 sh_name: 17,
-                sh_type: section::SectionType(3),
-                sh_flags: section::SectionFlag(0),
+                sh_type: SectionType(3),
+                sh_flags: SectionFlag(0),
                 sh_addr: 0,
                 sh_offset: 4532,
                 sh_size: 268,
@@ -1018,7 +1012,7 @@ mod interface_tests {
             .section_headers_with_strtab()
             .expect("Failed to get shdrs");
 
-        let with_names: Vec<(&str, section::SectionHeader)> = shdrs
+        let with_names: Vec<(&str, SectionHeader)> = shdrs
             .map(|shdr| {
                 (
                     strtab
@@ -1139,18 +1133,18 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let mut file = File::open_stream(slice).expect("Open test1");
-        let segments: Vec<segment::ProgramHeader> =
+        let segments: Vec<ProgramHeader> =
             file.segments().expect("Failed to read segments").collect();
         assert_eq!(
             segments[0],
-            segment::ProgramHeader {
-                p_type: segment::ProgType(gabi::PT_PHDR),
+            ProgramHeader {
+                p_type: ProgType(gabi::PT_PHDR),
                 p_offset: 64,
                 p_vaddr: 4194368,
                 p_paddr: 4194368,
                 p_filesz: 448,
                 p_memsz: 448,
-                p_flags: segment::ProgFlag(5),
+                p_flags: ProgFlag(5),
                 p_align: 8,
             }
         )
@@ -1169,7 +1163,7 @@ mod interface_tests {
         let symbol = symtab.get(30).expect("Failed to get symbol");
         assert_eq!(
             symbol,
-            symbol::Symbol {
+            Symbol {
                 st_name: 19,
                 st_value: 6293200,
                 st_size: 0,
@@ -1199,7 +1193,7 @@ mod interface_tests {
         let symbol = symtab.get(1).expect("Failed to get symbol");
         assert_eq!(
             symbol,
-            symbol::Symbol {
+            Symbol {
                 st_name: 11,
                 st_value: 0,
                 st_size: 0,
@@ -1228,14 +1222,14 @@ mod interface_tests {
             .expect("Failed to find .dynamic");
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
-            dynamic::Dyn {
+            Dyn {
                 d_tag: gabi::DT_NEEDED,
                 d_un: 1
             }
         );
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
-            dynamic::Dyn {
+            Dyn {
                 d_tag: gabi::DT_INIT,
                 d_un: 4195216
             }
@@ -1269,7 +1263,7 @@ mod interface_tests {
             .expect("Failed to read relas section");
         assert_eq!(
             relas.next().expect("Failed to get rela entry"),
-            relocation::Rela {
+            Rela {
                 r_offset: 6293704,
                 r_sym: 1,
                 r_type: 7,
@@ -1278,7 +1272,7 @@ mod interface_tests {
         );
         assert_eq!(
             relas.next().expect("Failed to get rela entry"),
-            relocation::Rela {
+            Rela {
                 r_offset: 6293712,
                 r_sym: 2,
                 r_type: 7,
@@ -1302,7 +1296,7 @@ mod interface_tests {
             .expect("Failed to read relas section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            note::Note {
+            Note {
                 n_type: 1,
                 name: "GNU",
                 desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
@@ -1317,7 +1311,7 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let mut file = File::open_stream(slice).expect("Open test1");
-        let phdrs: Vec<segment::ProgramHeader> = file
+        let phdrs: Vec<ProgramHeader> = file
             .segments()
             .expect("Failed to get .note.ABI-tag shdr")
             .collect();
@@ -1326,7 +1320,7 @@ mod interface_tests {
             .expect("Failed to read relas section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            note::Note {
+            Note {
                 n_type: 1,
                 name: "GNU",
                 desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
@@ -1334,7 +1328,7 @@ mod interface_tests {
         );
         assert_eq!(
             notes.next().expect("Failed to get second note"),
-            note::Note {
+            Note {
                 n_type: 3,
                 name: "GNU",
                 desc: &[
