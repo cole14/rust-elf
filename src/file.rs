@@ -1,4 +1,6 @@
+use crate::compression;
 use crate::dynamic;
+use crate::gabi::SHF_COMPRESSED;
 use crate::note;
 use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
 use crate::relocation;
@@ -188,6 +190,7 @@ impl<R: ReadBytesAt> File<R> {
     /// Read the section data for the given [SectionHeader](section::SectionHeader).
     ///
     /// This returns the data as-is from the file. SHT_NOBITS sections yield an empty slice.
+    #[deprecated(note = "Deprecated in favor of File::section_data()")]
     pub fn section_data_for_header(
         &mut self,
         shdr: &section::SectionHeader,
@@ -200,6 +203,49 @@ impl<R: ReadBytesAt> File<R> {
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
         Ok(buf)
+    }
+
+    /// Read the section data for the given [SectionHeader](section::SectionHeader).
+    /// Returns both the secion data and an optional CompressionHeader.
+    ///
+    /// No compression header signals that the section contents are uncompressed and can be used as-is.
+    ///
+    /// Some(chdr) signals that the section contents are compressed and need to be uncompressed via the
+    /// compression algorithm described in [ch_type](compression::CompressionHeader#structfield.ch_type).
+    /// The returned buffer represents the compressed section bytes as found in the file, without the
+    /// CompressionHeader.
+    ///
+    /// It is up to the user to perform the decompression themselves with the compression library of
+    /// their choosing.
+    ///
+    /// SHT_NOBITS sections yield an empty slice.
+    pub fn section_data(
+        &mut self,
+        shdr: &section::SectionHeader,
+    ) -> Result<(&[u8], Option<compression::CompressionHeader>), ParseError> {
+        if shdr.sh_type == gabi::SHT_NOBITS {
+            return Ok((&[], None));
+        }
+
+        let start = shdr.sh_offset as usize;
+        let size = shdr.sh_size as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        if shdr.sh_flags.0 & SHF_COMPRESSED as u64 == 0 {
+            Ok((buf, None))
+        } else {
+            let mut offset = 0;
+            let chdr = compression::CompressionHeader::parse_at(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &mut offset,
+                &buf,
+            )?;
+            let compressed_buf = buf
+                .get(offset..)
+                .ok_or(ParseError::SliceReadError((offset, shdr.sh_size as usize)))?;
+            Ok((compressed_buf, Some(chdr)))
+        }
     }
 
     /// Read the section data for the given
@@ -998,6 +1044,7 @@ mod interface_tests {
             .section_header_by_index(7)
             .expect("Failed to get .gnu.version section");
         assert_eq!(shdr.sh_type, gabi::SHT_GNU_VERSYM);
+        #[allow(deprecated)]
         let data = file
             .section_data_for_header(&shdr)
             .expect("Failed to get section data");
@@ -1014,10 +1061,45 @@ mod interface_tests {
             .section_header_by_index(26)
             .expect("Failed to get nobits section");
         assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+        #[allow(deprecated)]
         let data = file
             .section_data_for_header(&shdr)
             .expect("Failed to get section data");
         assert_eq!(data, &[]);
+    }
+
+    #[test]
+    fn section_data_for_nobits() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(26)
+            .expect("Failed to get .gnu.version section");
+        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+        let (data, chdr) = file
+            .section_data(&shdr)
+            .expect("Failed to get section data");
+        assert_eq!(chdr, None);
+        assert_eq!(data, &[]);
+    }
+
+    #[test]
+    fn section_data() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let shdr = file
+            .section_header_by_index(7)
+            .expect("Failed to get .gnu.version section");
+        assert_eq!(shdr.sh_type, gabi::SHT_GNU_VERSYM);
+        let (data, chdr) = file
+            .section_data(&shdr)
+            .expect("Failed to get section data");
+        assert_eq!(chdr, None);
+        assert_eq!(data, [0, 0, 2, 0, 2, 0, 0, 0]);
     }
 
     #[test]
