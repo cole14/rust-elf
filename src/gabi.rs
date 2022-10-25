@@ -761,8 +761,69 @@ pub const DT_PREINIT_ARRAYSZ: i64 = 33;
 /// This element holds the address of the SHT_SYMTAB_SHNDX section associated
 /// with the dynamic symbol table referenced by the DT_SYMTAB element.
 pub const DT_SYMTAB_SHNDX: i64 = 34;
+/// Guile offset of GC roots
+pub const DT_GUILE_GC_ROOT: i64 = 0x37146000;
+/// Guile size in machine words of GC roots
+pub const DT_GUILE_GC_ROOT_SZ: i64 = 0x37146001;
+/// Guile address of entry thunk
+pub const DT_GUILE_ENTRY: i64 = 0x37146002;
+/// Guile bytecode version
+pub const DT_GUILE_VM_VERSION: i64 = 0x37146003;
+/// Guile frame maps
+pub const DT_GUILE_FRAME_MAPS: i64 = 0x37146004;
 /// Values in [DT_LOOS, DT_HIOS] are reserved for operating system-specific semantics.
 pub const DT_LOOS: i64 = 0x6000000D;
+/// Prelinking timestamp
+pub const DT_GNU_PRELINKED: i64 = 0x6ffffdf5;
+/// Size of conflict section
+pub const DT_GNU_CONFLICTSZ: i64 = 0x6ffffdf6;
+/// Size of library list
+pub const DT_GNU_LIBLISTSZ: i64 = 0x6ffffdf7;
+pub const DT_CHECKSUM: i64 = 0x6ffffdf8;
+pub const DT_PLTPADSZ: i64 = 0x6ffffdf9;
+pub const DT_MOVEENT: i64 = 0x6ffffdfa;
+pub const DT_MOVESZ: i64 = 0x6ffffdfb;
+/// Feature selection (DTF_*)
+pub const DT_FEATURE_1: i64 = 0x6ffffdfc;
+/// Flags for DT_* entries, effecting the following DT_* entry
+pub const DT_POSFLAG_1: i64 = 0x6ffffdfd;
+/// Size of syminfo table (in bytes)
+pub const DT_SYMINSZ: i64 = 0x6ffffdfe;
+/// Entry size of syminfo table
+pub const DT_SYMINENT: i64 = 0x6ffffdff;
+/// GNU-style hash table
+pub const DT_GNU_HASH: i64 = 0x6ffffef5;
+pub const DT_TLSDESC_PLT: i64 = 0x6ffffef6;
+pub const DT_TLSDESC_GOT: i64 = 0x6ffffef7;
+/// Start of conflict section
+pub const DT_GNU_CONFLICT: i64 = 0x6ffffef8;
+/// Library list
+pub const DT_GNU_LIBLIST: i64 = 0x6ffffef9;
+/// Configuration information
+pub const DT_CONFIG: i64 = 0x6ffffefa;
+/// Dependency auditing
+pub const DT_DEPAUDIT: i64 = 0x6ffffefb;
+/// Object auditing
+pub const DT_AUDIT: i64 = 0x6ffffefc;
+/// PLT padding
+pub const DT_PLTPAD: i64 = 0x6ffffefd;
+/// Move table
+pub const DT_MOVETAB: i64 = 0x6ffffefe;
+/// Syminfo table
+pub const DT_SYMINFO: i64 = 0x6ffffeff;
+pub const DT_VERSYM: i64 = 0x6ffffff0;
+pub const DT_RELACOUNT: i64 = 0x6ffffff9;
+pub const DT_RELCOUNT: i64 = 0x6ffffffa;
+/// State flags, see DF_1_* below.
+pub const DT_FLAGS_1: i64 = 0x6ffffffb;
+/// Address of version definition table
+pub const DT_VERDEF: i64 = 0x6ffffffc;
+/// Number of version definitions
+pub const DT_VERDEFNUM: i64 = 0x6ffffffd;
+/// Address of table with needed versions
+pub const DT_VERNEED: i64 = 0x6ffffffe;
+/// Number of needed versions
+pub const DT_VERNEEDNUM: i64 = 0x6fffffff;
 /// Values in [DT_LOOS, DT_HIOS] are reserved for operating system-specific semantics.
 pub const DT_HIOS: i64 = 0x6ffff000;
 /// Values in [DT_LOPROC, DT_HIPROC] are reserved for processor-specific semantics.
@@ -799,6 +860,71 @@ pub const DF_BIND_NOW: i64 = 0x8;
 /// storage scheme. Implementations need not support any form of thread-local
 /// storage.
 pub const DF_STATIC_TLS: i64 = 0x10;
+
+// State flags selectable in Dyn.d_val() of the DT_FLAGS_1 entries in the dynamic section
+
+/// Set RTLD_NOW for this object
+pub const DF_1_NOW: i64 = 0x00000001;
+/// Set RTLD_GLOBAL for this object
+pub const DF_1_GLOBAL: i64 = 0x00000002;
+/// Set RTLD_GROUP for this object
+pub const DF_1_GROUP: i64 = 0x00000004;
+/// Set RTLD_NODELETE for this object
+pub const DF_1_NODELETE: i64 = 0x00000008;
+/// Trigger filtee loading at runtime
+pub const DF_1_LOADFLTR: i64 = 0x00000010;
+/// Set RTLD_INITFIRST for this object
+pub const DF_1_INITFIRST: i64 = 0x00000020;
+/// Set RTLD_NOOPEN for this object
+pub const DF_1_NOOPEN: i64 = 0x00000040;
+/// $ORIGIN must be handled
+pub const DF_1_ORIGIN: i64 = 0x00000080;
+/// Direct binding enabled
+pub const DF_1_DIRECT: i64 = 0x00000100;
+pub const DF_1_TRANS: i64 = 0x00000200;
+/// Object is used to interpose
+pub const DF_1_INTERPOSE: i64 = 0x00000400;
+/// Ignore default lib search path
+pub const DF_1_NODEFLIB: i64 = 0x00000800;
+/// Object can't be dldump'ed
+pub const DF_1_NODUMP: i64 = 0x00001000;
+/// Configuration alternative created
+pub const DF_1_CONFALT: i64 = 0x00002000;
+/// Filtee terminates filters search
+pub const DF_1_ENDFILTEE: i64 = 0x00004000;
+/// Disp reloc applied at build time
+pub const DF_1_DISPRELDNE: i64 = 0x00008000;
+/// Disp reloc applied at run-time
+pub const DF_1_DISPRELPND: i64 = 0x00010000;
+/// Object has no-direct binding
+pub const DF_1_NODIRECT: i64 = 0x00020000;
+pub const DF_1_IGNMULDEF: i64 = 0x00040000;
+pub const DF_1_NOKSYMS: i64 = 0x00080000;
+pub const DF_1_NOHDR: i64 = 0x00100000;
+/// Object is modified after built
+pub const DF_1_EDITED: i64 = 0x00200000;
+pub const DF_1_NORELOC: i64 = 0x00400000;
+/// Object has individual interposers
+pub const DF_1_SYMINTPOSE: i64 = 0x00800000;
+/// Global auditing required
+pub const DF_1_GLOBAUDIT: i64 = 0x01000000;
+/// Singleton symbols are used
+pub const DF_1_SINGLETON: i64 = 0x02000000;
+pub const DF_1_STUB: i64 = 0x04000000;
+pub const DF_1_PIE: i64 = 0x08000000;
+pub const DF_1_KMOD: i64 = 0x10000000;
+pub const DF_1_WEAKFILTER: i64 = 0x20000000;
+pub const DF_1_NOCOMMON: i64 = 0x40000000;
+
+// Flags for the feature selection in DT_FEATURE_1
+pub const DTF_1_PARINIT: i64 = 0x00000001;
+pub const DTF_1_CONFEXP: i64 = 0x00000002;
+
+// Flags in the DT_POSFLAG_1 entry effecting only the next DT_* entry
+/// Lazyload following object
+pub const DF_P1_LAZYLOAD: i64 = 0x00000001;
+/// Symbols from next object are not generally available
+pub const DF_P1_GROUPPERM: i64 = 0x00000002;
 
 /// ZLIB/DEFLATE
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
