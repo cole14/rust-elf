@@ -59,6 +59,7 @@ pub mod compression;
 pub mod dynamic;
 pub mod file;
 pub mod gabi;
+pub mod gnu_symver;
 pub mod note;
 pub mod relocation;
 pub mod section;

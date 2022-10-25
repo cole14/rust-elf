@@ -926,6 +926,12 @@ pub const DF_P1_LAZYLOAD: i64 = 0x00000001;
 /// Symbols from next object are not generally available
 pub const DF_P1_GROUPPERM: i64 = 0x00000002;
 
+// .gnu.version index reserved values
+/// Symbol is local
+pub const VER_NDX_LOCAL: u16 = 0;
+/// Symbol is global
+pub const VER_NDX_GLOBAL: u16 = 1;
+
 /// ZLIB/DEFLATE
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
 /// zstd algorithm
