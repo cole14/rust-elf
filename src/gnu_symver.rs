@@ -153,6 +153,38 @@ impl ParseAt for VerNeed {
     }
 }
 
+/// Version Need Auxiliary Entries from the .gnu.version_r section
+#[derive(Debug, PartialEq)]
+pub struct VerNeedAux {
+    /// Dependency name hash value (ELF hash function).
+    pub vna_hash: u32,
+    /// Dependency information flag bitmask.
+    pub vna_flags: u16,
+    /// VersionIndex value used in the .gnu.version symbol version array.
+    pub vna_other: u16,
+    /// Offset to the dependency name string in the linked string table, in bytes.
+    pub vna_name: u32,
+    /// Offset to the next vernaux entry, in bytes.
+    pub vna_next: u32,
+}
+
+impl ParseAt for VerNeedAux {
+    fn parse_at<P: EndianParseExt>(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError> {
+        Ok(VerNeedAux {
+            vna_hash: parser.parse_u32_at(endian, offset)?,
+            vna_flags: parser.parse_u16_at(endian, offset)?,
+            vna_other: parser.parse_u16_at(endian, offset)?,
+            vna_name: parser.parse_u32_at(endian, offset)?,
+            vna_next: parser.parse_u32_at(endian, offset)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -459,6 +491,89 @@ mod parse_tests {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
             let error = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    //
+    // VerNeedAux
+    //
+    const VERNEEDAUXSIZE: usize = 16;
+
+    #[test]
+    fn parse_verneedaux32_lsb() {
+        let mut data = [0u8; VERNEEDAUXSIZE as usize];
+        for n in 0..VERNEEDAUXSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerNeedAux::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerNeedAux");
+
+        assert_eq!(
+            entry,
+            VerNeedAux {
+                vna_hash: 0x03020100,
+                vna_flags: 0x0504,
+                vna_other: 0x0706,
+                vna_name: 0x0B0A0908,
+                vna_next: 0x0F0E0D0C,
+            }
+        );
+        assert_eq!(offset, VERNEEDAUXSIZE);
+    }
+
+    #[test]
+    fn parse_verneedaux32_fuzz_too_short() {
+        let data = [0u8; VERNEEDAUXSIZE];
+        for n in 0..VERNEEDAUXSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_verneedaux64_msb() {
+        let mut data = [0u8; VERNEEDAUXSIZE as usize];
+        for n in 0..VERNEEDAUXSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerNeedAux");
+
+        assert_eq!(
+            entry,
+            VerNeedAux {
+                vna_hash: 0x00010203,
+                vna_flags: 0x0405,
+                vna_other: 0x0607,
+                vna_name: 0x08090A0B,
+                vna_next: 0x0C0D0E0F,
+            }
+        );
+        assert_eq!(offset, VERNEEDAUXSIZE);
+    }
+
+    #[test]
+    fn parse_verneedaux64_fuzz_too_short() {
+        let data = [0u8; VERNEEDAUXSIZE];
+        for n in 0..VERNEEDAUXSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
