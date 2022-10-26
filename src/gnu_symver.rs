@@ -91,6 +91,29 @@ impl ParseAt for VerDef {
     }
 }
 
+/// Version Definition Auxiliary Entries from the .gnu.version_d section
+#[derive(Debug, PartialEq)]
+pub struct VerDefAux {
+    /// Offset to the version or dependency name string in the linked string table, in bytes.
+    pub vda_name: u32,
+    /// Offset to the next VerDefAux entry, in bytes.
+    pub vda_next: u32,
+}
+
+impl ParseAt for VerDefAux {
+    fn parse_at<P: EndianParseExt>(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError> {
+        Ok(VerDefAux {
+            vda_name: parser.parse_u32_at(endian, offset)?,
+            vda_next: parser.parse_u32_at(endian, offset)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -99,7 +122,6 @@ mod parse_tests {
 
     #[test]
     fn parse_verndx32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELFVERNDXSIZE as usize];
         for n in 0..ELFVERNDXSIZE {
             data[n as usize] = n as u8;
@@ -131,7 +153,6 @@ mod parse_tests {
 
     #[test]
     fn parse_verndx64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELFVERNDXSIZE as usize];
         for n in 0..ELFVERNDXSIZE {
             data[n as usize] = n as u8;
@@ -167,7 +188,6 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELFVERDEFSIZE as usize];
         for n in 0..ELFVERDEFSIZE {
             data[n as usize] = n as u8;
@@ -209,7 +229,6 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELFVERDEFSIZE as usize];
         for n in 0..ELFVERDEFSIZE {
             data[n as usize] = n as u8;
@@ -241,6 +260,83 @@ mod parse_tests {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
             let error = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    //
+    // VerDefAux
+    //
+    const ELFVERDEFAUXSIZE: usize = 8;
+
+    #[test]
+    fn parse_verdefaux32_lsb() {
+        let mut data = [0u8; ELFVERDEFAUXSIZE as usize];
+        for n in 0..ELFVERDEFAUXSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerDefAux::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerDefAux");
+
+        assert_eq!(
+            entry,
+            VerDefAux {
+                vda_name: 0x03020100,
+                vda_next: 0x07060504,
+            }
+        );
+        assert_eq!(offset, ELFVERDEFAUXSIZE);
+    }
+
+    #[test]
+    fn parse_verdefaux32_fuzz_too_short() {
+        let data = [0u8; ELFVERDEFAUXSIZE];
+        for n in 0..ELFVERDEFAUXSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerDefAux::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_verdefaux64_msb() {
+        let mut data = [0u8; ELFVERDEFAUXSIZE as usize];
+        for n in 0..ELFVERDEFAUXSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerDefAux");
+
+        assert_eq!(
+            entry,
+            VerDefAux {
+                vda_name: 0x00010203,
+                vda_next: 0x04050607,
+            }
+        );
+        assert_eq!(offset, ELFVERDEFAUXSIZE);
+    }
+
+    #[test]
+    fn parse_verdefaux64_fuzz_too_short() {
+        let data = [0u8; ELFVERDEFAUXSIZE];
+        for n in 0..ELFVERDEFAUXSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
