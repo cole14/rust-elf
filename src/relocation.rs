@@ -91,7 +91,6 @@ mod parse_tests {
 
     #[test]
     fn parse_rel32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF32RELSIZE as usize];
         for n in 0..ELF32RELSIZE {
             data[n as usize] = n as u8;
@@ -129,7 +128,6 @@ mod parse_tests {
 
     #[test]
     fn parse_rel64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF64RELSIZE as usize];
         for n in 0..ELF64RELSIZE {
             data[n as usize] = n as u8;
@@ -170,7 +168,6 @@ mod parse_tests {
 
     #[test]
     fn parse_rela32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF32RELASIZE as usize];
         for n in 0..ELF32RELASIZE {
             data[n as usize] = n as u8;
@@ -209,7 +206,6 @@ mod parse_tests {
 
     #[test]
     fn parse_rela64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF64RELASIZE as usize];
         for n in 0..ELF64RELASIZE {
             data[n as usize] = n as u8;

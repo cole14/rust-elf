@@ -109,7 +109,6 @@ mod parse_tests {
 
     #[test]
     fn parse_dyn32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF32DYNSIZE as usize];
         for n in 0..ELF32DYNSIZE {
             data[n as usize] = n as u8;
@@ -146,7 +145,6 @@ mod parse_tests {
 
     #[test]
     fn parse_dyn64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
         let mut data = [0u8; ELF64DYNSIZE as usize];
         for n in 0..ELF64DYNSIZE {
             data[n as usize] = n as u8;
