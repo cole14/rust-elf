@@ -47,6 +47,57 @@ impl ParseAt for VersionIndex {
 }
 
 #[derive(Debug)]
+pub struct VerDefIterator<'data> {
+    endianness: Endian,
+    class: Class,
+    /// The number of entries in this iterator is given by the .dynamic DT_VERDEFNUM entry
+    count: u64,
+    data: &'data [u8],
+    offset: usize,
+}
+
+impl<'data> VerDefIterator<'data> {
+    pub fn new(
+        endianness: Endian,
+        class: Class,
+        count: u64,
+        starting_offset: usize,
+        data: &'data [u8],
+    ) -> Self {
+        VerDefIterator {
+            endianness,
+            class,
+            count,
+            data,
+            offset: starting_offset,
+        }
+    }
+}
+
+impl<'data> Iterator for VerDefIterator<'data> {
+    type Item = (VerDef, VerDefAuxIterator<'data>);
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 || self.count == 0 {
+            return None;
+        }
+
+        let mut start = self.offset;
+        let vd = VerDef::parse_at(self.endianness, self.class, &mut start, &self.data).ok()?;
+        let vda_iter = VerDefAuxIterator::new(
+            self.endianness,
+            self.class,
+            vd.vd_cnt,
+            self.offset + vd.vd_aux as usize,
+            self.data,
+        );
+
+        self.offset += vd.vd_next as usize;
+        self.count -= 1;
+        Some((vd, vda_iter))
+    }
+}
+
+#[derive(Debug)]
 pub struct VerDefAuxIterator<'data> {
     endianness: Endian,
     class: Class,
@@ -252,6 +303,16 @@ impl ParseAt for VerNeedAux {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////
+//  _____        _
+// |_   _|__ ___| |_ ___
+//   | |/ _ / __| __/ __|
+//   | |  __\__ | |_\__ \
+//   |_|\___|___/\__|___/
+//
+// Figlet: Tests
+//////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod iter_tests {
     use super::*;
@@ -292,6 +353,93 @@ mod iter_tests {
     // {vda_name,               vda_next},
         0xb6, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
+
+    #[test]
+    fn verdef_iter() {
+        let iter = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
+        let entries: Vec<(VerDef, Vec<VerDefAux>)> =
+            iter.map(|(vd, iter)| (vd, iter.collect())).collect();
+
+        assert_eq!(entries.len(), 4);
+
+        assert_eq!(
+            entries,
+            vec![
+                (
+                    VerDef {
+                        vd_version: 1,
+                        vd_flags: 1,
+                        vd_ndx: 1,
+                        vd_cnt: 1,
+                        vd_hash: 0x0B077AB0,
+                        vd_aux: 20,
+                        vd_next: 28,
+                    },
+                    vec![VerDefAux {
+                        vda_name: 0xC9F,
+                        vda_next: 0
+                    }]
+                ),
+                (
+                    VerDef {
+                        vd_version: 1,
+                        vd_flags: 0,
+                        vd_ndx: 2,
+                        vd_cnt: 1,
+                        vd_hash: 0x088f2f70,
+                        vd_aux: 20,
+                        vd_next: 28,
+                    },
+                    vec![VerDefAux {
+                        vda_name: 0xCAB,
+                        vda_next: 0
+                    }]
+                ),
+                (
+                    VerDef {
+                        vd_version: 1,
+                        vd_flags: 0,
+                        vd_ndx: 3,
+                        vd_cnt: 2,
+                        vd_hash: 0x088f2f71,
+                        vd_aux: 20,
+                        vd_next: 36,
+                    },
+                    vec![
+                        VerDefAux {
+                            vda_name: 0xCB6,
+                            vda_next: 8
+                        },
+                        VerDefAux {
+                            vda_name: 0xCAB,
+                            vda_next: 0
+                        }
+                    ]
+                ),
+                (
+                    VerDef {
+                        vd_version: 1,
+                        vd_flags: 0,
+                        vd_ndx: 4,
+                        vd_cnt: 2,
+                        vd_hash: 0x088f2f72,
+                        vd_aux: 20,
+                        vd_next: 0,
+                    },
+                    vec![
+                        VerDefAux {
+                            vda_name: 0xCC1,
+                            vda_next: 8
+                        },
+                        VerDefAux {
+                            vda_name: 0xCB6,
+                            vda_next: 0
+                        }
+                    ]
+                ),
+            ]
+        );
+    }
 
     #[test]
     fn verdefaux_iter_one_entry() {
