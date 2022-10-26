@@ -1,4 +1,7 @@
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_i32_at, parse_i64_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError,
+    ParsingIterator,
+};
 
 pub type RelIterator<'data> = ParsingIterator<'data, Rel>;
 pub type RelaIterator<'data> = ParsingIterator<'data, Rela>;
@@ -11,16 +14,16 @@ pub struct Rel {
 }
 
 impl ParseAt for Rel {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => {
-                let r_offset = parser.parse_u32_at(endian, offset)? as u64;
-                let r_info = parser.parse_u32_at(endian, offset)?;
+                let r_offset = parse_u32_at(endian, offset, data)? as u64;
+                let r_info = parse_u32_at(endian, offset, data)?;
                 Ok(Rel {
                     r_offset,
                     r_sym: r_info >> 8,
@@ -28,8 +31,8 @@ impl ParseAt for Rel {
                 })
             }
             Class::ELF64 => {
-                let r_offset = parser.parse_u64_at(endian, offset)?;
-                let r_info = parser.parse_u64_at(endian, offset)?;
+                let r_offset = parse_u64_at(endian, offset, data)?;
+                let r_info = parse_u64_at(endian, offset, data)?;
                 Ok(Rel {
                     r_offset,
                     r_sym: (r_info >> 32) as u32,
@@ -49,17 +52,17 @@ pub struct Rela {
 }
 
 impl ParseAt for Rela {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => {
-                let r_offset = parser.parse_u32_at(endian, offset)? as u64;
-                let r_info = parser.parse_u32_at(endian, offset)?;
-                let r_addend = parser.parse_i32_at(endian, offset)? as i64;
+                let r_offset = parse_u32_at(endian, offset, data)? as u64;
+                let r_info = parse_u32_at(endian, offset, data)?;
+                let r_addend = parse_i32_at(endian, offset, data)? as i64;
                 Ok(Rela {
                     r_offset,
                     r_sym: r_info >> 8,
@@ -68,9 +71,9 @@ impl ParseAt for Rela {
                 })
             }
             Class::ELF64 => {
-                let r_offset = parser.parse_u64_at(endian, offset)?;
-                let r_info = parser.parse_u64_at(endian, offset)?;
-                let r_addend = parser.parse_i64_at(endian, offset)?;
+                let r_offset = parse_u64_at(endian, offset, data)?;
+                let r_info = parse_u64_at(endian, offset, data)?;
+                let r_addend = parse_i64_at(endian, offset, data)?;
                 Ok(Rela {
                     r_offset,
                     r_sym: (r_info >> 32) as u32,
@@ -97,7 +100,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Rel::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = Rel::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse Rel");
 
         assert_eq!(
@@ -117,7 +120,7 @@ mod parse_tests {
         for n in 0..ELF32RELSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Rel::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = Rel::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -134,7 +137,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse Rel");
 
         assert_eq!(
@@ -154,7 +157,7 @@ mod parse_tests {
         for n in 0..ELF64RELSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -174,7 +177,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Rela::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = Rela::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse Rela");
 
         assert_eq!(
@@ -195,7 +198,7 @@ mod parse_tests {
         for n in 0..ELF32RELASIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Rela::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = Rela::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -212,7 +215,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse Rela");
 
         assert_eq!(
@@ -233,7 +236,7 @@ mod parse_tests {
         for n in 0..ELF64RELASIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),

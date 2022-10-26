@@ -1,5 +1,8 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_u16_at, parse_u32_at, parse_u64_at, parse_u8_at, Class, Endian, ParseAt, ParseError,
+    ParsingIterator,
+};
 
 pub type SymbolIterator<'data> = ParsingIterator<'data, Symbol>;
 
@@ -50,7 +53,7 @@ impl<'data> SymbolTable<'data> {
         }
 
         let mut offset: usize = (self.entsize * index) as usize;
-        Symbol::parse_at(self.endianness, self.class, &mut offset, &self.data)
+        Symbol::parse_at(self.endianness, self.class, &mut offset, self.data)
     }
 
     pub fn iter(&self) -> SymbolIterator {
@@ -119,11 +122,11 @@ impl Symbol {
 }
 
 impl ParseAt for Symbol {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         let st_name: u32;
         let st_value: u64;
@@ -133,19 +136,19 @@ impl ParseAt for Symbol {
         let st_other: u8;
 
         if class == Class::ELF32 {
-            st_name = parser.parse_u32_at(endian, offset)?;
-            st_value = parser.parse_u32_at(endian, offset)? as u64;
-            st_size = parser.parse_u32_at(endian, offset)? as u64;
-            st_info = parser.parse_u8_at(offset)?;
-            st_other = parser.parse_u8_at(offset)?;
-            st_shndx = parser.parse_u16_at(endian, offset)?;
+            st_name = parse_u32_at(endian, offset, data)?;
+            st_value = parse_u32_at(endian, offset, data)? as u64;
+            st_size = parse_u32_at(endian, offset, data)? as u64;
+            st_info = parse_u8_at(offset, data)?;
+            st_other = parse_u8_at(offset, data)?;
+            st_shndx = parse_u16_at(endian, offset, data)?;
         } else {
-            st_name = parser.parse_u32_at(endian, offset)?;
-            st_info = parser.parse_u8_at(offset)?;
-            st_other = parser.parse_u8_at(offset)?;
-            st_shndx = parser.parse_u16_at(endian, offset)?;
-            st_value = parser.parse_u64_at(endian, offset)?;
-            st_size = parser.parse_u64_at(endian, offset)?;
+            st_name = parse_u32_at(endian, offset, data)?;
+            st_info = parse_u8_at(offset, data)?;
+            st_other = parse_u8_at(offset, data)?;
+            st_shndx = parse_u16_at(endian, offset, data)?;
+            st_value = parse_u64_at(endian, offset, data)?;
+            st_size = parse_u64_at(endian, offset, data)?;
         }
 
         Ok(Symbol {

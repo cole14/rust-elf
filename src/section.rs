@@ -1,5 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingIterator,
+};
 
 pub type SectionHeaderIterator<'data> = ParsingIterator<'data, SectionHeader>;
 
@@ -29,36 +31,36 @@ pub struct SectionHeader {
 }
 
 impl ParseAt for SectionHeader {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(SectionHeader {
-                sh_name: parser.parse_u32_at(endian, offset)?,
-                sh_type: SectionType(parser.parse_u32_at(endian, offset)?),
-                sh_flags: SectionFlag(parser.parse_u32_at(endian, offset)? as u64),
-                sh_addr: parser.parse_u32_at(endian, offset)? as u64,
-                sh_offset: parser.parse_u32_at(endian, offset)? as u64,
-                sh_size: parser.parse_u32_at(endian, offset)? as u64,
-                sh_link: parser.parse_u32_at(endian, offset)?,
-                sh_info: parser.parse_u32_at(endian, offset)?,
-                sh_addralign: parser.parse_u32_at(endian, offset)? as u64,
-                sh_entsize: parser.parse_u32_at(endian, offset)? as u64,
+                sh_name: parse_u32_at(endian, offset, data)?,
+                sh_type: SectionType(parse_u32_at(endian, offset, data)?),
+                sh_flags: SectionFlag(parse_u32_at(endian, offset, data)? as u64),
+                sh_addr: parse_u32_at(endian, offset, data)? as u64,
+                sh_offset: parse_u32_at(endian, offset, data)? as u64,
+                sh_size: parse_u32_at(endian, offset, data)? as u64,
+                sh_link: parse_u32_at(endian, offset, data)?,
+                sh_info: parse_u32_at(endian, offset, data)?,
+                sh_addralign: parse_u32_at(endian, offset, data)? as u64,
+                sh_entsize: parse_u32_at(endian, offset, data)? as u64,
             }),
             Class::ELF64 => Ok(SectionHeader {
-                sh_name: parser.parse_u32_at(endian, offset)?,
-                sh_type: SectionType(parser.parse_u32_at(endian, offset)?),
-                sh_flags: SectionFlag(parser.parse_u64_at(endian, offset)?),
-                sh_addr: parser.parse_u64_at(endian, offset)?,
-                sh_offset: parser.parse_u64_at(endian, offset)?,
-                sh_size: parser.parse_u64_at(endian, offset)?,
-                sh_link: parser.parse_u32_at(endian, offset)?,
-                sh_info: parser.parse_u32_at(endian, offset)?,
-                sh_addralign: parser.parse_u64_at(endian, offset)?,
-                sh_entsize: parser.parse_u64_at(endian, offset)?,
+                sh_name: parse_u32_at(endian, offset, data)?,
+                sh_type: SectionType(parse_u32_at(endian, offset, data)?),
+                sh_flags: SectionFlag(parse_u64_at(endian, offset, data)?),
+                sh_addr: parse_u64_at(endian, offset, data)?,
+                sh_offset: parse_u64_at(endian, offset, data)?,
+                sh_size: parse_u64_at(endian, offset, data)?,
+                sh_link: parse_u32_at(endian, offset, data)?,
+                sh_info: parse_u32_at(endian, offset, data)?,
+                sh_addralign: parse_u64_at(endian, offset, data)?,
+                sh_entsize: parse_u64_at(endian, offset, data)?,
             }),
         }
     }
@@ -246,7 +248,7 @@ mod shdr_tests {
         for n in 0..ELF32SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
-            let result = SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf);
+            let result = SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf);
             assert!(
                 matches!(result, Err(ParseError::BadOffset(_))),
                 "Unexpected Error type found: {result:?}"
@@ -263,7 +265,7 @@ mod shdr_tests {
 
         let mut offset = 0;
         assert_eq!(
-            SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
                 .unwrap(),
             SectionHeader {
                 sh_name: 0x03020100,
@@ -286,7 +288,7 @@ mod shdr_tests {
         for n in 0..ELF64SHDRSIZE as usize {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
-            let result = SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf);
+            let result = SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf);
             assert!(
                 matches!(result, Err(ParseError::BadOffset(_))),
                 "Unexpected Error type found: {result:?}"
@@ -303,8 +305,7 @@ mod shdr_tests {
 
         let mut offset = 0;
         assert_eq!(
-            SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
-                .unwrap(),
+            SectionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref()).unwrap(),
             SectionHeader {
                 sh_name: 0x00010203,
                 sh_type: SectionType(0x04050607),

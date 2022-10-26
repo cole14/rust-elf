@@ -2,7 +2,9 @@ use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::gabi;
 use crate::note::NoteIterator;
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ReadBytesAt};
+use crate::parse::{
+    parse_u16_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ReadBytesAt,
+};
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderIterator, SectionType};
 use crate::segment::ProgramHeader;
@@ -124,7 +126,7 @@ impl<R: ReadBytesAt> File<R> {
         let size = self.ehdr.e_shentsize as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
         let mut offset = 0;
-        SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, &buf)
+        SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
     }
 
     /// Get an iterator over the Section Headers and its associated StringTable.
@@ -233,7 +235,7 @@ impl<R: ReadBytesAt> File<R> {
                 self.ehdr.endianness,
                 self.ehdr.class,
                 &mut offset,
-                &buf,
+                buf,
             )?;
             let compressed_buf = buf
                 .get(offset..)
@@ -620,31 +622,31 @@ impl FileHeader {
         let data = reader.read_bytes_at(start..start + size)?;
 
         let mut offset = 0;
-        let elftype = ObjectFileType(data.parse_u16_at(endian, &mut offset)?);
-        let arch = Architecture(data.parse_u16_at(endian, &mut offset)?);
-        let version = data.parse_u32_at(endian, &mut offset)?;
+        let elftype = ObjectFileType(parse_u16_at(endian, &mut offset, data)?);
+        let arch = Architecture(parse_u16_at(endian, &mut offset, data)?);
+        let version = parse_u32_at(endian, &mut offset, data)?;
 
         let e_entry: u64;
         let e_phoff: u64;
         let e_shoff: u64;
 
         if class == Class::ELF32 {
-            e_entry = data.parse_u32_at(endian, &mut offset)? as u64;
-            e_phoff = data.parse_u32_at(endian, &mut offset)? as u64;
-            e_shoff = data.parse_u32_at(endian, &mut offset)? as u64;
+            e_entry = parse_u32_at(endian, &mut offset, data)? as u64;
+            e_phoff = parse_u32_at(endian, &mut offset, data)? as u64;
+            e_shoff = parse_u32_at(endian, &mut offset, data)? as u64;
         } else {
-            e_entry = data.parse_u64_at(endian, &mut offset)?;
-            e_phoff = data.parse_u64_at(endian, &mut offset)?;
-            e_shoff = data.parse_u64_at(endian, &mut offset)?;
+            e_entry = parse_u64_at(endian, &mut offset, data)?;
+            e_phoff = parse_u64_at(endian, &mut offset, data)?;
+            e_shoff = parse_u64_at(endian, &mut offset, data)?;
         }
 
-        let e_flags = data.parse_u32_at(endian, &mut offset)?;
-        let e_ehsize = data.parse_u16_at(endian, &mut offset)?;
-        let e_phentsize = data.parse_u16_at(endian, &mut offset)?;
-        let e_phnum = data.parse_u16_at(endian, &mut offset)?;
-        let e_shentsize = data.parse_u16_at(endian, &mut offset)?;
-        let e_shnum = data.parse_u16_at(endian, &mut offset)?;
-        let e_shstrndx = data.parse_u16_at(endian, &mut offset)?;
+        let e_flags = parse_u32_at(endian, &mut offset, data)?;
+        let e_ehsize = parse_u16_at(endian, &mut offset, data)?;
+        let e_phentsize = parse_u16_at(endian, &mut offset, data)?;
+        let e_phnum = parse_u16_at(endian, &mut offset, data)?;
+        let e_shentsize = parse_u16_at(endian, &mut offset, data)?;
+        let e_shnum = parse_u16_at(endian, &mut offset, data)?;
+        let e_shstrndx = parse_u16_at(endian, &mut offset, data)?;
 
         return Ok(FileHeader {
             class,

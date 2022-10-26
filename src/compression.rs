@@ -1,4 +1,4 @@
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError};
+use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompressionHeader {
@@ -8,25 +8,25 @@ pub struct CompressionHeader {
 }
 
 impl ParseAt for CompressionHeader {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(CompressionHeader {
-                ch_type: parser.parse_u32_at(endian, offset)?,
-                ch_size: parser.parse_u32_at(endian, offset)? as u64,
-                ch_addralign: parser.parse_u32_at(endian, offset)? as u64,
+                ch_type: parse_u32_at(endian, offset, data)?,
+                ch_size: parse_u32_at(endian, offset, data)? as u64,
+                ch_addralign: parse_u32_at(endian, offset, data)? as u64,
             }),
             Class::ELF64 => {
-                let ch_type = parser.parse_u32_at(endian, offset)?;
-                let _ch_reserved = parser.parse_u32_at(endian, offset)?;
+                let ch_type = parse_u32_at(endian, offset, data)?;
+                let _ch_reserved = parse_u32_at(endian, offset, data)?;
                 Ok(CompressionHeader {
                     ch_type,
-                    ch_size: parser.parse_u64_at(endian, offset)?,
-                    ch_addralign: parser.parse_u64_at(endian, offset)?,
+                    ch_size: parse_u64_at(endian, offset, data)?,
+                    ch_addralign: parse_u64_at(endian, offset, data)?,
                 })
             }
         }
@@ -49,7 +49,7 @@ mod parse_tests {
 
         let mut offset = 0;
         let entry =
-            CompressionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            CompressionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
                 .expect("Failed to parse CompressionHeader");
 
         assert_eq!(
@@ -69,7 +69,7 @@ mod parse_tests {
         for n in 0..ELF32CHDRSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -87,7 +87,7 @@ mod parse_tests {
 
         let mut offset = 0;
         let entry =
-            CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+            CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
                 .expect("Failed to parse Dyn");
 
         assert_eq!(
@@ -107,7 +107,7 @@ mod parse_tests {
         for n in 0..ELF64CHDRSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),

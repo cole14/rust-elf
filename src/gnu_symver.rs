@@ -1,5 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingIterator,
+};
 
 pub type VersionIndexIterator<'data> = ParsingIterator<'data, VersionIndex>;
 
@@ -34,14 +36,14 @@ impl VersionIndex {
 }
 
 impl ParseAt for VersionIndex {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         _class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VersionIndex {
-            0: parser.parse_u16_at(endian, offset)?,
+            0: parse_u16_at(endian, offset, data)?,
         })
     }
 }
@@ -82,7 +84,7 @@ impl<'data> Iterator for VerDefIterator<'data> {
         }
 
         let mut start = self.offset;
-        let vd = VerDef::parse_at(self.endianness, self.class, &mut start, &self.data).ok()?;
+        let vd = VerDef::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
         let vda_iter = VerDefAuxIterator::new(
             self.endianness,
             self.class,
@@ -157,7 +159,7 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
         // So observationally, we could likely get away with using self.offset and count here
         // and ignoring the vda_next field, but that'd break things if they weren't contiguous.
         let mut start = self.offset;
-        let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, &self.data).ok()?;
+        let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
         self.offset += vda.vda_next as usize;
         self.count -= 1;
         Some(vda)
@@ -189,13 +191,13 @@ pub struct VerDef {
 }
 
 impl ParseAt for VerDef {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         _class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
-        let vd_version = parser.parse_u16_at(endian, offset)?;
+        let vd_version = parse_u16_at(endian, offset, data)?;
         if vd_version != gabi::VER_DEF_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 vd_version as u64,
@@ -204,12 +206,12 @@ impl ParseAt for VerDef {
         }
 
         Ok(VerDef {
-            vd_flags: parser.parse_u16_at(endian, offset)?,
-            vd_ndx: parser.parse_u16_at(endian, offset)?,
-            vd_cnt: parser.parse_u16_at(endian, offset)?,
-            vd_hash: parser.parse_u32_at(endian, offset)?,
-            vd_aux: parser.parse_u32_at(endian, offset)?,
-            vd_next: parser.parse_u32_at(endian, offset)?,
+            vd_flags: parse_u16_at(endian, offset, data)?,
+            vd_ndx: parse_u16_at(endian, offset, data)?,
+            vd_cnt: parse_u16_at(endian, offset, data)?,
+            vd_hash: parse_u32_at(endian, offset, data)?,
+            vd_aux: parse_u32_at(endian, offset, data)?,
+            vd_next: parse_u32_at(endian, offset, data)?,
         })
     }
 }
@@ -224,15 +226,15 @@ pub struct VerDefAux {
 }
 
 impl ParseAt for VerDefAux {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         _class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerDefAux {
-            vda_name: parser.parse_u32_at(endian, offset)?,
-            vda_next: parser.parse_u32_at(endian, offset)?,
+            vda_name: parse_u32_at(endian, offset, data)?,
+            vda_next: parse_u32_at(endian, offset, data)?,
         })
     }
 }
@@ -260,18 +262,18 @@ pub struct VerNeed {
 }
 
 impl ParseAt for VerNeed {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         _class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerNeed {
-            vn_version: parser.parse_u16_at(endian, offset)?,
-            vn_cnt: parser.parse_u16_at(endian, offset)?,
-            vn_file: parser.parse_u32_at(endian, offset)?,
-            vn_aux: parser.parse_u32_at(endian, offset)?,
-            vn_next: parser.parse_u32_at(endian, offset)?,
+            vn_version: parse_u16_at(endian, offset, data)?,
+            vn_cnt: parse_u16_at(endian, offset, data)?,
+            vn_file: parse_u32_at(endian, offset, data)?,
+            vn_aux: parse_u32_at(endian, offset, data)?,
+            vn_next: parse_u32_at(endian, offset, data)?,
         })
     }
 }
@@ -292,18 +294,18 @@ pub struct VerNeedAux {
 }
 
 impl ParseAt for VerNeedAux {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         _class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerNeedAux {
-            vna_hash: parser.parse_u32_at(endian, offset)?,
-            vna_flags: parser.parse_u16_at(endian, offset)?,
-            vna_other: parser.parse_u16_at(endian, offset)?,
-            vna_name: parser.parse_u32_at(endian, offset)?,
-            vna_next: parser.parse_u32_at(endian, offset)?,
+            vna_hash: parse_u32_at(endian, offset, &data)?,
+            vna_flags: parse_u16_at(endian, offset, &data)?,
+            vna_other: parse_u16_at(endian, offset, &data)?,
+            vna_name: parse_u32_at(endian, offset, &data)?,
+            vna_next: parse_u32_at(endian, offset, &data)?,
         })
     }
 }
@@ -546,7 +548,7 @@ mod parse_tests {
 
         let mut offset = 0;
         let entry =
-            VersionIndex::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            VersionIndex::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
                 .expect("Failed to parse VersionIndex");
 
         assert_eq!(entry, VersionIndex { 0: 0x0100 });
@@ -559,7 +561,7 @@ mod parse_tests {
         for n in 0..ELFVERNDXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VersionIndex::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = VersionIndex::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -576,7 +578,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VersionIndex");
 
         assert_eq!(entry, VersionIndex { 0: 0x0001 });
@@ -589,7 +591,7 @@ mod parse_tests {
         for n in 0..ELFVERNDXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -613,7 +615,7 @@ mod parse_tests {
         data[1] = 0;
 
         let mut offset = 0;
-        let entry = VerDef::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = VerDef::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerDef");
 
         assert_eq!(
@@ -637,7 +639,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDef::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = VerDef::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -655,7 +657,7 @@ mod parse_tests {
         data[1] = 1;
 
         let mut offset = 0;
-        let entry = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerDef");
 
         assert_eq!(
@@ -679,7 +681,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -694,7 +696,7 @@ mod parse_tests {
         // version is 0, which is not 1, which is bad :)
 
         let mut offset = 0;
-        let err = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let err = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect_err("Expected an error");
         assert!(
             matches!(err, ParseError::UnsupportedVersion((0, 1))),
@@ -715,7 +717,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerDefAux::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = VerDefAux::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerDefAux");
 
         assert_eq!(
@@ -734,7 +736,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFAUXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDefAux::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = VerDefAux::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -751,7 +753,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerDefAux");
 
         assert_eq!(
@@ -770,7 +772,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFAUXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -792,7 +794,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerNeed::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = VerNeed::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeed");
 
         assert_eq!(
@@ -814,7 +816,7 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeed::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = VerNeed::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -831,7 +833,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeed");
 
         assert_eq!(
@@ -853,7 +855,7 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -875,7 +877,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerNeedAux::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = VerNeedAux::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeedAux");
 
         assert_eq!(
@@ -897,7 +899,7 @@ mod parse_tests {
         for n in 0..VERNEEDAUXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -914,7 +916,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeedAux");
 
         assert_eq!(
@@ -936,7 +938,7 @@ mod parse_tests {
         for n in 0..VERNEEDAUXSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),

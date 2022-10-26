@@ -1,4 +1,7 @@
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_i32_at, parse_i64_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError,
+    ParsingIterator,
+};
 
 pub type DynIterator<'data> = ParsingIterator<'data, Dyn>;
 
@@ -19,20 +22,20 @@ impl Dyn {
 }
 
 impl ParseAt for Dyn {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(Dyn {
-                d_tag: parser.parse_i32_at(endian, offset)? as i64,
-                d_un: parser.parse_u32_at(endian, offset)? as u64,
+                d_tag: parse_i32_at(endian, offset, data)? as i64,
+                d_un: parse_u32_at(endian, offset, data)? as u64,
             }),
             Class::ELF64 => Ok(Dyn {
-                d_tag: parser.parse_i64_at(endian, offset)?,
-                d_un: parser.parse_u64_at(endian, offset)?,
+                d_tag: parse_i64_at(endian, offset, data)?,
+                d_un: parse_u64_at(endian, offset, data)?,
             }),
         }
     }
@@ -115,7 +118,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Dyn::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = Dyn::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse Dyn");
 
         assert_eq!(
@@ -134,7 +137,7 @@ mod parse_tests {
         for n in 0..ELF32DYNSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Dyn::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = Dyn::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -151,7 +154,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = Dyn::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = Dyn::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse Dyn");
 
         assert_eq!(
@@ -170,7 +173,7 @@ mod parse_tests {
         for n in 0..ELF64DYNSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = Dyn::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = Dyn::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),

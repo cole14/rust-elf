@@ -1,5 +1,7 @@
 use crate::gabi;
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{
+    parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingIterator,
+};
 
 pub type SegmentIterator<'data> = ParsingIterator<'data, ProgramHeader>;
 
@@ -28,34 +30,34 @@ pub struct ProgramHeader {
 }
 
 impl ParseAt for ProgramHeader {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         if class == Class::ELF32 {
             return Ok(ProgramHeader {
-                p_type: ProgType(parser.parse_u32_at(endian, offset)?),
-                p_offset: parser.parse_u32_at(endian, offset)? as u64,
-                p_vaddr: parser.parse_u32_at(endian, offset)? as u64,
-                p_paddr: parser.parse_u32_at(endian, offset)? as u64,
-                p_filesz: parser.parse_u32_at(endian, offset)? as u64,
-                p_memsz: parser.parse_u32_at(endian, offset)? as u64,
-                p_flags: ProgFlag(parser.parse_u32_at(endian, offset)?),
-                p_align: parser.parse_u32_at(endian, offset)? as u64,
+                p_type: ProgType(parse_u32_at(endian, offset, data)?),
+                p_offset: parse_u32_at(endian, offset, data)? as u64,
+                p_vaddr: parse_u32_at(endian, offset, data)? as u64,
+                p_paddr: parse_u32_at(endian, offset, data)? as u64,
+                p_filesz: parse_u32_at(endian, offset, data)? as u64,
+                p_memsz: parse_u32_at(endian, offset, data)? as u64,
+                p_flags: ProgFlag(parse_u32_at(endian, offset, data)?),
+                p_align: parse_u32_at(endian, offset, data)? as u64,
             });
         }
 
         // Note: 64-bit fields are in a different order
-        let p_type = parser.parse_u32_at(endian, offset)?;
-        let p_flags = parser.parse_u32_at(endian, offset)?;
-        let p_offset = parser.parse_u64_at(endian, offset)?;
-        let p_vaddr = parser.parse_u64_at(endian, offset)?;
-        let p_paddr = parser.parse_u64_at(endian, offset)?;
-        let p_filesz = parser.parse_u64_at(endian, offset)?;
-        let p_memsz = parser.parse_u64_at(endian, offset)?;
-        let p_align = parser.parse_u64_at(endian, offset)?;
+        let p_type = parse_u32_at(endian, offset, data)?;
+        let p_flags = parse_u32_at(endian, offset, data)?;
+        let p_offset = parse_u64_at(endian, offset, data)?;
+        let p_vaddr = parse_u64_at(endian, offset, data)?;
+        let p_paddr = parse_u64_at(endian, offset, data)?;
+        let p_filesz = parse_u64_at(endian, offset, data)?;
+        let p_memsz = parse_u64_at(endian, offset, data)?;
+        let p_align = parse_u64_at(endian, offset, data)?;
         Ok(ProgramHeader {
             p_type: ProgType(p_type),
             p_offset,
@@ -154,7 +156,7 @@ mod tests {
         for n in 0..32 {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf)
+            let error = ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -173,7 +175,7 @@ mod tests {
         let buf = data.as_ref();
         let mut offset: usize = 0;
         assert_eq!(
-            ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &buf).unwrap(),
+            ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x03020100),
                 p_offset: 0x07060504,
@@ -193,7 +195,7 @@ mod tests {
         for n in 0..56 {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -212,7 +214,7 @@ mod tests {
         let buf = data.as_ref();
         let mut offset: usize = 0;
         assert_eq!(
-            ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf).unwrap(),
+            ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf).unwrap(),
             ProgramHeader {
                 p_type: ProgType(0x00010203),
                 p_offset: 0x08090A0B0C0D0E0F,

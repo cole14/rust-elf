@@ -1,4 +1,4 @@
-use crate::parse::{Class, Endian, EndianParseExt, ParseAt, ParseError};
+use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError};
 use core::str::from_utf8;
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ impl<'data> Note<'data> {
             return Err(ParseError::UnexpectedAlignment(align));
         }
 
-        let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, &data)?;
+        let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
 
         let name_start = *offset;
         let name_end = name_start + nhdr.n_namesz.saturating_sub(1) as usize;
@@ -105,22 +105,22 @@ struct NoteHeader {
 }
 
 impl ParseAt for NoteHeader {
-    fn parse_at<P: EndianParseExt>(
+    fn parse_at(
         endian: Endian,
         class: Class,
         offset: &mut usize,
-        parser: &P,
+        data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(NoteHeader {
-                n_namesz: parser.parse_u32_at(endian, offset)? as u64,
-                n_descsz: parser.parse_u32_at(endian, offset)? as u64,
-                n_type: parser.parse_u32_at(endian, offset)? as u64,
+                n_namesz: parse_u32_at(endian, offset, data)? as u64,
+                n_descsz: parse_u32_at(endian, offset, data)? as u64,
+                n_type: parse_u32_at(endian, offset, data)? as u64,
             }),
             Class::ELF64 => Ok(NoteHeader {
-                n_namesz: parser.parse_u64_at(endian, offset)?,
-                n_descsz: parser.parse_u64_at(endian, offset)?,
-                n_type: parser.parse_u64_at(endian, offset)?,
+                n_namesz: parse_u64_at(endian, offset, data)?,
+                n_descsz: parse_u64_at(endian, offset, data)?,
+                n_type: parse_u64_at(endian, offset, data)?,
             }),
         }
     }
@@ -296,7 +296,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = NoteHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+        let entry = NoteHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse NoteHeader");
 
         assert_eq!(
@@ -316,7 +316,7 @@ mod parse_tests {
         for n in 0..ELF32NOTESIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = NoteHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+            let error = NoteHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -334,7 +334,7 @@ mod parse_tests {
         }
 
         let mut offset = 0;
-        let entry = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+        let entry = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse NoteHeader");
 
         assert_eq!(
@@ -354,7 +354,7 @@ mod parse_tests {
         for n in 0..ELF64NOTESIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+            let error = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
