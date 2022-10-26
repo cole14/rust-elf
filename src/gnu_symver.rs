@@ -46,6 +46,73 @@ impl ParseAt for VersionIndex {
     }
 }
 
+#[derive(Debug)]
+pub struct VerDefAuxIterator<'data> {
+    endianness: Endian,
+    class: Class,
+    count: u16,
+    data: &'data [u8],
+    offset: usize,
+}
+
+impl<'data> VerDefAuxIterator<'data> {
+    pub fn new(
+        endianness: Endian,
+        class: Class,
+        count: u16,
+        starting_offset: usize,
+        data: &'data [u8],
+    ) -> Self {
+        VerDefAuxIterator {
+            endianness,
+            class,
+            count,
+            data,
+            offset: starting_offset,
+        }
+    }
+}
+
+impl<'data> Iterator for VerDefAuxIterator<'data> {
+    type Item = VerDefAux;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 || self.count == 0 {
+            return None;
+        }
+
+        // N.B. This offset handling is maybe unnecessary, but faithful to the
+        // spec. As far as I've observed, VerDefAux entries for a VerDef are all
+        // encoded sequentially after the VerDef, so we could likely just
+        // use the normal pattern here and pass in &mut self.offset here.
+        //
+        // The spec claims that "The section shall contain an array of
+        // Elfxx_Verdef structures, optionally followed by an array of
+        // Elfxx_Verdaux structures." This reads a bit ambiguously
+        // (is there one big array of Verdefs followed by one big array of
+        // Verdauxs?). If so, the vd_next and vda_next links seem unnecessary
+        // given the vd_cnt field. In practice, it appears that all the VerDefAux
+        // fields for a given VerDef are sequentially following the VerDef, meaning
+        // they're contiguous, but intersersed. The _next fields could theoretically
+        // give non-contiguous linked-list-like configurations, though (but only linking
+        // forward, not backward, since the link is a u32).
+        //
+        // The vd_next and vda_next fields are also not "pointers" i.e. offsets from
+        // the start of the section, but rather "increments" in telling how far to
+        // advance from where you just read the containing struct for where you should
+        // read the next. Given the sequentially-following nature described, these vd_next
+        // and vda_next fields end up being 0x14 and 0x8 (the size of the VerDef and
+        // VerDefAux structs).
+        //
+        // So observationally, we could likely get away with using self.offset and count here
+        // and ignoring the vda_next field, but that'd break things if they weren't contiguous.
+        let mut start = self.offset;
+        let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, &self.data).ok()?;
+        self.offset += vda.vda_next as usize;
+        self.count -= 1;
+        Some(vda)
+    }
+}
+
 /// The special GNU extension section .gnu.version_d has a section type of SHT_GNU_VERDEF
 /// This section shall contain symbol version definitions. The number of entries
 /// in this section shall be contained in the DT_VERDEFNUM entry of the Dynamic
@@ -182,6 +249,136 @@ impl ParseAt for VerNeedAux {
             vna_name: parser.parse_u32_at(endian, offset)?,
             vna_next: parser.parse_u32_at(endian, offset)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod iter_tests {
+    use super::*;
+
+    // Sample .gnu.version_d section contents
+    #[rustfmt::skip]
+    const GNU_VERDEF_DATA: [u8; 128] = [
+    // {vd_version, vd_flags,   vd_ndx,     vd_cnt
+        0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00,
+    //  vd_hash,                vd_aux,
+        0xb0, 0x7a, 0x07, 0x0b, 0x14, 0x00, 0x00, 0x00,
+    //  vd_next},               {vda_name,
+        0x1c, 0x00, 0x00, 0x00, 0x9f, 0x0c, 0x00, 0x00,
+    //  vda_next},             {vd_version, vd_flags,
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    //  vd_ndx,     vd_cnt,     vd_hash,
+        0x02, 0x00, 0x01, 0x00, 0x70, 0x2f, 0x8f, 0x08,
+    //  vd_aux,                 vd_next},
+        0x14, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00,
+    // {vda_name,               vda_next},
+        0xab, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // {vd_version, vd_flags,   vd_ndx,     vd_cnt
+        0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+    //  vd_hash,                vd_aux,
+        0x71, 0x2f, 0x8f, 0x08, 0x14, 0x00, 0x00, 0x00,
+    //  vd_next},               {vda_name,
+        0x24, 0x00, 0x00, 0x00, 0xb6, 0x0c, 0x00, 0x00,
+    //  vda_next},              {vda_name,
+        0x08, 0x00, 0x00, 0x00, 0xab, 0x0c, 0x00, 0x00,
+    //  vda_next},             {vd_version, vd_flags,
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    //  vd_ndx,     vd_cnt,     vd_hash,
+        0x04, 0x00, 0x02, 0x00, 0x72, 0x2f, 0x8f, 0x08,
+    //  vd_aux,                 vd_next},
+        0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // {vda_name,               vda_next},
+        0xc1, 0x0c, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
+    // {vda_name,               vda_next},
+        0xb6, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+
+    #[test]
+    fn verdefaux_iter_one_entry() {
+        let mut iter =
+            VerDefAuxIterator::new(Endian::Little, Class::ELF64, 1, 0x14, &GNU_VERDEF_DATA);
+        let aux1 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux1,
+            VerDefAux {
+                vda_name: 0x0C9F,
+                vda_next: 0
+            }
+        );
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn verdefaux_iter_two_entries() {
+        let mut iter =
+            VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 0x4C, &GNU_VERDEF_DATA);
+        let aux1 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux1,
+            VerDefAux {
+                vda_name: 0x0CB6,
+                vda_next: 8
+            }
+        );
+        let aux1 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux1,
+            VerDefAux {
+                vda_name: 0x0CAB,
+                vda_next: 0
+            }
+        );
+        assert!(iter.next().is_none());
+    }
+
+    // Hypothetical case where VerDefAux entries are non-contiguous
+    #[test]
+    fn verdefaux_iter_two_lists_interspersed() {
+        #[rustfmt::skip]
+        let data: [u8; 32] = [
+            0x01, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // list 1 entry 1
+            0xA1, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // list 2 entry 1
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // list 1 entry 2
+            0xA2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // list 2 entry 2
+        ];
+
+        let mut iter1 = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 0, &data);
+        let mut iter2 = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 8, &data);
+
+        let aux1_1 = iter1.next().expect("Failed to parse");
+        assert_eq!(
+            aux1_1,
+            VerDefAux {
+                vda_name: 0x0001,
+                vda_next: 0x10,
+            }
+        );
+        let aux2_1 = iter2.next().expect("Failed to parse");
+        assert_eq!(
+            aux2_1,
+            VerDefAux {
+                vda_name: 0x00A1,
+                vda_next: 0x10,
+            }
+        );
+        let aux1_2 = iter1.next().expect("Failed to parse");
+        assert_eq!(
+            aux1_2,
+            VerDefAux {
+                vda_name: 0x0002,
+                vda_next: 0,
+            }
+        );
+        let aux2_2 = iter2.next().expect("Failed to parse");
+        assert_eq!(
+            aux2_2,
+            VerDefAux {
+                vda_name: 0x00A2,
+                vda_next: 0,
+            }
+        );
+        assert!(iter1.next().is_none());
+        assert!(iter2.next().is_none());
     }
 }
 
