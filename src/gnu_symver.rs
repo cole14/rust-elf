@@ -12,7 +12,7 @@ pub type VersionIndexIterator<'data> = ParsingIterator<'data, VersionIndex>;
 /// the version defined for or required by the corresponding symbol in the Dynamic Symbol Table.
 ///
 /// For example, the symbol at index N in the .dynsym Symbol Table will have a VersionIndex
-/// value located in the versym table at .gnu.version[N] which identifies
+/// value located in the versym table at .gnu.version\[N\] which identifies
 /// structures in the .gnu.version_d and .gnu.version_r sections. These values
 /// are located in identifiers provided by the the vna_other member of the VerNeedAux
 /// structure or the vd_ndx member of the VerDef structure.
