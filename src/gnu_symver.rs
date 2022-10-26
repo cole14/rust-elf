@@ -305,6 +305,48 @@ impl ParseAt for VerNeed {
     }
 }
 
+#[derive(Debug)]
+pub struct VerNeedAuxIterator<'data> {
+    endianness: Endian,
+    class: Class,
+    count: u16,
+    data: &'data [u8],
+    offset: usize,
+}
+
+impl<'data> VerNeedAuxIterator<'data> {
+    pub fn new(
+        endianness: Endian,
+        class: Class,
+        count: u16,
+        starting_offset: usize,
+        data: &'data [u8],
+    ) -> Self {
+        VerNeedAuxIterator {
+            endianness,
+            class,
+            count,
+            data,
+            offset: starting_offset,
+        }
+    }
+}
+
+impl<'data> Iterator for VerNeedAuxIterator<'data> {
+    type Item = VerNeedAux;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 || self.count == 0 {
+            return None;
+        }
+
+        let mut start = self.offset;
+        let vna = VerNeedAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        self.offset += vna.vna_next as usize;
+        self.count -= 1;
+        Some(vna)
+    }
+}
+
 /// Version Need Auxiliary Entries from the .gnu.version_r section
 #[derive(Debug, PartialEq)]
 pub struct VerNeedAux {
@@ -349,6 +391,146 @@ impl ParseAt for VerNeedAux {
 #[cfg(test)]
 mod iter_tests {
     use super::*;
+
+    #[rustfmt::skip]
+    const GNU_VERNEED_DATA: [u8; 96] = [
+    // {vn_version, vn_cnt,     vn_file,                vn_aux,                 vn_next               }
+        0x01, 0x00, 0x01, 0x00, 0x8b, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+    // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+        0xc0, 0xe5, 0x27, 0x08, 0x00, 0x00, 0x0a, 0x00, 0xcc, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // {vn_version, vn_cnt,     vn_file,                vn_aux,                 vn_next               }
+        0x01, 0x00, 0x03, 0x00, 0x95, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+        0x13, 0x69, 0x69, 0x0d, 0x00, 0x00, 0x0c, 0x00, 0xd7, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+        0xb3, 0x91, 0x96, 0x06, 0x00, 0x00, 0x0b, 0x00, 0xe1, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+        0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0xec, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+
+    #[test]
+    fn verneedaux_iter_one_entry() {
+        let mut iter =
+            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 1, 0x10, &GNU_VERNEED_DATA);
+        let aux1 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux1,
+            VerNeedAux {
+                vna_hash: 0x0827e5c0,
+                vna_flags: 0,
+                vna_other: 0x0a,
+                vna_name: 0x0ccc,
+                vna_next: 0
+            }
+        );
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn verneedaux_iter_two_entries() {
+        let mut iter =
+            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 3, 0x30, &GNU_VERNEED_DATA);
+        let aux1 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux1,
+            VerNeedAux {
+                vna_hash: 0x0d696913,
+                vna_flags: 0,
+                vna_other: 0x0c,
+                vna_name: 0x0cd7,
+                vna_next: 0x10
+            }
+        );
+        let aux2 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux2,
+            VerNeedAux {
+                vna_hash: 0x069691b3,
+                vna_flags: 0,
+                vna_other: 0x0b,
+                vna_name: 0x0ce1,
+                vna_next: 0x10
+            }
+        );
+        let aux3 = iter.next().expect("Failed to parse");
+        assert_eq!(
+            aux3,
+            VerNeedAux {
+                vna_hash: 0x06969194,
+                vna_flags: 0,
+                vna_other: 0x09,
+                vna_name: 0x0cec,
+                vna_next: 0
+            }
+        );
+        assert!(iter.next().is_none());
+    }
+
+    // Hypothetical case where VerDefAux entries are non-contiguous
+    #[test]
+    fn verneedaux_iter_two_lists_interspersed() {
+        #[rustfmt::skip]
+        let data: [u8; 64] = [
+        // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+            0xc0, 0xe5, 0x27, 0x08, 0x00, 0x00, 0x0a, 0x00, 0xcc, 0x0c, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+        // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+            0x13, 0x69, 0x69, 0x0d, 0x00, 0x00, 0x0c, 0x00, 0xd7, 0x0c, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+        // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+            0xb3, 0x91, 0x96, 0x06, 0x00, 0x00, 0x0b, 0x00, 0xe1, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
+            0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0xec, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let mut iter1 = VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 2, 0, &data);
+        let mut iter2 = VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 2, 0x10, &data);
+
+        let aux1_1 = iter1.next().expect("Failed to parse");
+        assert_eq!(
+            aux1_1,
+            VerNeedAux {
+                vna_hash: 0x0827e5c0,
+                vna_flags: 0,
+                vna_other: 0x0a,
+                vna_name: 0x0ccc,
+                vna_next: 0x20,
+            }
+        );
+        let aux2_1 = iter2.next().expect("Failed to parse");
+        assert_eq!(
+            aux2_1,
+            VerNeedAux {
+                vna_hash: 0x0d696913,
+                vna_flags: 0,
+                vna_other: 0x0c,
+                vna_name: 0x0cd7,
+                vna_next: 0x20
+            }
+        );
+        let aux1_2 = iter1.next().expect("Failed to parse");
+        assert_eq!(
+            aux1_2,
+            VerNeedAux {
+                vna_hash: 0x069691b3,
+                vna_flags: 0,
+                vna_other: 0x0b,
+                vna_name: 0x0ce1,
+                vna_next: 0
+            }
+        );
+        let aux2_2 = iter2.next().expect("Failed to parse");
+        assert_eq!(
+            aux2_2,
+            VerNeedAux {
+                vna_hash: 0x06969194,
+                vna_flags: 0,
+                vna_other: 0x09,
+                vna_name: 0x0cec,
+                vna_next: 0
+            }
+        );
+        assert!(iter1.next().is_none());
+        assert!(iter2.next().is_none());
+    }
 
     // Sample .gnu.version_d section contents
     #[rustfmt::skip]
