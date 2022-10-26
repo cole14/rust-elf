@@ -114,6 +114,45 @@ impl ParseAt for VerDefAux {
     }
 }
 
+/// The GNU extension section .gnu.version_r has a section type of SHT_GNU_VERNEED.
+/// This section contains required symbol version definitions. The number of
+/// entries in this section shall be contained in the DT_VERNEEDNUM entry of the
+/// Dynamic Section .dynamic. The sh_link member of the section header shall
+/// point to the referenced string table section.
+///
+/// The section shall contain an array of VerNeed structures optionally
+/// followed by an array of VerNeedAux structures.
+#[derive(Debug, PartialEq)]
+pub struct VerNeed {
+    /// Version of structure. This value is currently set to 1.
+    pub vn_version: u16,
+    /// Number of associated verneed array entries.
+    pub vn_cnt: u16,
+    /// Offset to the file name string in the linked string table, in bytes.
+    pub vn_file: u32,
+    /// Offset to a corresponding entry in the VerNeedAux array, in bytes.
+    pub vn_aux: u32,
+    /// Offset to the next VerNeed entry, in bytes.
+    pub vn_next: u32,
+}
+
+impl ParseAt for VerNeed {
+    fn parse_at<P: EndianParseExt>(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        parser: &P,
+    ) -> Result<Self, ParseError> {
+        Ok(VerNeed {
+            vn_version: parser.parse_u16_at(endian, offset)?,
+            vn_cnt: parser.parse_u16_at(endian, offset)?,
+            vn_file: parser.parse_u32_at(endian, offset)?,
+            vn_aux: parser.parse_u32_at(endian, offset)?,
+            vn_next: parser.parse_u32_at(endian, offset)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -337,6 +376,89 @@ mod parse_tests {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
             let error = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    //
+    // VerNeed
+    //
+    const ELFVERNEEDSIZE: usize = 16;
+
+    #[test]
+    fn parse_verneed32_lsb() {
+        let mut data = [0u8; ELFVERNEEDSIZE as usize];
+        for n in 0..ELFVERNEEDSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerNeed::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerNeed");
+
+        assert_eq!(
+            entry,
+            VerNeed {
+                vn_version: 0x0100,
+                vn_cnt: 0x0302,
+                vn_file: 0x07060504,
+                vn_aux: 0x0B0A0908,
+                vn_next: 0x0F0E0D0C,
+            }
+        );
+        assert_eq!(offset, ELFVERNEEDSIZE);
+    }
+
+    #[test]
+    fn parse_verneed32_fuzz_too_short() {
+        let data = [0u8; ELFVERNEEDSIZE];
+        for n in 0..ELFVERNEEDSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerNeed::parse_at(Endian::Big, Class::ELF32, &mut offset, &buf)
+                .expect_err("Expected an error");
+            assert!(
+                matches!(error, ParseError::BadOffset(_)),
+                "Unexpected Error type found: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_verneed64_msb() {
+        let mut data = [0u8; ELFVERNEEDSIZE as usize];
+        for n in 0..ELFVERNEEDSIZE {
+            data[n as usize] = n as u8;
+        }
+
+        let mut offset = 0;
+        let entry = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+            .expect("Failed to parse VerNeed");
+
+        assert_eq!(
+            entry,
+            VerNeed {
+                vn_version: 0x0001,
+                vn_cnt: 0x0203,
+                vn_file: 0x04050607,
+                vn_aux: 0x08090A0B,
+                vn_next: 0x0C0D0E0F,
+            }
+        );
+        assert_eq!(offset, ELFVERNEEDSIZE);
+    }
+
+    #[test]
+    fn parse_verneed64_fuzz_too_short() {
+        let data = [0u8; ELFVERNEEDSIZE];
+        for n in 0..ELFVERNEEDSIZE {
+            let buf = data.split_at(n).0.as_ref();
+            let mut offset: usize = 0;
+            let error = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, &buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
