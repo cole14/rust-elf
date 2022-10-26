@@ -66,6 +66,56 @@ impl ParseAt for VersionIndex {
 //      |___/                                                   |_____|      //
 ///////////////////////////////////////////////////////////////////////////////
 
+/// The special GNU extension section .gnu.version_d has a section type of SHT_GNU_VERDEF
+/// This section shall contain symbol version definitions. The number of entries
+/// in this section shall be contained in the DT_VERDEFNUM entry of the Dynamic
+/// Section .dynamic. The sh_link member of the section header shall point to
+/// the section that contains the strings referenced by this section.
+///
+/// The .gnu.version_d section shall contain an array of VerDef structures
+/// optionally followed by an array of VerDefAux structures.
+#[derive(Debug, PartialEq)]
+pub struct VerDef {
+    /// Version information flag bitmask.
+    pub vd_flags: u16,
+    /// VersionIndex value referencing the SHT_GNU_VERSYM section.
+    pub vd_ndx: u16,
+    /// Number of associated verdaux array entries.
+    pub vd_cnt: u16,
+    /// Version name hash value (ELF hash function).
+    pub vd_hash: u32,
+    /// Offset in bytes to a corresponding entry in an array of VerDefAux structures.
+    pub vd_aux: u32,
+    /// Offset to the next VerDef entry, in bytes.
+    pub vd_next: u32,
+}
+
+impl ParseAt for VerDef {
+    fn parse_at(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        let vd_version = parse_u16_at(endian, offset, data)?;
+        if vd_version != gabi::VER_DEF_CURRENT {
+            return Err(ParseError::UnsupportedVersion((
+                vd_version as u64,
+                gabi::VER_DEF_CURRENT as u64,
+            )));
+        }
+
+        Ok(VerDef {
+            vd_flags: parse_u16_at(endian, offset, data)?,
+            vd_ndx: parse_u16_at(endian, offset, data)?,
+            vd_cnt: parse_u16_at(endian, offset, data)?,
+            vd_hash: parse_u32_at(endian, offset, data)?,
+            vd_aux: parse_u32_at(endian, offset, data)?,
+            vd_next: parse_u32_at(endian, offset, data)?,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct VerDefIterator<'data> {
     endianness: Endian,
@@ -114,6 +164,29 @@ impl<'data> Iterator for VerDefIterator<'data> {
         self.offset += vd.vd_next as usize;
         self.count -= 1;
         Some((vd, vda_iter))
+    }
+}
+
+/// Version Definition Auxiliary Entries from the .gnu.version_d section
+#[derive(Debug, PartialEq)]
+pub struct VerDefAux {
+    /// Offset to the version or dependency name string in the linked string table, in bytes.
+    pub vda_name: u32,
+    /// Offset to the next VerDefAux entry, in bytes.
+    pub vda_next: u32,
+}
+
+impl ParseAt for VerDefAux {
+    fn parse_at(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        Ok(VerDefAux {
+            vda_name: parse_u32_at(endian, offset, data)?,
+            vda_next: parse_u32_at(endian, offset, data)?,
+        })
     }
 }
 
@@ -181,79 +254,6 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
         self.offset += vda.vda_next as usize;
         self.count -= 1;
         Some(vda)
-    }
-}
-
-/// The special GNU extension section .gnu.version_d has a section type of SHT_GNU_VERDEF
-/// This section shall contain symbol version definitions. The number of entries
-/// in this section shall be contained in the DT_VERDEFNUM entry of the Dynamic
-/// Section .dynamic. The sh_link member of the section header shall point to
-/// the section that contains the strings referenced by this section.
-///
-/// The .gnu.version_d section shall contain an array of VerDef structures
-/// optionally followed by an array of VerDefAux structures.
-#[derive(Debug, PartialEq)]
-pub struct VerDef {
-    /// Version information flag bitmask.
-    pub vd_flags: u16,
-    /// VersionIndex value referencing the SHT_GNU_VERSYM section.
-    pub vd_ndx: u16,
-    /// Number of associated verdaux array entries.
-    pub vd_cnt: u16,
-    /// Version name hash value (ELF hash function).
-    pub vd_hash: u32,
-    /// Offset in bytes to a corresponding entry in an array of VerDefAux structures.
-    pub vd_aux: u32,
-    /// Offset to the next VerDef entry, in bytes.
-    pub vd_next: u32,
-}
-
-impl ParseAt for VerDef {
-    fn parse_at(
-        endian: Endian,
-        _class: Class,
-        offset: &mut usize,
-        data: &[u8],
-    ) -> Result<Self, ParseError> {
-        let vd_version = parse_u16_at(endian, offset, data)?;
-        if vd_version != gabi::VER_DEF_CURRENT {
-            return Err(ParseError::UnsupportedVersion((
-                vd_version as u64,
-                gabi::VER_DEF_CURRENT as u64,
-            )));
-        }
-
-        Ok(VerDef {
-            vd_flags: parse_u16_at(endian, offset, data)?,
-            vd_ndx: parse_u16_at(endian, offset, data)?,
-            vd_cnt: parse_u16_at(endian, offset, data)?,
-            vd_hash: parse_u32_at(endian, offset, data)?,
-            vd_aux: parse_u32_at(endian, offset, data)?,
-            vd_next: parse_u32_at(endian, offset, data)?,
-        })
-    }
-}
-
-/// Version Definition Auxiliary Entries from the .gnu.version_d section
-#[derive(Debug, PartialEq)]
-pub struct VerDefAux {
-    /// Offset to the version or dependency name string in the linked string table, in bytes.
-    pub vda_name: u32,
-    /// Offset to the next VerDefAux entry, in bytes.
-    pub vda_next: u32,
-}
-
-impl ParseAt for VerDefAux {
-    fn parse_at(
-        endian: Endian,
-        _class: Class,
-        offset: &mut usize,
-        data: &[u8],
-    ) -> Result<Self, ParseError> {
-        Ok(VerDefAux {
-            vda_name: parse_u32_at(endian, offset, data)?,
-            vda_next: parse_u32_at(endian, offset, data)?,
-        })
     }
 }
 
@@ -356,6 +356,38 @@ impl<'data> Iterator for VerNeedIterator<'data> {
     }
 }
 
+/// Version Need Auxiliary Entries from the .gnu.version_r section
+#[derive(Debug, PartialEq)]
+pub struct VerNeedAux {
+    /// Dependency name hash value (ELF hash function).
+    pub vna_hash: u32,
+    /// Dependency information flag bitmask.
+    pub vna_flags: u16,
+    /// VersionIndex value used in the .gnu.version symbol version array.
+    pub vna_other: u16,
+    /// Offset to the dependency name string in the linked string table, in bytes.
+    pub vna_name: u32,
+    /// Offset to the next vernaux entry, in bytes.
+    pub vna_next: u32,
+}
+
+impl ParseAt for VerNeedAux {
+    fn parse_at(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        Ok(VerNeedAux {
+            vna_hash: parse_u32_at(endian, offset, &data)?,
+            vna_flags: parse_u16_at(endian, offset, &data)?,
+            vna_other: parse_u16_at(endian, offset, &data)?,
+            vna_name: parse_u32_at(endian, offset, &data)?,
+            vna_next: parse_u32_at(endian, offset, &data)?,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct VerNeedAuxIterator<'data> {
     endianness: Endian,
@@ -395,38 +427,6 @@ impl<'data> Iterator for VerNeedAuxIterator<'data> {
         self.offset += vna.vna_next as usize;
         self.count -= 1;
         Some(vna)
-    }
-}
-
-/// Version Need Auxiliary Entries from the .gnu.version_r section
-#[derive(Debug, PartialEq)]
-pub struct VerNeedAux {
-    /// Dependency name hash value (ELF hash function).
-    pub vna_hash: u32,
-    /// Dependency information flag bitmask.
-    pub vna_flags: u16,
-    /// VersionIndex value used in the .gnu.version symbol version array.
-    pub vna_other: u16,
-    /// Offset to the dependency name string in the linked string table, in bytes.
-    pub vna_name: u32,
-    /// Offset to the next vernaux entry, in bytes.
-    pub vna_next: u32,
-}
-
-impl ParseAt for VerNeedAux {
-    fn parse_at(
-        endian: Endian,
-        _class: Class,
-        offset: &mut usize,
-        data: &[u8],
-    ) -> Result<Self, ParseError> {
-        Ok(VerNeedAux {
-            vna_hash: parse_u32_at(endian, offset, &data)?,
-            vna_flags: parse_u16_at(endian, offset, &data)?,
-            vna_other: parse_u16_at(endian, offset, &data)?,
-            vna_name: parse_u32_at(endian, offset, &data)?,
-            vna_next: parse_u32_at(endian, offset, &data)?,
-        })
     }
 }
 
