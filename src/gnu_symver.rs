@@ -306,6 +306,57 @@ impl ParseAt for VerNeed {
 }
 
 #[derive(Debug)]
+pub struct VerNeedIterator<'data> {
+    endianness: Endian,
+    class: Class,
+    /// The number of entries in this iterator is given by the .dynamic DT_VERNEEDNUM entry
+    count: u64,
+    data: &'data [u8],
+    offset: usize,
+}
+
+impl<'data> VerNeedIterator<'data> {
+    pub fn new(
+        endianness: Endian,
+        class: Class,
+        count: u64,
+        starting_offset: usize,
+        data: &'data [u8],
+    ) -> Self {
+        VerNeedIterator {
+            endianness,
+            class,
+            count,
+            data,
+            offset: starting_offset,
+        }
+    }
+}
+
+impl<'data> Iterator for VerNeedIterator<'data> {
+    type Item = (VerNeed, VerNeedAuxIterator<'data>);
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() == 0 || self.count == 0 {
+            return None;
+        }
+
+        let mut start = self.offset;
+        let vn = VerNeed::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        let vna_iter = VerNeedAuxIterator::new(
+            self.endianness,
+            self.class,
+            vn.vn_cnt,
+            self.offset + vn.vn_aux as usize,
+            self.data,
+        );
+
+        self.offset += vn.vn_next as usize;
+        self.count -= 1;
+        Some((vn, vna_iter))
+    }
+}
+
+#[derive(Debug)]
 pub struct VerNeedAuxIterator<'data> {
     endianness: Endian,
     class: Class,
@@ -407,6 +458,15 @@ mod iter_tests {
     // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
         0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0xec, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
+
+    #[test]
+    fn verneed_iter() {
+        let iter = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
+        let entries: Vec<(VerNeed, Vec<VerNeedAux>)> =
+            iter.map(|(vn, iter)| (vn, iter.collect())).collect();
+
+        assert_eq!(entries.len(), 2);
+    }
 
     #[test]
     fn verneedaux_iter_one_entry() {
