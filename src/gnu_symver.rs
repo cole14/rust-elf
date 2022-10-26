@@ -163,6 +163,12 @@ impl<'data> Iterator for VerDefIterator<'data> {
 
         self.offset += vd.vd_next as usize;
         self.count -= 1;
+
+        // Silently end iteration early if the next link stops pointing somewhere new
+        // TODO: Make this an error condition by allowing the iterator to yield a ParseError
+        if self.count > 0 && vd.vd_next == 0 {
+            self.count = 0
+        }
         Some((vd, vda_iter))
     }
 }
@@ -251,8 +257,15 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
         // and ignoring the vda_next field, but that'd break things if they weren't contiguous.
         let mut start = self.offset;
         let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+
         self.offset += vda.vda_next as usize;
         self.count -= 1;
+
+        // Silently end iteration early if the next link stops pointing somewhere new
+        // TODO: Make this an error condition by allowing the iterator to yield a ParseError
+        if self.count > 0 && vda.vda_next == 0 {
+            self.count = 0
+        }
         Some(vda)
     }
 }
@@ -352,6 +365,12 @@ impl<'data> Iterator for VerNeedIterator<'data> {
 
         self.offset += vn.vn_next as usize;
         self.count -= 1;
+
+        // Silently end iteration early if the next link stops pointing somewhere new
+        // TODO: Make this an error condition by allowing the iterator to yield a ParseError
+        if self.count > 0 && vn.vn_next == 0 {
+            self.count = 0
+        }
         Some((vn, vna_iter))
     }
 }
@@ -426,6 +445,12 @@ impl<'data> Iterator for VerNeedAuxIterator<'data> {
         let vna = VerNeedAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
         self.offset += vna.vna_next as usize;
         self.count -= 1;
+
+        // Silently end iteration early if the next link stops pointing somewhere new
+        // TODO: Make this an error condition by allowing the iterator to yield a ParseError
+        if self.count > 0 && vna.vna_next == 0 {
+            self.count = 0
+        }
         Some(vna)
     }
 }
@@ -465,6 +490,17 @@ mod iter_tests {
         let entries: Vec<(VerNeed, Vec<VerNeedAux>)> =
             iter.map(|(vn, iter)| (vn, iter.collect())).collect();
 
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn verneed_iter_early_termination_on_broken_next_link() {
+        // set count = 3 even though there's only 2 entries
+        let iter = VerNeedIterator::new(Endian::Little, Class::ELF64, 3, 0, &GNU_VERNEED_DATA);
+        let entries: Vec<(VerNeed, Vec<VerNeedAux>)> =
+            iter.map(|(vn, iter)| (vn, iter.collect())).collect();
+
+        // TODO: make this a ParseError condition instead of silently returning only the good data.
         assert_eq!(entries.len(), 2);
     }
 
@@ -592,6 +628,17 @@ mod iter_tests {
         assert!(iter2.next().is_none());
     }
 
+    #[test]
+    fn verneedaux_iter_early_termination_on_broken_next_link() {
+        // set count = 7 even though there's only 1 entry
+        let iter =
+            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 7, 0x10, &GNU_VERNEED_DATA);
+        let entries: Vec<VerNeedAux> = iter.collect();
+
+        // TODO: make this a ParseError condition instead of silently returning only the good data.
+        assert_eq!(entries.len(), 1);
+    }
+
     // Sample .gnu.version_d section contents
     #[rustfmt::skip]
     const GNU_VERDEF_DATA: [u8; 128] = [
@@ -713,6 +760,17 @@ mod iter_tests {
     }
 
     #[test]
+    fn verdef_iter_early_termination_on_broken_next_link() {
+        // set count = 7 even though there's only 4 entries
+        let iter = VerDefIterator::new(Endian::Little, Class::ELF64, 7, 0, &GNU_VERDEF_DATA);
+        let entries: Vec<(VerDef, Vec<VerDefAux>)> =
+            iter.map(|(vn, iter)| (vn, iter.collect())).collect();
+
+        // TODO: make this a ParseError condition instead of silently returning only the good data.
+        assert_eq!(entries.len(), 4);
+    }
+
+    #[test]
     fn verdefaux_iter_one_entry() {
         let mut iter =
             VerDefAuxIterator::new(Endian::Little, Class::ELF64, 1, 0x14, &GNU_VERDEF_DATA);
@@ -798,6 +856,16 @@ mod iter_tests {
         );
         assert!(iter1.next().is_none());
         assert!(iter2.next().is_none());
+    }
+
+    #[test]
+    fn verdefaux_iter_early_termination_on_broken_next_link() {
+        // set count = 7 even though there's only 1 entry
+        let iter = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 7, 0x14, &GNU_VERDEF_DATA);
+        let entries: Vec<VerDefAux> = iter.collect();
+
+        // TODO: make this a ParseError condition instead of silently returning only the good data.
+        assert_eq!(entries.len(), 1);
     }
 }
 
