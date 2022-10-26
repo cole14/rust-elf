@@ -573,6 +573,7 @@ impl FileHeader {
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
+            #[allow(deprecated)]
             return Err(ParseError::UnsupportedElfVersion(version));
         }
 
@@ -1476,6 +1477,7 @@ mod parse_tests {
         );
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_verify_ident_invalid_version() {
         let data: [u8; gabi::EI_NIDENT] = [

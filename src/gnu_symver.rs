@@ -174,8 +174,6 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
 /// optionally followed by an array of VerDefAux structures.
 #[derive(Debug, PartialEq)]
 pub struct VerDef {
-    /// Version revision. This field shall be set to 1.
-    pub vd_version: u16,
     /// Version information flag bitmask.
     pub vd_flags: u16,
     /// VersionIndex value referencing the SHT_GNU_VERSYM section.
@@ -197,8 +195,15 @@ impl ParseAt for VerDef {
         offset: &mut usize,
         parser: &P,
     ) -> Result<Self, ParseError> {
+        let vd_version = parser.parse_u16_at(endian, offset)?;
+        if vd_version != gabi::VER_DEF_CURRENT {
+            return Err(ParseError::UnsupportedVersion((
+                vd_version as u64,
+                gabi::VER_DEF_CURRENT as u64,
+            )));
+        }
+
         Ok(VerDef {
-            vd_version: parser.parse_u16_at(endian, offset)?,
             vd_flags: parser.parse_u16_at(endian, offset)?,
             vd_ndx: parser.parse_u16_at(endian, offset)?,
             vd_cnt: parser.parse_u16_at(endian, offset)?,
@@ -367,7 +372,6 @@ mod iter_tests {
             vec![
                 (
                     VerDef {
-                        vd_version: 1,
                         vd_flags: 1,
                         vd_ndx: 1,
                         vd_cnt: 1,
@@ -382,7 +386,6 @@ mod iter_tests {
                 ),
                 (
                     VerDef {
-                        vd_version: 1,
                         vd_flags: 0,
                         vd_ndx: 2,
                         vd_cnt: 1,
@@ -397,7 +400,6 @@ mod iter_tests {
                 ),
                 (
                     VerDef {
-                        vd_version: 1,
                         vd_flags: 0,
                         vd_ndx: 3,
                         vd_cnt: 2,
@@ -418,7 +420,6 @@ mod iter_tests {
                 ),
                 (
                     VerDef {
-                        vd_version: 1,
                         vd_flags: 0,
                         vd_ndx: 4,
                         vd_cnt: 2,
@@ -608,6 +609,8 @@ mod parse_tests {
         for n in 0..ELFVERDEFSIZE {
             data[n as usize] = n as u8;
         }
+        data[0] = 1;
+        data[1] = 0;
 
         let mut offset = 0;
         let entry = VerDef::parse_at(Endian::Little, Class::ELF32, &mut offset, &data.as_ref())
@@ -616,7 +619,6 @@ mod parse_tests {
         assert_eq!(
             entry,
             VerDef {
-                vd_version: 0x0100,
                 vd_flags: 0x0302,
                 vd_ndx: 0x0504,
                 vd_cnt: 0x0706,
@@ -630,7 +632,8 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef32_fuzz_too_short() {
-        let data = [0u8; ELFVERDEFSIZE];
+        let mut data = [0u8; ELFVERDEFSIZE];
+        data[1] = 1;
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
@@ -646,9 +649,10 @@ mod parse_tests {
     #[test]
     fn parse_verdef64_msb() {
         let mut data = [0u8; ELFVERDEFSIZE as usize];
-        for n in 0..ELFVERDEFSIZE {
+        for n in 2..ELFVERDEFSIZE {
             data[n as usize] = n as u8;
         }
+        data[1] = 1;
 
         let mut offset = 0;
         let entry = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
@@ -657,7 +661,6 @@ mod parse_tests {
         assert_eq!(
             entry,
             VerDef {
-                vd_version: 0x0001,
                 vd_flags: 0x0203,
                 vd_ndx: 0x0405,
                 vd_cnt: 0x0607,
@@ -671,7 +674,8 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef64_fuzz_too_short() {
-        let data = [0u8; ELFVERDEFSIZE];
+        let mut data = [0u8; ELFVERDEFSIZE];
+        data[1] = 1;
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
@@ -682,6 +686,20 @@ mod parse_tests {
                 "Unexpected Error type found: {error}"
             );
         }
+    }
+
+    #[test]
+    fn parse_verdef_bad_version_errors() {
+        let data = [0u8; ELFVERDEFSIZE as usize];
+        // version is 0, which is not 1, which is bad :)
+
+        let mut offset = 0;
+        let err = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, &data.as_ref())
+            .expect_err("Expected an error");
+        assert!(
+            matches!(err, ParseError::UnsupportedVersion((0, 1))),
+            "Unexpected Error type found: {err}"
+        );
     }
 
     //

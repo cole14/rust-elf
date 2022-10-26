@@ -932,6 +932,10 @@ pub const VER_NDX_LOCAL: u16 = 0;
 /// Symbol is global
 pub const VER_NDX_GLOBAL: u16 = 1;
 
+// .gnu.version_d VerDef.vd_version reserved values
+/// Only defined valid vd_version value
+pub const VER_DEF_CURRENT: u16 = 1;
+
 /// ZLIB/DEFLATE
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
 /// zstd algorithm
