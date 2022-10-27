@@ -1,10 +1,8 @@
 use crate::gabi;
 use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, parse_u8_at, Class, Endian, ParseAt, ParseError,
-    ParsingIterator, ParsingTable,
+    ParsingTable,
 };
-
-pub type SymbolIterator<'data> = ParsingIterator<'data, Symbol>;
 
 pub type SymbolTable<'data> = ParsingTable<'data, Symbol>;
 

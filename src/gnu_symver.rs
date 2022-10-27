@@ -1,7 +1,5 @@
 use crate::gabi;
-use crate::parse::{
-    parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingTable,
-};
+use crate::parse::{parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingTable};
 
 ////////////////////////////////////////////////////////////////////
 //                                                 _              //
