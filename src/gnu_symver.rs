@@ -67,8 +67,9 @@ impl ParseAt for VersionIndex {
 /// The special GNU extension section .gnu.version_d has a section type of SHT_GNU_VERDEF
 /// This section shall contain symbol version definitions. The number of entries
 /// in this section shall be contained in the DT_VERDEFNUM entry of the Dynamic
-/// Section .dynamic. The sh_link member of the section header shall point to
-/// the section that contains the strings referenced by this section.
+/// Section .dynamic, and also the sh_info member of the section header.
+/// The sh_link member of the section header shall point to the section that
+/// contains the strings referenced by this section.
 ///
 /// The .gnu.version_d section shall contain an array of VerDef structures
 /// optionally followed by an array of VerDefAux structures.
@@ -119,6 +120,7 @@ pub struct VerDefIterator<'data> {
     endianness: Endian,
     class: Class,
     /// The number of entries in this iterator is given by the .dynamic DT_VERDEFNUM entry
+    /// and also in the .gnu.version_d section header's sh_info field.
     count: u64,
     data: &'data [u8],
     offset: usize,
@@ -280,8 +282,9 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
 /// The GNU extension section .gnu.version_r has a section type of SHT_GNU_VERNEED.
 /// This section contains required symbol version definitions. The number of
 /// entries in this section shall be contained in the DT_VERNEEDNUM entry of the
-/// Dynamic Section .dynamic. The sh_link member of the section header shall
-/// point to the referenced string table section.
+/// Dynamic Section .dynamic and also the sh_info member of the section header.
+/// The sh_link member of the section header shall point to the referenced
+/// string table section.
 ///
 /// The section shall contain an array of VerNeed structures optionally
 /// followed by an array of VerNeedAux structures.
@@ -321,6 +324,7 @@ pub struct VerNeedIterator<'data> {
     endianness: Endian,
     class: Class,
     /// The number of entries in this iterator is given by the .dynamic DT_VERNEEDNUM entry
+    /// and also in the .gnu.version_r section header's sh_info field.
     count: u64,
     data: &'data [u8],
     offset: usize,
