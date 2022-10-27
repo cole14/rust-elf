@@ -320,10 +320,10 @@ impl<R: ReadBytesAt> File<R> {
         let symtab = SymbolTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            symtab_shdr.sh_entsize,
+            symtab_shdr.sh_entsize as usize,
             self.reader
                 .get_loaded_bytes_at(symtab_start..symtab_start + symtab_size),
-        )?;
+        );
         let strtab = StringTable::new(
             self.reader
                 .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),

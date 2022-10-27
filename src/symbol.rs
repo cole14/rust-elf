@@ -1,65 +1,12 @@
 use crate::gabi;
 use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, parse_u8_at, Class, Endian, ParseAt, ParseError,
-    ParsingIterator,
+    ParsingIterator, ParsingTable,
 };
 
 pub type SymbolIterator<'data> = ParsingIterator<'data, Symbol>;
 
-#[derive(Debug)]
-pub struct SymbolTable<'data> {
-    endianness: Endian,
-    class: Class,
-    entsize: u64,
-    data: &'data [u8],
-}
-
-const ELF32SYMSIZE: u64 = 16;
-const ELF64SYMSIZE: u64 = 24;
-
-impl<'data> SymbolTable<'data> {
-    pub fn new(
-        endianness: Endian,
-        class: Class,
-        entsize: u64,
-        data: &'data [u8],
-    ) -> Result<Self, ParseError> {
-        // Validate that the entsize matches with what we know how to parse
-        match class {
-            Class::ELF32 => {
-                if entsize != ELF32SYMSIZE {
-                    return Err(ParseError::BadEntsize((entsize, ELF32SYMSIZE)));
-                }
-            }
-            Class::ELF64 => {
-                if entsize != ELF64SYMSIZE {
-                    return Err(ParseError::BadEntsize((entsize, ELF64SYMSIZE)));
-                }
-            }
-        }
-
-        Ok(SymbolTable {
-            endianness,
-            class,
-            data,
-            entsize,
-        })
-    }
-
-    pub fn get(&self, index: u64) -> Result<Symbol, ParseError> {
-        let num_table_entries = self.data.len() as u64 / self.entsize;
-        if index as u64 > num_table_entries {
-            return Err(ParseError::BadOffset(index));
-        }
-
-        let mut offset: usize = (self.entsize * index) as usize;
-        Symbol::parse_at(self.endianness, self.class, &mut offset, self.data)
-    }
-
-    pub fn iter(&self) -> SymbolIterator {
-        SymbolIterator::new(self.endianness, self.class, self.data)
-    }
-}
+pub type SymbolTable<'data> = ParsingTable<'data, Symbol>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
@@ -234,15 +181,17 @@ impl core::fmt::Display for SymbolVis {
 mod table_tests {
     use super::*;
 
+    const ELF32SYMSIZE: usize = 16;
+    const ELF64SYMSIZE: usize = 24;
+
     #[test]
     fn get_32_lsb() {
         // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF32SYMSIZE as usize];
+        let mut data = [0u8; ELF32SYMSIZE];
         for n in 0..ELF32SYMSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
-        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data)
-            .expect("Failed to create SymbolTable");
+        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data);
 
         assert_eq!(
             table.get(0).unwrap(),
@@ -265,13 +214,12 @@ mod table_tests {
     #[test]
     fn get_64_msb() {
         // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF64SYMSIZE as usize];
+        let mut data = [0u8; ELF64SYMSIZE];
         for n in 0..ELF64SYMSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
-        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data)
-            .expect("Failed to create SymbolTable");
+        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data);
 
         assert_eq!(
             table.get(0).unwrap(),

@@ -348,6 +348,61 @@ impl<'data, P: ParseAt> Iterator for ParsingIterator<'data, P> {
     }
 }
 
+#[derive(Debug)]
+pub struct ParsingTable<'data, P: ParseAt> {
+    endianness: Endian,
+    class: Class,
+    entsize: usize,
+    data: &'data [u8],
+    // This struct doesn't technically own a P, but it yields them
+    pd: PhantomData<&'data P>,
+}
+
+impl<'data, P: ParseAt> ParsingTable<'data, P> {
+    pub fn new(endianness: Endian, class: Class, entsize: usize, data: &'data [u8]) -> Self {
+        ParsingTable {
+            endianness,
+            class,
+            entsize,
+            data,
+            pd: PhantomData,
+        }
+    }
+
+    pub fn iter(&self) -> ParsingIterator<'data, P> {
+        ParsingIterator::new(self.endianness, self.class, self.data)
+    }
+}
+
+impl<'data, P: ParseAt> ParsingTable<'data, P> {
+    pub fn get(&self, index: usize) -> Result<P, ParseError> {
+        if self.data.len() == 0 {
+            return Err(ParseError::BadOffset(index as u64));
+        }
+
+        let mut start = index * self.entsize;
+        if start > self.data.len() {
+            return Err(ParseError::BadOffset(index as u64));
+        }
+
+        Ok(P::parse_at(
+            self.endianness,
+            self.class,
+            &mut start,
+            self.data,
+        )?)
+    }
+}
+
+impl<'data, P: ParseAt> IntoIterator for ParsingTable<'data, P> {
+    type IntoIter = ParsingIterator<'data, P>;
+    type Item = P;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ParsingIterator::new(self.endianness, self.class, self.data)
+    }
+}
+
 pub fn parse_u8_at(offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
     const SIZE: usize = core::mem::size_of::<u8>();
     let range = *offset..*offset + SIZE;
