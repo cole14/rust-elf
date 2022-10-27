@@ -53,6 +53,14 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    /// Returns true if a symbol is undefined in this ELF object.
+    ///
+    /// When linking and loading, undefined symbols in this object get linked to
+    /// a defined symbol in another object.
+    pub fn undefined(&self) -> bool {
+        self.st_shndx == gabi::SHN_UNDEF
+    }
+
     pub fn st_symtype(&self) -> SymbolType {
         SymbolType(self.st_info & 0xf)
     }
@@ -181,6 +189,29 @@ mod table_tests {
 
     const ELF32SYMSIZE: usize = 16;
     const ELF64SYMSIZE: usize = 24;
+
+    #[test]
+    fn symbol_undefined() {
+        let undef_sym = Symbol {
+            st_name: 0,
+            st_value: 0,
+            st_size: 0,
+            st_shndx: 0,
+            st_info: 0,
+            st_other: 0,
+        };
+        assert!(undef_sym.undefined());
+
+        let def_sym = Symbol {
+            st_name: 0,
+            st_value: 0,
+            st_size: 0,
+            st_shndx: 42,
+            st_info: 0,
+            st_other: 0,
+        };
+        assert!(!def_sym.undefined());
+    }
 
     #[test]
     fn get_32_lsb() {
