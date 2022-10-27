@@ -1,6 +1,6 @@
 use crate::gabi;
 use crate::parse::{
-    parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingIterator,
+    parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingTable,
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -12,7 +12,7 @@ use crate::parse::{
 //      |___/                                                     //
 ////////////////////////////////////////////////////////////////////
 
-pub type VersionIndexIterator<'data> = ParsingIterator<'data, VersionIndex>;
+pub type VersionTable<'data> = ParsingTable<'data, VersionIndex>;
 
 /// The special GNU extension section .gnu.version has a section type of SHT_GNU_VERSYM.
 /// This section shall have the same number of entries as the Dynamic Symbol Table in
