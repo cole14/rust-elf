@@ -29,16 +29,20 @@ pub type VersionTable<'data> = ParsingTable<'data, VersionIndex>;
 pub struct VersionIndex(pub u16);
 
 impl VersionIndex {
-    pub fn index(self) -> u16 {
-        self.0
+    pub fn index(&self) -> u16 {
+        self.0 & gabi::VER_NDX_VERSION
     }
 
-    pub fn is_local(self) -> bool {
-        self.0 == gabi::VER_NDX_LOCAL
+    pub fn is_local(&self) -> bool {
+        self.index() == gabi::VER_NDX_LOCAL
     }
 
-    pub fn is_global(self) -> bool {
-        self.0 == gabi::VER_NDX_GLOBAL
+    pub fn is_global(&self) -> bool {
+        self.index() == gabi::VER_NDX_GLOBAL
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        (self.0 & gabi::VER_NDX_HIDDEN) != 0
     }
 }
 
@@ -1290,5 +1294,36 @@ mod parse_tests {
                 "Unexpected Error type found: {error}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod version_index_tests {
+    use super::*;
+
+    #[test]
+    fn is_local() {
+        let idx = VersionIndex(0);
+        assert!(idx.is_local());
+    }
+
+    #[test]
+    fn is_global() {
+        let idx = VersionIndex(1);
+        assert!(idx.is_global());
+    }
+
+    #[test]
+    fn index_visible() {
+        let idx = VersionIndex(42);
+        assert_eq!(idx.index(), 42);
+        assert!(!idx.is_hidden());
+    }
+
+    #[test]
+    fn index_hidden() {
+        let idx = VersionIndex(42 | gabi::VER_NDX_HIDDEN);
+        assert_eq!(idx.index(), 42);
+        assert!(idx.is_hidden());
     }
 }

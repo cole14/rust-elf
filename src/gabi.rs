@@ -931,6 +931,10 @@ pub const DF_P1_GROUPPERM: i64 = 0x00000002;
 pub const VER_NDX_LOCAL: u16 = 0;
 /// Symbol is global
 pub const VER_NDX_GLOBAL: u16 = 1;
+/// .gnu.version index mask
+pub const VER_NDX_VERSION: u16 = 0x7fff;
+/// Symbol is hidden
+pub const VER_NDX_HIDDEN: u16 = 0x8000;
 
 // .gnu.version_d VerDef.vd_version reserved values
 /// Only defined valid vd_version value
