@@ -290,8 +290,6 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
 /// followed by an array of VerNeedAux structures.
 #[derive(Debug, PartialEq)]
 pub struct VerNeed {
-    /// Version of structure. This value is currently set to 1.
-    pub vn_version: u16,
     /// Number of associated verneed array entries.
     pub vn_cnt: u16,
     /// Offset to the file name string in the linked string table, in bytes.
@@ -309,8 +307,14 @@ impl ParseAt for VerNeed {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
+        let vd_version = parse_u16_at(endian, offset, data)?;
+        if vd_version != gabi::VER_NEED_CURRENT {
+            return Err(ParseError::UnsupportedVersion((
+                vd_version as u64,
+                gabi::VER_DEF_CURRENT as u64,
+            )));
+        }
         Ok(VerNeed {
-            vn_version: parse_u16_at(endian, offset, data)?,
             vn_cnt: parse_u16_at(endian, offset, data)?,
             vn_file: parse_u32_at(endian, offset, data)?,
             vn_aux: parse_u32_at(endian, offset, data)?,
@@ -1130,6 +1134,8 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             data[n as usize] = n as u8;
         }
+        data[0] = 1;
+        data[1] = 0;
 
         let mut offset = 0;
         let entry = VerNeed::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
@@ -1138,7 +1144,6 @@ mod parse_tests {
         assert_eq!(
             entry,
             VerNeed {
-                vn_version: 0x0100,
                 vn_cnt: 0x0302,
                 vn_file: 0x07060504,
                 vn_aux: 0x0B0A0908,
@@ -1150,7 +1155,8 @@ mod parse_tests {
 
     #[test]
     fn parse_verneed32_fuzz_too_short() {
-        let data = [0u8; ELFVERNEEDSIZE];
+        let mut data = [0u8; ELFVERNEEDSIZE];
+        data[1] = 1;
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
@@ -1169,6 +1175,7 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             data[n as usize] = n as u8;
         }
+        data[1] = 1;
 
         let mut offset = 0;
         let entry = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
@@ -1177,7 +1184,6 @@ mod parse_tests {
         assert_eq!(
             entry,
             VerNeed {
-                vn_version: 0x0001,
                 vn_cnt: 0x0203,
                 vn_file: 0x04050607,
                 vn_aux: 0x08090A0B,
@@ -1189,7 +1195,8 @@ mod parse_tests {
 
     #[test]
     fn parse_verneed64_fuzz_too_short() {
-        let data = [0u8; ELFVERNEEDSIZE];
+        let mut data = [0u8; ELFVERNEEDSIZE];
+        data[1] = 1;
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
