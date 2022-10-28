@@ -944,6 +944,11 @@ pub const VER_DEF_CURRENT: u16 = 1;
 /// Only defined valid vn_version value
 pub const VER_NEED_CURRENT: u16 = 1;
 
+// Bit flags which appear in vd_flags of VerDef and vna_flags of VerNeedAux.
+pub const VER_FLG_BASE: u16 = 0x1;
+pub const VER_FLG_WEAK: u16 = 0x2;
+pub const VER_FLG_INFO: u16 = 0x4;
+
 /// ZLIB/DEFLATE
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
 /// zstd algorithm
