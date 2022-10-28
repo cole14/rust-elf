@@ -1,5 +1,132 @@
 use crate::gabi;
 use crate::parse::{parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingTable};
+use crate::string_table::StringTable;
+
+#[derive(Debug, PartialEq)]
+pub struct SymbolRequirement<'data> {
+    pub file: &'data str,
+    pub name: &'data str,
+    pub hash: u32,
+    pub flags: u16,
+    pub hidden: bool,
+}
+
+pub struct SymbolDefinition<'data> {
+    pub hash: u32,
+    pub flags: u16,
+    pub names: SymbolNamesIterator<'data>,
+    pub hidden: bool,
+}
+
+#[derive(Debug)]
+pub struct SymbolNamesIterator<'data> {
+    vda_iter: VerDefAuxIterator<'data>,
+    strtab: &'data StringTable<'data>,
+}
+
+impl<'data> SymbolNamesIterator<'data> {
+    pub fn new(vda_iter: VerDefAuxIterator<'data>, strtab: &'data StringTable<'data>) -> Self {
+        SymbolNamesIterator { vda_iter, strtab }
+    }
+}
+
+impl<'data> Iterator for SymbolNamesIterator<'data> {
+    type Item = Result<&'data str, ParseError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let vda = self.vda_iter.next();
+        match vda {
+            Some(vda) => Some(self.strtab.get(vda.vda_name as usize)),
+            None => None,
+        }
+    }
+}
+
+pub struct VersionTable<'data> {
+    version_ids: VersionIndexTable<'data>,
+
+    verneeds: VerNeedIterator<'data>,
+    verneed_strs: StringTable<'data>,
+
+    verdefs: VerDefIterator<'data>,
+    verdef_strs: StringTable<'data>,
+}
+
+impl<'data> VersionTable<'data> {
+    pub fn new(
+        version_ids: VersionIndexTable<'data>,
+        verneeds: VerNeedIterator<'data>,
+        verneed_strs: StringTable<'data>,
+        verdefs: VerDefIterator<'data>,
+        verdef_strs: StringTable<'data>,
+    ) -> Self {
+        VersionTable {
+            version_ids,
+            verneeds,
+            verneed_strs,
+            verdefs,
+            verdef_strs,
+        }
+    }
+
+    pub fn get_requirement(&self, sym_idx: usize) -> Result<Option<SymbolRequirement>, ParseError> {
+        let ver_ndx = self.version_ids.get(sym_idx)?;
+        let iter = self.verneeds.clone();
+        for (vn, vna_iter) in iter {
+            for vna in vna_iter {
+                if vna.vna_other != ver_ndx.index() {
+                    continue;
+                }
+
+                let file = self.verneed_strs.get(vn.vn_file as usize)?;
+                let name = self.verneed_strs.get(vna.vna_name as usize)?;
+                let hash = vna.vna_hash;
+                let hidden = ver_ndx.is_hidden();
+                return Ok(Some(SymbolRequirement {
+                    file,
+                    name,
+                    hash,
+                    flags: vna.vna_flags,
+                    hidden,
+                }));
+            }
+        }
+
+        // Maybe we should treat this as a ParseError instead of returning an
+        // empty Option? This can only happen if .gnu.versions[N] contains an
+        // index that doesn't exist, which is likely a file corruption or
+        // programmer error (i.e asking for a requirement for a defined symbol)
+        Ok(None)
+    }
+
+    pub fn get_definition(&self, sym_idx: usize) -> Result<Option<SymbolDefinition>, ParseError> {
+        let ver_ndx = self.version_ids.get(sym_idx)?;
+        let iter = self.verdefs.clone();
+        for (vd, vda_iter) in iter {
+            if vd.vd_ndx != ver_ndx.index() {
+                continue;
+            }
+
+            let flags = vd.vd_flags;
+            let hash = vd.vd_hash;
+            let hidden = ver_ndx.is_hidden();
+            return Ok(Some(SymbolDefinition {
+                hash,
+                flags,
+                names: SymbolNamesIterator {
+                    vda_iter,
+                    strtab: &self.verdef_strs,
+                },
+                hidden,
+            }));
+        }
+
+        // Maybe we should treat this as a ParseError instead of returning an
+        // empty Option? This can only happen if .gnu.versions[N] contains an
+        // index that doesn't exist, which is likely a file corruption or
+        // programmer error (i.e asking for a definition for an undefined symbol)
+        Ok(None)
+    }
+}
 
 ////////////////////////////////////////////////////////////////////
 //                                                 _              //
@@ -10,7 +137,7 @@ use crate::parse::{parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseErro
 //      |___/                                                     //
 ////////////////////////////////////////////////////////////////////
 
-pub type VersionTable<'data> = ParsingTable<'data, VersionIndex>;
+pub type VersionIndexTable<'data> = ParsingTable<'data, VersionIndex>;
 
 /// The special GNU extension section .gnu.version has a section type of SHT_GNU_VERSYM.
 /// This section shall have the same number of entries as the Dynamic Symbol Table in
@@ -119,7 +246,7 @@ impl ParseAt for VerDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VerDefIterator<'data> {
     endianness: Endian,
     class: Class,
@@ -327,7 +454,7 @@ impl ParseAt for VerNeed {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct VerNeedIterator<'data> {
     endianness: Endian,
     class: Class,
@@ -479,19 +606,35 @@ mod iter_tests {
     use super::*;
 
     #[rustfmt::skip]
+    const GNU_VERNEED_STRINGS: [u8; 65] = [
+        // ZLIB_1.2.0 (0x1)
+        0x00, 0x5a, 0x4c, 0x49, 0x42, 0x5f, 0x31, 0x2e, 0x32, 0x2e, 0x30, 0x00,
+        // GLIBC_2.33 (0xC)
+        0x47, 0x4c, 0x49, 0x42, 0x43, 0x5f, 0x32, 0x2e, 0x33, 0x33, 0x00,
+        // GLIBC_2.2.5 (0x17)
+        0x47, 0x4c, 0x49, 0x42, 0x43, 0x5f, 0x32, 0x2e, 0x32, 0x2e, 0x35, 0x00,
+        // libz.so.1 (0x23)
+        0x6c, 0x69, 0x62, 0x7a, 0x2e, 0x73, 0x6f, 0x2e, 0x31, 0x00,
+        // libc.so.6 (0x2D)
+        0x6c, 0x69, 0x62, 0x63, 0x2e, 0x73, 0x6f, 0x2e, 0x36, 0x00,
+        // GLIBC_2.3 (0x37)
+        0x47, 0x4c, 0x49, 0x42, 0x43, 0x5f, 0x32, 0x2e, 0x33, 0x00,
+    ];
+
+    #[rustfmt::skip]
     const GNU_VERNEED_DATA: [u8; 96] = [
     // {vn_version, vn_cnt,     vn_file,                vn_aux,                 vn_next               }
-        0x01, 0x00, 0x01, 0x00, 0x8b, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x01, 0x00, 0x23, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
     // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
-        0xc0, 0xe5, 0x27, 0x08, 0x00, 0x00, 0x0a, 0x00, 0xcc, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xc0, 0xe5, 0x27, 0x08, 0x00, 0x00, 0x0a, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // {vn_version, vn_cnt,     vn_file,                vn_aux,                 vn_next               }
-        0x01, 0x00, 0x03, 0x00, 0x95, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x03, 0x00, 0x2D, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
-        0x13, 0x69, 0x69, 0x0d, 0x00, 0x00, 0x0c, 0x00, 0xd7, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0x13, 0x69, 0x69, 0x0d, 0x00, 0x00, 0x0c, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
     // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
-        0xb3, 0x91, 0x96, 0x06, 0x00, 0x00, 0x0b, 0x00, 0xe1, 0x0c, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        0xb3, 0x91, 0x96, 0x06, 0x00, 0x00, 0x0b, 0x00, 0x17, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
     // {vn_hash,                vn_flags,   vn_other,   vn_name,                vn_next               }
-        0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0xec, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
     #[test]
@@ -525,7 +668,7 @@ mod iter_tests {
                 vna_hash: 0x0827e5c0,
                 vna_flags: 0,
                 vna_other: 0x0a,
-                vna_name: 0x0ccc,
+                vna_name: 0x01,
                 vna_next: 0
             }
         );
@@ -533,7 +676,7 @@ mod iter_tests {
     }
 
     #[test]
-    fn verneedaux_iter_two_entries() {
+    fn verneedaux_iter_multiple_entries() {
         let mut iter =
             VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 3, 0x30, &GNU_VERNEED_DATA);
         let aux1 = iter.next().expect("Failed to parse");
@@ -543,7 +686,7 @@ mod iter_tests {
                 vna_hash: 0x0d696913,
                 vna_flags: 0,
                 vna_other: 0x0c,
-                vna_name: 0x0cd7,
+                vna_name: 0x0c,
                 vna_next: 0x10
             }
         );
@@ -554,7 +697,7 @@ mod iter_tests {
                 vna_hash: 0x069691b3,
                 vna_flags: 0,
                 vna_other: 0x0b,
-                vna_name: 0x0ce1,
+                vna_name: 0x17,
                 vna_next: 0x10
             }
         );
@@ -565,7 +708,7 @@ mod iter_tests {
                 vna_hash: 0x06969194,
                 vna_flags: 0,
                 vna_other: 0x09,
-                vna_name: 0x0cec,
+                vna_name: 0x37,
                 vna_next: 0
             }
         );
@@ -649,6 +792,16 @@ mod iter_tests {
         assert_eq!(entries.len(), 1);
     }
 
+    #[rustfmt::skip]
+    const GNU_VERDEF_STRINGS: [u8; 34] = [
+        // LIBCTF_1.0 (0x1)
+        0x00, 0x4c, 0x49, 0x42, 0x43, 0x54, 0x46, 0x5f, 0x31, 0x2e, 0x30, 0x00,
+        // LIBCTF_1.1 (0xC)
+        0x4c, 0x49, 0x42, 0x43, 0x54, 0x46, 0x5f, 0x31, 0x2e, 0x31, 0x00,
+        // LIBCTF_1.2 (0x17)
+        0x4c, 0x49, 0x42, 0x43, 0x54, 0x46, 0x5f, 0x31, 0x2e, 0x32, 0x00,
+    ];
+
     // Sample .gnu.version_d section contents
     #[rustfmt::skip]
     const GNU_VERDEF_DATA: [u8; 128] = [
@@ -657,7 +810,7 @@ mod iter_tests {
     //  vd_hash,                vd_aux,
         0xb0, 0x7a, 0x07, 0x0b, 0x14, 0x00, 0x00, 0x00,
     //  vd_next},               {vda_name,
-        0x1c, 0x00, 0x00, 0x00, 0x9f, 0x0c, 0x00, 0x00,
+        0x1c, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
     //  vda_next},             {vd_version, vd_flags,
         0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
     //  vd_ndx,     vd_cnt,     vd_hash,
@@ -665,15 +818,15 @@ mod iter_tests {
     //  vd_aux,                 vd_next},
         0x14, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00,
     // {vda_name,               vda_next},
-        0xab, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // {vd_version, vd_flags,   vd_ndx,     vd_cnt
         0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
     //  vd_hash,                vd_aux,
         0x71, 0x2f, 0x8f, 0x08, 0x14, 0x00, 0x00, 0x00,
     //  vd_next},               {vda_name,
-        0x24, 0x00, 0x00, 0x00, 0xb6, 0x0c, 0x00, 0x00,
+        0x24, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00,
     //  vda_next},              {vda_name,
-        0x08, 0x00, 0x00, 0x00, 0xab, 0x0c, 0x00, 0x00,
+        0x08, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
     //  vda_next},             {vd_version, vd_flags,
         0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
     //  vd_ndx,     vd_cnt,     vd_hash,
@@ -681,9 +834,9 @@ mod iter_tests {
     //  vd_aux,                 vd_next},
         0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // {vda_name,               vda_next},
-        0xc1, 0x0c, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
+        0x0c, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
     // {vda_name,               vda_next},
-        0xb6, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
     #[test]
@@ -707,7 +860,7 @@ mod iter_tests {
                         vd_next: 28,
                     },
                     vec![VerDefAux {
-                        vda_name: 0xC9F,
+                        vda_name: 0x1,
                         vda_next: 0
                     }]
                 ),
@@ -721,7 +874,7 @@ mod iter_tests {
                         vd_next: 28,
                     },
                     vec![VerDefAux {
-                        vda_name: 0xCAB,
+                        vda_name: 0xC,
                         vda_next: 0
                     }]
                 ),
@@ -736,11 +889,11 @@ mod iter_tests {
                     },
                     vec![
                         VerDefAux {
-                            vda_name: 0xCB6,
+                            vda_name: 0x17,
                             vda_next: 8
                         },
                         VerDefAux {
-                            vda_name: 0xCAB,
+                            vda_name: 0xC,
                             vda_next: 0
                         }
                     ]
@@ -756,11 +909,11 @@ mod iter_tests {
                     },
                     vec![
                         VerDefAux {
-                            vda_name: 0xCC1,
+                            vda_name: 0xC,
                             vda_next: 8
                         },
                         VerDefAux {
-                            vda_name: 0xCB6,
+                            vda_name: 0x17,
                             vda_next: 0
                         }
                     ]
@@ -788,7 +941,7 @@ mod iter_tests {
         assert_eq!(
             aux1,
             VerDefAux {
-                vda_name: 0x0C9F,
+                vda_name: 0x01,
                 vda_next: 0
             }
         );
@@ -796,14 +949,14 @@ mod iter_tests {
     }
 
     #[test]
-    fn verdefaux_iter_two_entries() {
+    fn verdefaux_iter_multiple_entries() {
         let mut iter =
             VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 0x4C, &GNU_VERDEF_DATA);
         let aux1 = iter.next().expect("Failed to parse");
         assert_eq!(
             aux1,
             VerDefAux {
-                vda_name: 0x0CB6,
+                vda_name: 0x17,
                 vda_next: 8
             }
         );
@@ -811,7 +964,7 @@ mod iter_tests {
         assert_eq!(
             aux1,
             VerDefAux {
-                vda_name: 0x0CAB,
+                vda_name: 0xC,
                 vda_next: 0
             }
         );
@@ -876,6 +1029,81 @@ mod iter_tests {
 
         // TODO: make this a ParseError condition instead of silently returning only the good data.
         assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn version_table() {
+        let ver_idx_buf: [u8; 10] = [0x02, 0x00, 0x03, 0x00, 0x09, 0x00, 0x0A, 0x00, 0xff, 0xff];
+        let version_ids = VersionIndexTable::new(Endian::Little, Class::ELF64, 2, &ver_idx_buf);
+        let verdefs = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
+        let verneed_strs = StringTable::new(&GNU_VERNEED_STRINGS);
+        let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
+        let verdef_strs = StringTable::new(&GNU_VERDEF_STRINGS);
+
+        let table = VersionTable::new(version_ids, verneeds, verneed_strs, verdefs, verdef_strs);
+
+        let def1 = table
+            .get_definition(0)
+            .expect("Failed to parse definition")
+            .expect("Failed to find def");
+        assert_eq!(def1.hash, 0x088f2f70);
+        assert_eq!(def1.flags, 0);
+        let def1_names: Vec<&str> = def1
+            .names
+            .map(|res| res.expect("Failed to parse"))
+            .collect();
+        assert_eq!(def1_names, ["LIBCTF_1.1"]);
+        assert!(!def1.hidden);
+
+        let def2 = table
+            .get_definition(1)
+            .expect("Failed to parse definition")
+            .expect("Failed to find def");
+        assert_eq!(def2.hash, 0x088f2f71);
+        assert_eq!(def2.flags, 0);
+        let def2_names: Vec<&str> = def2
+            .names
+            .map(|res| res.expect("Failed to parse"))
+            .collect();
+        assert_eq!(def2_names, ["LIBCTF_1.2", "LIBCTF_1.1"]);
+        assert!(!def2.hidden);
+
+        let req1 = table
+            .get_requirement(2)
+            .expect("Failed to parse definition")
+            .expect("Failed to find req");
+        assert_eq!(
+            req1,
+            SymbolRequirement {
+                file: "libc.so.6",
+                name: "GLIBC_2.3",
+                hash: 0x6969194,
+                flags: 0,
+                hidden: false
+            }
+        );
+
+        let req2 = table
+            .get_requirement(3)
+            .expect("Failed to parse definition")
+            .expect("Failed to find req");
+        assert_eq!(
+            req2,
+            SymbolRequirement {
+                file: "libz.so.1",
+                name: "ZLIB_1.2.0",
+                hash: 0x827E5C0,
+                flags: 0,
+                hidden: false
+            }
+        );
+
+        // The last version_index points to non-existent definitions. Maybe we should treat
+        // this as a ParseError instead of returning an empty Option? This can only happen
+        // if .gnu.versions[N] contains an index that doesn't exist, which is likely a file corruption
+        // or programmer error (i.e asking for a definition for an undefined symbol)
+        assert!(table.get_definition(4).expect("Failed to parse").is_none());
+        assert!(table.get_requirement(4).expect("Failed to parse").is_none());
     }
 }
 
