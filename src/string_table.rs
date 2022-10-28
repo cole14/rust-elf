@@ -16,7 +16,11 @@ impl<'data> StringTable<'data> {
             return Err(ParseError::BadOffset(offset as u64));
         }
 
-        let start = self.data.unwrap().split_at(offset).1;
+        let start = self
+            .data
+            .unwrap()
+            .get(offset..)
+            .ok_or(ParseError::BadOffset(offset as u64))?;
         let end = start
             .iter()
             .position(|&b| b == 0u8)
@@ -60,6 +64,17 @@ mod tests {
         let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
         let st = StringTable::new(&data);
         assert_eq!(st.get(1).unwrap(), "ELF");
+    }
+
+    #[test]
+    fn test_index_out_of_bounds_errors() {
+        let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
+        let st = StringTable::new(&data);
+        let result = st.get(7);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(7))),
+            "Unexpected Error type found: {result:?}"
+        );
     }
 
     #[test]
