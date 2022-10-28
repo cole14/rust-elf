@@ -84,9 +84,9 @@ pub struct VerDef {
     /// Version name hash value (ELF hash function).
     pub vd_hash: u32,
     /// Offset in bytes to a corresponding entry in an array of VerDefAux structures.
-    pub vd_aux: u32,
+    vd_aux: u32,
     /// Offset to the next VerDef entry, in bytes.
-    pub vd_next: u32,
+    vd_next: u32,
 }
 
 impl ParseAt for VerDef {
@@ -179,7 +179,7 @@ pub struct VerDefAux {
     /// Offset to the version or dependency name string in the linked string table, in bytes.
     pub vda_name: u32,
     /// Offset to the next VerDefAux entry, in bytes.
-    pub vda_next: u32,
+    vda_next: u32,
 }
 
 impl ParseAt for VerDefAux {
@@ -297,9 +297,9 @@ pub struct VerNeed {
     /// Offset to the file name string in the linked string table, in bytes.
     pub vn_file: u32,
     /// Offset to a corresponding entry in the VerNeedAux array, in bytes.
-    pub vn_aux: u32,
+    vn_aux: u32,
     /// Offset to the next VerNeed entry, in bytes.
-    pub vn_next: u32,
+    vn_next: u32,
 }
 
 impl ParseAt for VerNeed {
@@ -389,7 +389,7 @@ pub struct VerNeedAux {
     /// Offset to the dependency name string in the linked string table, in bytes.
     pub vna_name: u32,
     /// Offset to the next vernaux entry, in bytes.
-    pub vna_next: u32,
+    vna_next: u32,
 }
 
 impl ParseAt for VerNeedAux {
