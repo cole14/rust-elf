@@ -41,7 +41,7 @@ impl<'data> Iterator for SymbolNamesIterator<'data> {
     }
 }
 
-pub struct VersionTable<'data> {
+pub struct SymbolVersionTable<'data> {
     version_ids: VersionIndexTable<'data>,
 
     verneeds: VerNeedIterator<'data>,
@@ -51,7 +51,7 @@ pub struct VersionTable<'data> {
     verdef_strs: StringTable<'data>,
 }
 
-impl<'data> VersionTable<'data> {
+impl<'data> SymbolVersionTable<'data> {
     pub fn new(
         version_ids: VersionIndexTable<'data>,
         verneeds: VerNeedIterator<'data>,
@@ -59,7 +59,7 @@ impl<'data> VersionTable<'data> {
         verdefs: VerDefIterator<'data>,
         verdef_strs: StringTable<'data>,
     ) -> Self {
-        VersionTable {
+        SymbolVersionTable {
             version_ids,
             verneeds,
             verneed_strs,
@@ -275,6 +275,19 @@ impl<'data> VerDefIterator<'data> {
     }
 }
 
+/// Create an empty iterator that yields nothing
+impl<'data> Default for VerDefIterator<'data> {
+    fn default() -> Self {
+        VerDefIterator {
+            endianness: Endian::Little,
+            class: Class::ELF64,
+            count: 0,
+            data: &[],
+            offset: 0,
+        }
+    }
+}
+
 impl<'data> Iterator for VerDefIterator<'data> {
     type Item = (VerDef, VerDefAuxIterator<'data>);
     fn next(&mut self) -> Option<Self::Item> {
@@ -479,6 +492,19 @@ impl<'data> VerNeedIterator<'data> {
             count,
             data,
             offset: starting_offset,
+        }
+    }
+}
+
+/// Create an empty iterator that yields nothing
+impl<'data> Default for VerNeedIterator<'data> {
+    fn default() -> Self {
+        VerNeedIterator {
+            endianness: Endian::Little,
+            class: Class::ELF64,
+            count: 0,
+            data: &[],
+            offset: 0,
         }
     }
 }
@@ -1040,7 +1066,8 @@ mod iter_tests {
         let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
         let verdef_strs = StringTable::new(&GNU_VERDEF_STRINGS);
 
-        let table = VersionTable::new(version_ids, verneeds, verneed_strs, verdefs, verdef_strs);
+        let table =
+            SymbolVersionTable::new(version_ids, verneeds, verneed_strs, verdefs, verdef_strs);
 
         let def1 = table
             .get_definition(0)

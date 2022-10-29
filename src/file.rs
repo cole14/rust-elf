@@ -1,6 +1,7 @@
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::gabi;
+use crate::gnu_symver::{SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndexTable};
 use crate::note::NoteIterator;
 use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ReadBytesAt,
@@ -380,6 +381,141 @@ impl<R: ReadBytesAt> File<R> {
             }
         }
         Ok(None)
+    }
+
+    /// Read the section data for the various GNU Symbol Versioning sections (if any)
+    /// and return them in a [SymbolVersionTable] that which can interpret them in-place to
+    /// yield [SymbolRequirement](crate::gnu_symver::SymbolRequirement)s
+    /// and [SymbolDefinition](crate::gnu_symver::SymbolDefinition)s
+    ///
+    /// This is a GNU extension and not all objects use symbol versioning.
+    /// Returns an empty Option if the object does not use symbol versioning.
+    pub fn symbol_version_table(&mut self) -> Result<Option<SymbolVersionTable>, ParseError> {
+        let mut versym_opt: Option<SectionHeader> = None;
+        let mut needs_opt: Option<SectionHeader> = None;
+        let mut defs_opt: Option<SectionHeader> = None;
+        // Find the GNU Symbol versioning sections (if any)
+        for shdr in self.section_headers()? {
+            if shdr.sh_type == gabi::SHT_GNU_VERSYM {
+                versym_opt = Some(shdr);
+            } else if shdr.sh_type == gabi::SHT_GNU_VERNEED {
+                needs_opt = Some(shdr);
+            } else if shdr.sh_type == gabi::SHT_GNU_VERDEF {
+                defs_opt = Some(shdr);
+            }
+        }
+
+        // No VERSYM section means the object doesn't use symbol versioning, which is ok.
+        if versym_opt.is_none() {
+            return Ok(None);
+        }
+
+        // Load the versym table
+        let versym_shdr = versym_opt.unwrap();
+        let versym_start = versym_shdr.sh_offset as usize;
+        let versym_size = versym_shdr.sh_size as usize;
+        self.reader
+            .load_bytes_at(versym_start..versym_start + versym_size)?;
+
+        // Get the VERNEED string shdr and load the VERNEED section data (if any)
+        let needs_shdrs = match needs_opt {
+            Some(shdr) => {
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                self.reader.load_bytes_at(start..start + size)?;
+
+                Some((shdr, self.section_header_by_index(shdr.sh_link as usize)?))
+            }
+            // It's possible to have symbol versioning with no NEEDs if we're an object that only
+            // exports defined symbols.
+            None => None,
+        };
+
+        // Get the VERDEF string shdr and load the VERDEF section data (if any)
+        let defs_shdrs = match defs_opt {
+            Some(shdr) => {
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                self.reader.load_bytes_at(start..start + size)?;
+
+                Some((shdr, self.section_header_by_index(shdr.sh_link as usize)?))
+            }
+            // It's possible to have symbol versioning with no DEFs if we're an object that doesn't
+            // export any symbols but does use dynamic symbols from other objects.
+            None => None,
+        };
+
+        // Wrap the VERNEED section and strings data in an iterator and string table
+        let (verneeds, verneed_strs) = match needs_shdrs {
+            Some((shdr, strs_shdr)) => {
+                let strs_start = strs_shdr.sh_offset as usize;
+                let strs_size = strs_shdr.sh_size as usize;
+                let strs_buf = self
+                    .reader
+                    .get_loaded_bytes_at(strs_start..strs_start + strs_size);
+
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                let buf = self.reader.get_loaded_bytes_at(start..start + size);
+                (
+                    VerNeedIterator::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        buf,
+                    ),
+                    StringTable::new(strs_buf),
+                )
+            }
+            // If there's no NEEDs, then construct empty wrappers for them
+            None => (VerNeedIterator::default(), StringTable::default()),
+        };
+
+        // Wrap the VERDEF section and strings data in an iterator and string table
+        let (verdefs, verdef_strs) = match defs_shdrs {
+            Some((shdr, strs_shdr)) => {
+                let strs_start = strs_shdr.sh_offset as usize;
+                let strs_size = strs_shdr.sh_size as usize;
+                let strs_buf = self
+                    .reader
+                    .get_loaded_bytes_at(strs_start..strs_start + strs_size);
+
+                let start = shdr.sh_offset as usize;
+                let size = shdr.sh_size as usize;
+                let buf = self.reader.get_loaded_bytes_at(start..start + size);
+                (
+                    VerDefIterator::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        buf,
+                    ),
+                    StringTable::new(strs_buf),
+                )
+            }
+            // If there's no DEFs, then construct empty wrappers for them
+            None => (VerDefIterator::default(), StringTable::default()),
+        };
+
+        // Wrap the versym section data in a parsing table
+        let version_ids = VersionIndexTable::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            versym_shdr.sh_entsize as usize,
+            self.reader
+                .get_loaded_bytes_at(versym_start..versym_start + versym_size),
+        );
+
+        // whew, we're done here!
+        Ok(Some(SymbolVersionTable::new(
+            version_ids,
+            verneeds,
+            verneed_strs,
+            verdefs,
+            verdef_strs,
+        )))
     }
 
     /// Read the section data for the given
@@ -1341,6 +1477,26 @@ mod interface_tests {
             }
         );
         assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn symbol_version_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+        let vst = file
+            .symbol_version_table()
+            .expect("Failed to parse GNU symbol versions")
+            .expect("Failed to find GNU symbol versions");
+
+        let req1 = vst
+            .get_requirement(1)
+            .expect("Failed to parse NEED")
+            .expect("Failed to find NEED");
+        assert_eq!(req1.file, "libc.so.6");
+        assert_eq!(req1.name, "GLIBC_2.2.5");
+        assert_eq!(req1.hash, 0x9691A75);
     }
 }
 
