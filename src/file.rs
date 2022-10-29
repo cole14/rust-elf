@@ -403,6 +403,11 @@ impl<R: ReadBytesAt> File<R> {
             } else if shdr.sh_type == gabi::SHT_GNU_VERDEF {
                 defs_opt = Some(shdr);
             }
+
+            // If we've found all three sections, then we're done
+            if versym_opt.is_some() && needs_opt.is_some() && defs_opt.is_some() {
+                break;
+            }
         }
 
         // No VERSYM section means the object doesn't use symbol versioning, which is ok.
