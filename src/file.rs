@@ -429,7 +429,13 @@ impl<R: ReadBytesAt> File<R> {
                 let size = shdr.sh_size as usize;
                 self.reader.load_bytes_at(start..start + size)?;
 
-                Some((shdr, self.section_header_by_index(shdr.sh_link as usize)?))
+                let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
+                let strs_start = strs_shdr.sh_offset as usize;
+                let strs_size = strs_shdr.sh_size as usize;
+                self.reader
+                    .load_bytes_at(strs_start..strs_start + strs_size)?;
+
+                Some((shdr, strs_shdr))
             }
             // It's possible to have symbol versioning with no NEEDs if we're an object that only
             // exports defined symbols.
@@ -443,7 +449,13 @@ impl<R: ReadBytesAt> File<R> {
                 let size = shdr.sh_size as usize;
                 self.reader.load_bytes_at(start..start + size)?;
 
-                Some((shdr, self.section_header_by_index(shdr.sh_link as usize)?))
+                let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
+                let strs_start = strs_shdr.sh_offset as usize;
+                let strs_size = strs_shdr.sh_size as usize;
+                self.reader
+                    .load_bytes_at(strs_start..strs_start + strs_size)?;
+
+                Some((shdr, strs_shdr))
             }
             // It's possible to have symbol versioning with no DEFs if we're an object that doesn't
             // export any symbols but does use dynamic symbols from other objects.
@@ -1487,9 +1499,9 @@ mod interface_tests {
     #[test]
     fn symbol_version_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file =
+            File::open_stream(CachedReadBytes::new(io)).expect("Failed to open ELF stream");
         let vst = file
             .symbol_version_table()
             .expect("Failed to parse GNU symbol versions")
@@ -1502,6 +1514,17 @@ mod interface_tests {
         assert_eq!(req1.file, "libc.so.6");
         assert_eq!(req1.name, "GLIBC_2.2.5");
         assert_eq!(req1.hash, 0x9691A75);
+
+        let req2 = vst
+            .get_requirement(2)
+            .expect("Failed to parse NEED")
+            .expect("Failed to find NEED");
+        assert_eq!(req2.file, "libc.so.6");
+        assert_eq!(req2.name, "GLIBC_2.2.5");
+        assert_eq!(req2.hash, 0x9691A75);
+
+        let req3 = vst.get_requirement(3).expect("Failed to parse NEED");
+        assert!(req3.is_none());
     }
 }
 
