@@ -1,5 +1,6 @@
 use crate::gabi;
 use crate::section::SectionType;
+use crate::segment::{ProgFlag, ProgType};
 use crate::symbol::{SymbolBind, SymbolType, SymbolVis};
 
 pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
@@ -40,6 +41,56 @@ impl core::fmt::Display for SectionType {
             }
             None => {
                 write!(f, "sh_type({})", self.0)
+            }
+        }
+    }
+}
+
+impl core::fmt::Display for ProgFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        if (self.0 & gabi::PF_R) != 0 {
+            write!(f, "R")?;
+        } else {
+            write!(f, " ")?;
+        }
+        if (self.0 & gabi::PF_W) != 0 {
+            write!(f, "W")?;
+        } else {
+            write!(f, " ")?;
+        }
+        if (self.0 & gabi::PF_X) != 0 {
+            write!(f, "E")
+        } else {
+            write!(f, " ")
+        }
+    }
+}
+
+pub fn p_type_to_str(p_type: u32) -> Option<&'static str> {
+    match p_type {
+        gabi::PT_NULL => Some("PT_NULL"),
+        gabi::PT_LOAD => Some("PT_LOAD"),
+        gabi::PT_DYNAMIC => Some("PT_DYNAMIC"),
+        gabi::PT_INTERP => Some("PT_INTERP"),
+        gabi::PT_NOTE => Some("PT_NOTE"),
+        gabi::PT_SHLIB => Some("PT_SHLIB"),
+        gabi::PT_PHDR => Some("PT_PHDR"),
+        gabi::PT_TLS => Some("PT_TLS"),
+        gabi::PT_GNU_EH_FRAME => Some("PT_GNU_EH_FRAME"),
+        gabi::PT_GNU_STACK => Some("PT_GNU_STACK"),
+        gabi::PT_GNU_RELRO => Some("PT_GNU_RELRO"),
+        _ => None,
+    }
+}
+
+impl core::fmt::Display for ProgType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match p_type_to_str(self.0) {
+            Some(s) => {
+                write!(f, "{s}")
+            }
+            None => {
+                write!(f, "p_type({})", self.0)
             }
         }
     }

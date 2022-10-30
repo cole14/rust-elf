@@ -1,4 +1,3 @@
-use crate::gabi;
 use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingTable};
 
 pub type SegmentTable<'data> = ParsingTable<'data, ProgramHeader>;
@@ -79,26 +78,6 @@ impl core::fmt::Debug for ProgFlag {
     }
 }
 
-impl core::fmt::Display for ProgFlag {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        if (self.0 & gabi::PF_R) != 0 {
-            write!(f, "R")?;
-        } else {
-            write!(f, " ")?;
-        }
-        if (self.0 & gabi::PF_W) != 0 {
-            write!(f, "W")?;
-        } else {
-            write!(f, " ")?;
-        }
-        if (self.0 & gabi::PF_X) != 0 {
-            write!(f, "E")
-        } else {
-            write!(f, " ")
-        }
-    }
-}
-
 /// Represents ELF Program Header type
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgType(pub u32);
@@ -112,26 +91,6 @@ impl PartialEq<u32> for ProgType {
 impl core::fmt::Debug for ProgType {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
-    }
-}
-
-impl core::fmt::Display for ProgType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::PT_NULL => "NULL",
-            gabi::PT_LOAD => "LOAD",
-            gabi::PT_DYNAMIC => "DYNAMIC",
-            gabi::PT_INTERP => "INTERP",
-            gabi::PT_NOTE => "NOTE",
-            gabi::PT_SHLIB => "SHLIB",
-            gabi::PT_PHDR => "PHDR",
-            gabi::PT_TLS => "TLS",
-            gabi::PT_GNU_EH_FRAME => "GNU_EH_FRAME",
-            gabi::PT_GNU_STACK => "GNU_STACK",
-            gabi::PT_GNU_RELRO => "GNU_RELRO",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
     }
 }
 
