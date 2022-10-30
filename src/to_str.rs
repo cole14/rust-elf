@@ -1,5 +1,49 @@
 use crate::gabi;
+use crate::section::SectionType;
 use crate::symbol::{SymbolBind, SymbolType, SymbolVis};
+
+pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
+    match sh_type {
+        gabi::SHT_NULL => Some("SHT_NULL"),
+        gabi::SHT_PROGBITS => Some("SHT_PROGBITS"),
+        gabi::SHT_SYMTAB => Some("SHT_SYMTAB"),
+        gabi::SHT_STRTAB => Some("SHT_STRTAB"),
+        gabi::SHT_RELA => Some("SHT_RELA"),
+        gabi::SHT_HASH => Some("SHT_HASH"),
+        gabi::SHT_DYNAMIC => Some("SHT_DYNAMIC"),
+        gabi::SHT_NOTE => Some("SHT_NOTE"),
+        gabi::SHT_NOBITS => Some("SHT_NOBITS"),
+        gabi::SHT_REL => Some("SHT_REL"),
+        gabi::SHT_SHLIB => Some("SHT_SHLIB"),
+        gabi::SHT_DYNSYM => Some("SHT_DYNSYM"),
+        gabi::SHT_INIT_ARRAY => Some("SHT_INIT_ARRAY"),
+        gabi::SHT_FINI_ARRAY => Some("SHT_FINI_ARRAY"),
+        gabi::SHT_PREINIT_ARRAY => Some("SHT_PREINIT_ARRAY"),
+        gabi::SHT_GROUP => Some("SHT_GROUP"),
+        gabi::SHT_SYMTAB_SHNDX => Some("SHT_SYMTAB_SHNDX"),
+        gabi::SHT_NUM => Some("SHT_NUM"),
+        gabi::SHT_GNU_ATTRIBUTES => Some("SHT_GNU_ATTRIBUTES"),
+        gabi::SHT_GNU_HASH => Some("SHT_GNU_HASH"),
+        gabi::SHT_GNU_LIBLIST => Some("SHT_GNU_LIBLIST"),
+        gabi::SHT_GNU_VERDEF => Some("SHT_GNU_VERDEF"),
+        gabi::SHT_GNU_VERNEED => Some("SHT_GNU_VERNEED"),
+        gabi::SHT_GNU_VERSYM => Some("SHT_GNU_VERSYM"),
+        _ => None,
+    }
+}
+
+impl core::fmt::Display for SectionType {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match sh_type_to_str(self.0) {
+            Some(s) => {
+                write!(f, "{s}")
+            }
+            None => {
+                write!(f, "{}", format!("sh_type({})", self.0))
+            }
+        }
+    }
+}
 
 pub fn st_symtype_to_str(st_symtype: u8) -> Option<&'static str> {
     match st_symtype {

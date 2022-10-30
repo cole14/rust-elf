@@ -1,4 +1,3 @@
-use crate::gabi;
 use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingTable};
 
 pub type SectionHeaderTable<'data> = ParsingTable<'data, SectionHeader>;
@@ -77,39 +76,6 @@ impl PartialEq<u32> for SectionType {
 impl core::fmt::Debug for SectionType {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
-    }
-}
-
-impl core::fmt::Display for SectionType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::SHT_NULL => "SHT_NULL",
-            gabi::SHT_PROGBITS => "SHT_PROGBITS",
-            gabi::SHT_SYMTAB => "SHT_SYMTAB",
-            gabi::SHT_STRTAB => "SHT_STRTAB",
-            gabi::SHT_RELA => "SHT_RELA",
-            gabi::SHT_HASH => "SHT_HASH",
-            gabi::SHT_DYNAMIC => "SHT_DYNAMIC",
-            gabi::SHT_NOTE => "SHT_NOTE",
-            gabi::SHT_NOBITS => "SHT_NOBITS",
-            gabi::SHT_REL => "SHT_REL",
-            gabi::SHT_SHLIB => "SHT_SHLIB",
-            gabi::SHT_DYNSYM => "SHT_DYNSYM",
-            gabi::SHT_INIT_ARRAY => "SHT_INIT_ARRAY",
-            gabi::SHT_FINI_ARRAY => "SHT_FINI_ARRAY",
-            gabi::SHT_PREINIT_ARRAY => "SHT_PREINIT_ARRAY",
-            gabi::SHT_GROUP => "SHT_GROUP",
-            gabi::SHT_SYMTAB_SHNDX => "SHT_SYMTAB_SHNDX",
-            gabi::SHT_NUM => "SHT_NUM",
-            gabi::SHT_GNU_ATTRIBUTES => "SHT_GNU_ATTRIBUTES",
-            gabi::SHT_GNU_HASH => "SHT_GNU_HASH",
-            gabi::SHT_GNU_LIBLIST => "SHT_GNU_LIBLIST",
-            gabi::SHT_GNU_VERDEF => "SHT_GNU_VERDEF",
-            gabi::SHT_GNU_VERNEED => "SHT_GNU_VERNEED",
-            gabi::SHT_GNU_VERSYM => "SHT_GNU_VERSYM",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
     }
 }
 
