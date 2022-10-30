@@ -7,7 +7,7 @@ use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ReadBytesAt,
 };
 use crate::relocation::{RelIterator, RelaIterator};
-use crate::section::{SectionHeader, SectionHeaderIterator, SectionType};
+use crate::section::{SectionHeader, SectionHeaderTable, SectionType};
 use crate::segment::ProgramHeader;
 use crate::segment::SegmentTable;
 use crate::string_table::StringTable;
@@ -83,44 +83,9 @@ impl<R: ReadBytesAt> File<R> {
         Ok(shstrndx)
     }
 
-    /// Get an iterator over the Section Headers in the file.
-    ///
-    /// The underlying ELF bytes backing the section headers table are read all at once
-    /// when the iterator is requested, but parsing is deferred to be lazily
-    /// parsed on demand on each Iterator::next() call.
-    ///
-    /// Returns a [ParseError] if the data bytes for the segment table cannot be
-    /// read i.e. if the ELF [FileHeader]'s
-    /// [e_shnum](FileHeader#structfield.e_shnum),
-    /// [e_shoff](FileHeader#structfield.e_shoff),
-    /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
-    /// to a range in the file data that does not actually exist.
-    pub fn section_headers(&mut self) -> Result<SectionHeaderIterator, ParseError> {
-        // It's Ok to have no section headers
-        if self.ehdr.e_shoff == 0 {
-            return Ok(SectionHeaderIterator::new(
-                self.ehdr.endianness,
-                self.ehdr.class,
-                &[],
-            ));
-        }
-
-        // Get the number of section headers (could be in ehdr or shdrs[0])
-        let shnum = self.shnum()?;
-
-        let start = self.ehdr.e_shoff as usize;
-        let size = self.ehdr.e_shentsize as usize * shnum as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(SectionHeaderIterator::new(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            buf,
-        ))
-    }
-
-    /// Read and parse the [SectionHeader](SectionHeader) at the given
-    /// index into the section table.
-    pub fn section_header_by_index(&mut self, index: usize) -> Result<SectionHeader, ParseError> {
+    /// Helper method for reading a particular section header without the need to know the whole
+    /// section table size. Useful for reading header[0] to get shnum or shstrndx.
+    fn section_header_by_index(&mut self, index: usize) -> Result<SectionHeader, ParseError> {
         if self.ehdr.e_shnum > 0 && index >= self.ehdr.e_shnum as usize {
             return Err(ParseError::BadOffset(index as u64));
         }
@@ -132,12 +97,49 @@ impl<R: ReadBytesAt> File<R> {
         SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
     }
 
-    /// Get an iterator over the Section Headers and its associated StringTable.
+    /// Get an lazy-parsing table for the Section Headers in the file.
     ///
-    /// The underlying ELF bytes backing the section headers and string table
-    /// are read all at once as part of this method. Parsing of section headers and
-    /// names from the string table are deferred to be done lazily on demand on
-    /// each Iterator::next() and StringTable.get() call.
+    /// The underlying ELF bytes backing the section headers table are read all at once
+    /// when the table is requested, but parsing is deferred to be lazily
+    /// parsed on demand on each table.get() call or table.iter().next() call.
+    ///
+    /// Returns a [ParseError] if the data bytes for the section table cannot be
+    /// read i.e. if the ELF [FileHeader]'s
+    /// [e_shnum](FileHeader#structfield.e_shnum),
+    /// [e_shoff](FileHeader#structfield.e_shoff),
+    /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
+    /// to a range in the file data that does not actually exist.
+    pub fn section_headers(&mut self) -> Result<SectionHeaderTable, ParseError> {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
+            return Ok(SectionHeaderTable::new(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                self.ehdr.e_shentsize as usize,
+                &[],
+            ));
+        }
+
+        // Get the number of section headers (could be in ehdr or shdrs[0])
+        let shnum = self.shnum()?;
+
+        let start = self.ehdr.e_shoff as usize;
+        let size = self.ehdr.e_shentsize as usize * shnum as usize;
+        let buf = self.reader.read_bytes_at(start..start + size)?;
+        Ok(SectionHeaderTable::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            self.ehdr.e_shentsize as usize,
+            buf,
+        ))
+    }
+
+    /// Get an lazy-parsing table for the Section Headers in the file and its associated StringTable.
+    ///
+    /// The underlying ELF bytes backing the section headers table  and string
+    /// table are read all at once when the table is requested, but parsing is
+    /// deferred to be lazily parsed on demand on each table.get(), strtab.get(), or
+    /// table.iter().next() call.
     ///
     /// Returns a [ParseError] if the data bytes for these tables cannot be
     /// read i.e. if the ELF [FileHeader]'s
@@ -148,11 +150,16 @@ impl<R: ReadBytesAt> File<R> {
     /// to a ranges in the file data that does not actually exist.
     pub fn section_headers_with_strtab(
         &mut self,
-    ) -> Result<(SectionHeaderIterator, StringTable), ParseError> {
+    ) -> Result<(SectionHeaderTable, StringTable), ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
             return Ok((
-                SectionHeaderIterator::new(self.ehdr.endianness, self.ehdr.class, &[]),
+                SectionHeaderTable::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    self.ehdr.e_shentsize as usize,
+                    &[],
+                ),
                 StringTable::default(),
             ));
         }
@@ -176,9 +183,10 @@ impl<R: ReadBytesAt> File<R> {
             .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
 
         // Return the (symtab, strtab)
-        let shdrs = SectionHeaderIterator::new(
+        let shdrs = SectionHeaderTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
+            self.ehdr.e_shentsize as usize,
             self.reader
                 .get_loaded_bytes_at(shdrs_start..shdrs_start + shdrs_size),
         );
@@ -270,27 +278,6 @@ impl<R: ReadBytesAt> File<R> {
         Ok(StringTable::new(buf))
     }
 
-    /// Read and return the string table for the section headers.
-    ///
-    /// If the file has no section header string table, then an empty
-    /// [StringTable](StringTable) is returned.
-    ///
-    /// This is a convenience wrapper for interpreting the section at
-    /// [FileHeader.e_shstrndx](FileHeader#structfield.e_shstrndx) as
-    /// a [StringTable](StringTable) via
-    /// [section_data_as_strtab()](File::section_data_as_strtab).
-    pub fn section_strtab(&mut self) -> Result<StringTable, ParseError> {
-        if self.ehdr.e_shstrndx == gabi::SHN_UNDEF {
-            return Ok(StringTable::default());
-        }
-
-        // Get the index of section headers' strtab (could be in ehdr or shdrs[0])
-        let shstrndx = self.shstrndx()?;
-
-        let strtab_shdr = self.section_header_by_index(shstrndx as usize)?;
-        self.section_data_as_strtab(&strtab_shdr)
-    }
-
     fn get_symbol_table_of_type(
         &mut self,
         symtab_type: SectionType,
@@ -298,6 +285,7 @@ impl<R: ReadBytesAt> File<R> {
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
         let symtab_shdr = match self
             .section_headers()?
+            .iter()
             .find(|shdr| shdr.sh_type == symtab_type)
         {
             Some(shdr) => shdr,
@@ -356,6 +344,7 @@ impl<R: ReadBytesAt> File<R> {
         if self.ehdr.e_shoff > 0 {
             if let Some(shdr) = self
                 .section_headers()?
+                .iter()
                 .find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC)
             {
                 let start = shdr.sh_offset as usize;
@@ -1174,6 +1163,7 @@ mod interface_tests {
             .expect("Failed to get shdrs");
 
         let with_names: Vec<(&str, SectionHeader)> = shdrs
+            .iter()
             .map(|shdr| {
                 (
                     strtab
@@ -1269,19 +1259,6 @@ mod interface_tests {
         let strtab = file
             .section_data_as_strtab(&shdr)
             .expect("Failed to read strtab");
-        assert_eq!(
-            strtab.get(1).expect("Failed to get strtab entry"),
-            ".symtab"
-        );
-    }
-
-    #[test]
-    fn section_strtab() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
-        let strtab = file.section_strtab().expect("Failed to read strtab");
         assert_eq!(
             strtab.get(1).expect("Failed to get strtab entry"),
             ".symtab"
