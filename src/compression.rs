@@ -41,7 +41,7 @@ mod parse_tests {
     const ELF64CHDRSIZE: usize = 24;
 
     #[test]
-    fn parse_dyn32_lsb() {
+    fn parse_chdr32_lsb() {
         let mut data = [0u8; ELF32CHDRSIZE as usize];
         for n in 0..ELF32CHDRSIZE {
             data[n as usize] = n as u8;
@@ -64,7 +64,7 @@ mod parse_tests {
     }
 
     #[test]
-    fn parse_dyn32_fuzz_too_short() {
+    fn parse_chdr32_fuzz_too_short() {
         let data = [0u8; ELF32CHDRSIZE];
         for n in 0..ELF32CHDRSIZE {
             let buf = data.split_at(n).0.as_ref();
@@ -79,7 +79,7 @@ mod parse_tests {
     }
 
     #[test]
-    fn parse_dyn64_msb() {
+    fn parse_chdr64_msb() {
         let mut data = [0u8; ELF64CHDRSIZE as usize];
         for n in 0..ELF64CHDRSIZE {
             data[n as usize] = n as u8;
@@ -102,7 +102,7 @@ mod parse_tests {
     }
 
     #[test]
-    fn parse_dyn64_fuzz_too_short() {
+    fn parse_chdr64_fuzz_too_short() {
         let data = [0u8; ELF64CHDRSIZE];
         for n in 0..ELF64CHDRSIZE {
             let buf = data.split_at(n).0.as_ref();
