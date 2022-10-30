@@ -67,6 +67,9 @@ pub mod segment;
 pub mod string_table;
 pub mod symbol;
 
+#[cfg(feature = "to_str")]
+pub mod to_str;
+
 mod parse;
 
 pub use file::File;

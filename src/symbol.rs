@@ -134,54 +134,11 @@ impl core::fmt::Display for Symbol {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
 
-impl core::fmt::Display for SymbolType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::STT_NOTYPE => "STT_NOTYPE",
-            gabi::STT_OBJECT => "STT_OBJECT",
-            gabi::STT_FUNC => "STT_FUNC",
-            gabi::STT_SECTION => "STT_SECTION",
-            gabi::STT_FILE => "STT_FILE",
-            gabi::STT_COMMON => "STT_COMMON",
-            gabi::STT_TLS => "STT_TLS",
-            gabi::STT_GNU_IFUNC => "STT_GNU_IFUNC",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolBind(pub u8);
 
-impl core::fmt::Display for SymbolBind {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::STB_LOCAL => "STB_LOCAL",
-            gabi::STB_GLOBAL => "STB_GLOBAL",
-            gabi::STB_WEAK => "STB_WEAK",
-            gabi::STB_GNU_UNIQUE => "STB_GNU_UNIQUE",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolVis(pub u8);
-
-impl core::fmt::Display for SymbolVis {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self.0 {
-            gabi::STV_DEFAULT => "STV_DEFAULT",
-            gabi::STV_INTERNAL => "STV_INTERNAL",
-            gabi::STV_HIDDEN => "STV_HIDDEN",
-            gabi::STV_PROTECTED => "STV_PROTECTED",
-            _ => "Unknown",
-        };
-        write!(f, "{}", str)
-    }
-}
 
 #[cfg(test)]
 mod table_tests {

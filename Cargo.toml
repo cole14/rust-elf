@@ -17,5 +17,6 @@ name = "elf"
 [dependencies]
 
 [features]
-default = ["std"]
+default = ["std", "to_str"]
 std = []
+to_str = []
