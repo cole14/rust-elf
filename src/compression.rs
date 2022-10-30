@@ -88,7 +88,7 @@ mod parse_tests {
         let mut offset = 0;
         let entry =
             CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-                .expect("Failed to parse Dyn");
+                .expect("Failed to parse CompressionHeader");
 
         assert_eq!(
             entry,
