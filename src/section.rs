@@ -64,14 +64,6 @@ impl ParseAt for SectionHeader {
     }
 }
 
-impl core::fmt::Display for SectionHeader {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "Section Header: Name: {} Type: {} Flags: {} Addr: {:#010x} Offset: {:#06x} Size: {:#06x} Link: {} Info: {:#x} AddrAlign: {} EntSize: {}",
-            self.sh_name, self.sh_type, self.sh_flags, self.sh_addr, self.sh_offset,
-            self.sh_size, self.sh_link, self.sh_info, self.sh_addralign, self.sh_entsize)
-    }
-}
-
 /// Represens ELF Section type
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SectionType(pub u32);
