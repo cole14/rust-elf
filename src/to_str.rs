@@ -39,7 +39,7 @@ impl core::fmt::Display for SectionType {
                 write!(f, "{s}")
             }
             None => {
-                write!(f, "{}", format!("sh_type({})", self.0))
+                write!(f, "sh_type({})", self.0)
             }
         }
     }
@@ -66,7 +66,7 @@ impl core::fmt::Display for SymbolType {
                 write!(f, "{s}")
             }
             None => {
-                write!(f, "{}", format!("st_symtype({})", self.0))
+                write!(f, "st_symtype({})", self.0)
             }
         }
     }
@@ -89,7 +89,7 @@ impl core::fmt::Display for SymbolBind {
                 write!(f, "{s}")
             }
             None => {
-                write!(f, "{}", format!("st_bind({})", self.0))
+                write!(f, "st_bind({})", self.0)
             }
         }
     }
@@ -112,7 +112,7 @@ impl core::fmt::Display for SymbolVis {
                 write!(f, "{s}")
             }
             None => {
-                write!(f, "{}", format!("st_vis({})", self.0))
+                write!(f, "st_vis({})", self.0)
             }
         }
     }
