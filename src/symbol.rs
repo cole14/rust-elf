@@ -115,22 +115,6 @@ impl ParseAt for Symbol {
     }
 }
 
-impl core::fmt::Display for Symbol {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(
-            f,
-            "Symbol: Value: {:#010x} Size: {:#06x} Type: {} Bind: {} Vis: {} Section: {} Name: {}",
-            self.st_value,
-            self.st_size,
-            self.st_symtype(),
-            self.st_bind(),
-            self.st_vis(),
-            self.st_shndx,
-            self.st_name
-        )
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
 
