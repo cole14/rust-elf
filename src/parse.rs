@@ -19,10 +19,6 @@ pub enum ParseError {
     /// Returned when the ELF File Header's `e_ident[EI_DATA]` wasn't one of the
     /// defined `ELFDATA*` constants
     UnsupportedElfEndianness(u8),
-    /// Returned when the ELF File Header's `e_ident[EI_VERSION]` wasn't
-    /// `EV_CURRENT(1)`
-    #[deprecated(note = "At some point this will go away in favor of UnsupportedVersion")]
-    UnsupportedElfVersion(u8),
     /// Returned when parsing an ELF struct with a version field whose value wasn't
     /// something we support and know how to parse.
     UnsupportedVersion((u64, u64)),
@@ -68,8 +64,6 @@ impl std::error::Error for ParseError {
             ParseError::BadMagic(_) => None,
             ParseError::UnsupportedElfClass(_) => None,
             ParseError::UnsupportedElfEndianness(_) => None,
-            #[allow(deprecated)]
-            ParseError::UnsupportedElfVersion(_) => None,
             ParseError::UnsupportedVersion(_) => None,
             ParseError::BadOffset(_) => None,
             ParseError::StringTableMissingNul(_) => None,
@@ -97,10 +91,6 @@ impl core::fmt::Display for ParseError {
             }
             ParseError::UnsupportedElfEndianness(endianness) => {
                 write!(f, "Unsupported ELF Endianness: {endianness}")
-            }
-            #[allow(deprecated)]
-            ParseError::UnsupportedElfVersion(version) => {
-                write!(f, "Unsupported ELF Version: {version}")
             }
             ParseError::UnsupportedVersion((found, expected)) => {
                 write!(

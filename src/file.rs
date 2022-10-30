@@ -728,8 +728,10 @@ impl FileHeader {
         // Verify ELF Version
         let version = buf[gabi::EI_VERSION];
         if version != gabi::EV_CURRENT {
-            #[allow(deprecated)]
-            return Err(ParseError::UnsupportedElfVersion(version));
+            return Err(ParseError::UnsupportedVersion((
+                version as u64,
+                gabi::EV_CURRENT as u64,
+            )));
         }
 
         // Verify endianness is something we know how to parse
@@ -1686,7 +1688,7 @@ mod parse_tests {
         ];
         let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
-            matches!(result, ParseError::UnsupportedElfVersion(42)),
+            matches!(result, ParseError::UnsupportedVersion((42, 1))),
             "Unexpected Error type found: {result}"
         );
     }
