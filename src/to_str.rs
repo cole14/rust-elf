@@ -22,7 +22,6 @@ pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
         gabi::SHT_PREINIT_ARRAY => Some("SHT_PREINIT_ARRAY"),
         gabi::SHT_GROUP => Some("SHT_GROUP"),
         gabi::SHT_SYMTAB_SHNDX => Some("SHT_SYMTAB_SHNDX"),
-        gabi::SHT_NUM => Some("SHT_NUM"),
         gabi::SHT_GNU_ATTRIBUTES => Some("SHT_GNU_ATTRIBUTES"),
         gabi::SHT_GNU_HASH => Some("SHT_GNU_HASH"),
         gabi::SHT_GNU_LIBLIST => Some("SHT_GNU_LIBLIST"),
