@@ -69,14 +69,6 @@ impl ParseAt for ProgramHeader {
     }
 }
 
-impl core::fmt::Display for ProgramHeader {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "Program Header: Type: {} Offset: {:#010x} VirtAddr: {:#010x} PhysAddr: {:#010x} FileSize: {:#06x} MemSize: {:#06x} Flags: {} Align: {:#x}",
-            self.p_type, self.p_offset, self.p_vaddr, self.p_paddr, self.p_filesz,
-            self.p_memsz, self.p_flags, self.p_align)
-    }
-}
-
 /// Represents ELF Program Header flags
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ProgFlag(pub u32);
