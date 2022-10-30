@@ -57,7 +57,7 @@ impl Symbol {
     ///
     /// When linking and loading, undefined symbols in this object get linked to
     /// a defined symbol in another object.
-    pub fn undefined(&self) -> bool {
+    pub fn is_undefined(&self) -> bool {
         self.st_shndx == gabi::SHN_UNDEF
     }
 
@@ -200,7 +200,7 @@ mod table_tests {
             st_info: 0,
             st_other: 0,
         };
-        assert!(undef_sym.undefined());
+        assert!(undef_sym.is_undefined());
 
         let def_sym = Symbol {
             st_name: 0,
@@ -210,7 +210,7 @@ mod table_tests {
             st_info: 0,
             st_other: 0,
         };
-        assert!(!def_sym.undefined());
+        assert!(!def_sym.is_undefined());
     }
 
     #[test]
