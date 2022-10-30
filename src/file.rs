@@ -802,16 +802,6 @@ impl FileHeader {
     }
 }
 
-impl core::fmt::Display for FileHeader {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(
-            f,
-            "File Header for {} {} Elf {} for {} {}",
-            self.class, self.endianness, self.elftype, self.osabi, self.arch
-        )
-    }
-}
-
 /// Represents the ELF file OS ABI
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct OSABI(pub u8);
