@@ -1,9 +1,7 @@
 use crate::gabi;
-use crate::parse::{
-    parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingIterator,
-};
+use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingTable};
 
-pub type SegmentIterator<'data> = ParsingIterator<'data, ProgramHeader>;
+pub type SegmentTable<'data> = ParsingTable<'data, ProgramHeader>;
 
 /// Encapsulates the contents of an ELF Program Header
 ///

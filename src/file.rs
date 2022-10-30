@@ -9,7 +9,7 @@ use crate::parse::{
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderIterator, SectionType};
 use crate::segment::ProgramHeader;
-use crate::segment::SegmentIterator;
+use crate::segment::SegmentTable;
 use crate::string_table::StringTable;
 use crate::symbol::SymbolTable;
 
@@ -37,11 +37,12 @@ impl<R: ReadBytesAt> File<R> {
     /// [e_phoff](FileHeader#structfield.e_phoff),
     /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
-    pub fn segments(&mut self) -> Result<SegmentIterator, ParseError> {
+    pub fn segments(&mut self) -> Result<SegmentTable, ParseError> {
         if self.ehdr.e_phnum == 0 {
-            return Ok(SegmentIterator::new(
+            return Ok(SegmentTable::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
+                self.ehdr.e_phentsize as usize,
                 &[],
             ));
         }
@@ -49,9 +50,10 @@ impl<R: ReadBytesAt> File<R> {
         let start = self.ehdr.e_phoff as usize;
         let size = self.ehdr.e_phentsize as usize * self.ehdr.e_phnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(SegmentIterator::new(
+        Ok(SegmentTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
+            self.ehdr.e_phentsize as usize,
             buf,
         ))
     }
@@ -368,6 +370,7 @@ impl<R: ReadBytesAt> File<R> {
         } else {
             if let Some(phdr) = self
                 .segments()?
+                .iter()
                 .find(|phdr| phdr.p_type == gabi::PT_DYNAMIC)
             {
                 let start = phdr.p_offset as usize;
@@ -1291,8 +1294,11 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let mut file = File::open_stream(slice).expect("Open test1");
-        let segments: Vec<ProgramHeader> =
-            file.segments().expect("Failed to read segments").collect();
+        let segments: Vec<ProgramHeader> = file
+            .segments()
+            .expect("Failed to read segments")
+            .iter()
+            .collect();
         assert_eq!(
             segments[0],
             ProgramHeader {
@@ -1472,6 +1478,7 @@ mod interface_tests {
         let phdrs: Vec<ProgramHeader> = file
             .segments()
             .expect("Failed to get .note.ABI-tag shdr")
+            .iter()
             .collect();
         let mut notes = file
             .segment_data_as_notes(&phdrs[5])
