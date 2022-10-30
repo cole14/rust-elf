@@ -73,3 +73,11 @@ impl core::fmt::Display for SymbolVis {
         }
     }
 }
+
+pub fn ch_type_to_str(ch_type: u32) -> Option<&'static str> {
+    match ch_type {
+        gabi::ELFCOMPRESS_ZLIB => Some("ELFCOMPRESS_ZLIB"),
+        gabi::ELFCOMPRESS_ZSTD => Some("ELFCOMPRESS_ZSTD "),
+        _ => None,
+    }
+}
