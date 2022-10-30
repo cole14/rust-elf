@@ -25,11 +25,11 @@ impl<R: ReadBytesAt> File<R> {
         Ok(File { reader, ehdr })
     }
 
-    /// Get an iterator over the Segments (ELF Program Headers) in the file
+    /// Get an lazy-parsing table for the Segments (ELF Program Headers) in the file.
     ///
-    /// The underlying ELF bytes backing the segment table is read all at once
-    /// when the iterator is requested, but parsing is deferred to be lazily
-    /// parsed on demand on each Iterator::next() call.
+    /// The underlying ELF bytes backing the program headers table are read all at once
+    /// when the table is requested, but parsing is deferred to be lazily
+    /// parsed on demand on each table.get() call or table.iter().next() call.
     ///
     /// Returns a [ParseError] if the data bytes for the segment table cannot be
     /// read i.e. if the ELF [FileHeader]'s
