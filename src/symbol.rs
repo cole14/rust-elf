@@ -61,16 +61,16 @@ impl Symbol {
         self.st_shndx == gabi::SHN_UNDEF
     }
 
-    pub fn st_symtype(&self) -> SymbolType {
-        SymbolType(self.st_info & 0xf)
+    pub fn st_symtype(&self) -> u8 {
+        self.st_info & 0xf
     }
 
-    pub fn st_bind(&self) -> SymbolBind {
-        SymbolBind(self.st_info >> 4)
+    pub fn st_bind(&self) -> u8 {
+        self.st_info >> 4
     }
 
-    pub fn st_vis(&self) -> SymbolVis {
-        SymbolVis(self.st_other & 0x3)
+    pub fn st_vis(&self) -> u8 {
+        self.st_other & 0x3
     }
 }
 
@@ -125,15 +125,6 @@ impl ParseAt for Symbol {
 
 const ELF32SYMSIZE: usize = 16;
 const ELF64SYMSIZE: usize = 24;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct SymbolType(pub u8);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct SymbolBind(pub u8);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct SymbolVis(pub u8);
 
 #[cfg(test)]
 mod symbol_tests {

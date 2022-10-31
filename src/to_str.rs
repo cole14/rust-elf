@@ -1,7 +1,6 @@
 use crate::file::{Architecture, ObjectFileType, OSABI};
 use crate::gabi;
 use crate::segment::{ProgFlag, ProgType};
-use crate::symbol::{SymbolBind, SymbolType, SymbolVis};
 
 pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
     match e_osabi {
@@ -571,16 +570,10 @@ pub fn st_symtype_to_str(st_symtype: u8) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for SymbolType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match st_symtype_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "st_symtype({})", self.0)
-            }
-        }
+pub fn st_symtype_to_string(st_symtype: u8) -> String {
+    match st_symtype_to_str(st_symtype) {
+        Some(s) => s.to_string(),
+        None => format!("st_symtype({:#x})", st_symtype),
     }
 }
 
@@ -594,16 +587,10 @@ pub fn st_bind_to_str(st_bind: u8) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for SymbolBind {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match st_bind_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "st_bind({})", self.0)
-            }
-        }
+pub fn st_bind_to_string(st_bind: u8) -> String {
+    match st_bind_to_str(st_bind) {
+        Some(s) => s.to_string(),
+        None => format!("st_bind({:#x})", st_bind),
     }
 }
 
@@ -617,16 +604,10 @@ pub fn st_vis_to_str(st_vis: u8) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for SymbolVis {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match st_vis_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "st_vis({})", self.0)
-            }
-        }
+pub fn st_vis_to_string(st_vis: u8) -> String {
+    match st_vis_to_str(st_vis) {
+        Some(s) => s.to_string(),
+        None => format!("st_vis({:#x})", st_vis),
     }
 }
 
