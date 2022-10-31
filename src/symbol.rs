@@ -113,7 +113,17 @@ impl ParseAt for Symbol {
             st_other,
         })
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32SYMSIZE,
+            Class::ELF64 => ELF64SYMSIZE,
+        }
+    }
 }
+
+const ELF32SYMSIZE: usize = 16;
+const ELF64SYMSIZE: usize = 24;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SymbolType(pub u8);
@@ -161,7 +171,7 @@ mod table_tests {
         for n in 0..ELF32SYMSIZE {
             data[n] = n as u8;
         }
-        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data);
+        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data).unwrap();
 
         assert_eq!(
             table.get(0).unwrap(),
@@ -189,7 +199,7 @@ mod table_tests {
             data[n] = n as u8;
         }
 
-        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data);
+        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data).unwrap();
 
         assert_eq!(
             table.get(0).unwrap(),

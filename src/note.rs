@@ -124,7 +124,17 @@ impl ParseAt for NoteHeader {
             }),
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32NOTESIZE,
+            Class::ELF64 => ELF64NOTESIZE,
+        }
+    }
 }
+
+const ELF32NOTESIZE: usize = 12;
+const ELF64NOTESIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {
@@ -284,13 +294,10 @@ mod parse_tests {
         assert_eq!(offset, 16);
     }
 
-    const ELF32NOTESIZE: usize = 12;
-    const ELF64NOTESIZE: usize = 24;
-
     #[test]
     fn parse_nhdr32_lsb() {
         // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF32NOTESIZE as usize];
+        let mut data = [0u8; ELF32NOTESIZE];
         for n in 0..ELF32NOTESIZE {
             data[n as usize] = n as u8;
         }
@@ -328,7 +335,7 @@ mod parse_tests {
     #[test]
     fn parse_nhdr64_msb() {
         // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF64NOTESIZE as usize];
+        let mut data = [0u8; ELF64NOTESIZE];
         for n in 0..ELF64NOTESIZE {
             data[n as usize] = n as u8;
         }

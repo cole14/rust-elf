@@ -302,6 +302,9 @@ pub trait ParseAt: Sized {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError>;
+
+    /// Returns the expected size of the type being parsed for the given ELF class
+    fn size_for(class: Class) -> usize;
 }
 
 #[derive(Debug)]
@@ -349,13 +352,28 @@ pub struct ParsingTable<'data, P: ParseAt> {
 }
 
 impl<'data, P: ParseAt> ParsingTable<'data, P> {
-    pub fn new(endianness: Endian, class: Class, entsize: usize, data: &'data [u8]) -> Self {
-        ParsingTable {
+    pub fn new(
+        endianness: Endian,
+        class: Class,
+        entsize: usize,
+        data: &'data [u8],
+    ) -> Result<Self, ParseError> {
+        Self::validate_entsize(class, entsize)?;
+        Ok(ParsingTable {
             endianness,
             class,
             entsize,
             data,
             pd: PhantomData,
+        })
+    }
+
+    /// Checks whether the given entsize matches what we expect
+    pub fn validate_entsize(class: Class, entsize: usize) -> Result<usize, ParseError> {
+        let expected = P::size_for(class);
+        match entsize == expected {
+            true => Ok(entsize),
+            false => Err(ParseError::BadEntsize((entsize as u64, expected as u64))),
         }
     }
 

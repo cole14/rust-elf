@@ -8,8 +8,7 @@ use crate::parse::{
 };
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable, SectionType};
-use crate::segment::ProgramHeader;
-use crate::segment::SegmentTable;
+use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
 use crate::symbol::SymbolTable;
 
@@ -39,23 +38,22 @@ impl<R: ReadBytesAt> File<R> {
     /// to a range in the file data that does not actually exist.
     pub fn segments(&mut self) -> Result<SegmentTable, ParseError> {
         if self.ehdr.e_phnum == 0 {
-            return Ok(SegmentTable::new(
+            return SegmentTable::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
-                self.ehdr.e_phentsize as usize,
+                ProgramHeader::size_for(self.ehdr.class),
                 &[],
-            ));
+            );
         }
 
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SegmentTable::validate_entsize(self.ehdr.class, self.ehdr.e_phentsize as usize)?;
+
         let start = self.ehdr.e_phoff as usize;
-        let size = self.ehdr.e_phentsize as usize * self.ehdr.e_phnum as usize;
+        let size = entsize * self.ehdr.e_phnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(SegmentTable::new(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            self.ehdr.e_phentsize as usize,
-            buf,
-        ))
+        SegmentTable::new(self.ehdr.endianness, self.ehdr.class, entsize, buf)
     }
 
     fn shnum(&mut self) -> Result<u64, ParseError> {
@@ -90,9 +88,12 @@ impl<R: ReadBytesAt> File<R> {
             return Err(ParseError::BadOffset(index as u64));
         }
 
-        let start = self.ehdr.e_shoff as usize + (index * self.ehdr.e_shentsize as usize);
-        let size = self.ehdr.e_shentsize as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+        // Validate shentsize before trying to read so that we can error early for corrupted files
+        let entsize =
+            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+
+        let start = self.ehdr.e_shoff as usize + (index * entsize);
+        let buf = self.reader.read_bytes_at(start..start + entsize)?;
         let mut offset = 0;
         SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
     }
@@ -112,26 +113,25 @@ impl<R: ReadBytesAt> File<R> {
     pub fn section_headers(&mut self) -> Result<SectionHeaderTable, ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
-            return Ok(SectionHeaderTable::new(
+            return SectionHeaderTable::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
-                self.ehdr.e_shentsize as usize,
+                SectionHeader::size_for(self.ehdr.class),
                 &[],
-            ));
+            );
         }
 
         // Get the number of section headers (could be in ehdr or shdrs[0])
         let shnum = self.shnum()?;
 
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+
         let start = self.ehdr.e_shoff as usize;
-        let size = self.ehdr.e_shentsize as usize * shnum as usize;
+        let size = entsize * shnum as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
-        Ok(SectionHeaderTable::new(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            self.ehdr.e_shentsize as usize,
-            buf,
-        ))
+        SectionHeaderTable::new(self.ehdr.endianness, self.ehdr.class, entsize, buf)
     }
 
     /// Get an lazy-parsing table for the Section Headers in the file and its associated StringTable.
@@ -157,17 +157,21 @@ impl<R: ReadBytesAt> File<R> {
                 SectionHeaderTable::new(
                     self.ehdr.endianness,
                     self.ehdr.class,
-                    self.ehdr.e_shentsize as usize,
+                    SectionHeader::size_for(self.ehdr.class),
                     &[],
-                ),
+                )?,
                 StringTable::default(),
             ));
         }
 
         // Load the section header table bytes (we want concurrent referneces to strtab too)
         let shnum = self.shnum()?;
+
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
         let shdrs_start = self.ehdr.e_shoff as usize;
-        let shdrs_size = self.ehdr.e_shentsize as usize * shnum as usize;
+        let shdrs_size = entsize * shnum as usize;
         self.reader
             .load_bytes_at(shdrs_start..shdrs_start + shdrs_size)?;
 
@@ -186,10 +190,10 @@ impl<R: ReadBytesAt> File<R> {
         let shdrs = SectionHeaderTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            self.ehdr.e_shentsize as usize,
+            entsize,
             self.reader
                 .get_loaded_bytes_at(shdrs_start..shdrs_start + shdrs_size),
-        );
+        )?;
         let strtab = StringTable::new(
             self.reader
                 .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
@@ -292,14 +296,16 @@ impl<R: ReadBytesAt> File<R> {
         self.reader
             .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
 
-        // Return the (symtab, strtab)
+        // Validate entsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SymbolTable::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize as usize)?;
         let symtab = SymbolTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            symtab_shdr.sh_entsize as usize,
+            entsize,
             self.reader
                 .get_loaded_bytes_at(symtab_start..symtab_start + symtab_size),
-        );
+        )?;
         let strtab = StringTable::new(
             self.reader
                 .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
@@ -394,6 +400,9 @@ impl<R: ReadBytesAt> File<R> {
 
         // Load the versym table
         let versym_shdr = versym_opt.unwrap();
+        // Validate VERSYM entsize before trying to read the table so that we can error early for corrupted files
+        let versym_entsize =
+            VersionIndexTable::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize as usize)?;
         let versym_start = versym_shdr.sh_offset as usize;
         let versym_size = versym_shdr.sh_size as usize;
         self.reader
@@ -497,10 +506,10 @@ impl<R: ReadBytesAt> File<R> {
         let version_ids = VersionIndexTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            versym_shdr.sh_entsize as usize,
+            versym_entsize,
             self.reader
                 .get_loaded_bytes_at(versym_start..versym_start + versym_size),
-        );
+        )?;
 
         // whew, we're done here!
         Ok(Some(SymbolVersionTable::new(

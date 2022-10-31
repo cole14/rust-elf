@@ -31,20 +31,27 @@ impl ParseAt for CompressionHeader {
             }
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32CHDRSIZE,
+            Class::ELF64 => ELF64CHDRSIZE,
+        }
+    }
 }
+
+const ELF32CHDRSIZE: usize = 12;
+const ELF64CHDRSIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {
     use super::*;
 
-    const ELF32CHDRSIZE: usize = 12;
-    const ELF64CHDRSIZE: usize = 24;
-
     #[test]
     fn parse_chdr32_lsb() {
-        let mut data = [0u8; ELF32CHDRSIZE as usize];
+        let mut data = [0u8; ELF32CHDRSIZE];
         for n in 0..ELF32CHDRSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -80,9 +87,9 @@ mod parse_tests {
 
     #[test]
     fn parse_chdr64_msb() {
-        let mut data = [0u8; ELF64CHDRSIZE as usize];
+        let mut data = [0u8; ELF64CHDRSIZE];
         for n in 0..ELF64CHDRSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;

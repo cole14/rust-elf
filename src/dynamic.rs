@@ -39,21 +39,28 @@ impl ParseAt for Dyn {
             }),
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32DYNSIZE,
+            Class::ELF64 => ELF64DYNSIZE,
+        }
+    }
 }
+
+const ELF32DYNSIZE: usize = 8;
+const ELF64DYNSIZE: usize = 16;
 
 #[cfg(test)]
 mod iter_tests {
     use super::*;
 
-    const ELF32DYNSIZE: usize = 8;
-    const ELF64DYNSIZE: usize = 16;
-
     #[test]
     fn get_32_lsb() {
         // init data buf with two header's worth of increasing byte values
-        let mut data = [0u8; 2 * ELF32DYNSIZE as usize];
+        let mut data = [0u8; 2 * ELF32DYNSIZE];
         for n in 0..(2 * ELF32DYNSIZE) {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         let mut iter = DynIterator::new(Endian::Little, Class::ELF32, &data);
 
@@ -78,9 +85,9 @@ mod iter_tests {
     #[test]
     fn get_64_msb() {
         // init data buf with two header's worth of increasing byte values
-        let mut data = [0u8; 2 * ELF64DYNSIZE as usize];
+        let mut data = [0u8; 2 * ELF64DYNSIZE];
         for n in 0..(2 * ELF64DYNSIZE) {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         let mut iter = DynIterator::new(Endian::Big, Class::ELF64, &data);
 
@@ -107,14 +114,11 @@ mod iter_tests {
 mod parse_tests {
     use super::*;
 
-    const ELF32DYNSIZE: usize = 8;
-    const ELF64DYNSIZE: usize = 16;
-
     #[test]
     fn parse_dyn32_lsb() {
-        let mut data = [0u8; ELF32DYNSIZE as usize];
+        let mut data = [0u8; ELF32DYNSIZE];
         for n in 0..ELF32DYNSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -148,9 +152,9 @@ mod parse_tests {
 
     #[test]
     fn parse_dyn64_msb() {
-        let mut data = [0u8; ELF64DYNSIZE as usize];
+        let mut data = [0u8; ELF64DYNSIZE];
         for n in 0..ELF64DYNSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;

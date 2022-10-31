@@ -41,7 +41,17 @@ impl ParseAt for Rel {
             }
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32RELSIZE,
+            Class::ELF64 => ELF64RELSIZE,
+        }
+    }
 }
+
+const ELF32RELSIZE: usize = 8;
+const ELF64RELSIZE: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rela {
@@ -83,20 +93,27 @@ impl ParseAt for Rela {
             }
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32RELASIZE,
+            Class::ELF64 => ELF64RELASIZE,
+        }
+    }
 }
+
+const ELF32RELASIZE: usize = 12;
+const ELF64RELASIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {
     use super::*;
 
-    const ELF32RELSIZE: usize = 8;
-    const ELF64RELSIZE: usize = 16;
-
     #[test]
     fn parse_rel32_lsb() {
-        let mut data = [0u8; ELF32RELSIZE as usize];
+        let mut data = [0u8; ELF32RELSIZE];
         for n in 0..ELF32RELSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -131,9 +148,9 @@ mod parse_tests {
 
     #[test]
     fn parse_rel64_msb() {
-        let mut data = [0u8; ELF64RELSIZE as usize];
+        let mut data = [0u8; ELF64RELSIZE];
         for n in 0..ELF64RELSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -166,14 +183,11 @@ mod parse_tests {
         }
     }
 
-    const ELF32RELASIZE: usize = 12;
-    const ELF64RELASIZE: usize = 24;
-
     #[test]
     fn parse_rela32_lsb() {
-        let mut data = [0u8; ELF32RELASIZE as usize];
+        let mut data = [0u8; ELF32RELASIZE];
         for n in 0..ELF32RELASIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -209,9 +223,9 @@ mod parse_tests {
 
     #[test]
     fn parse_rela64_msb() {
-        let mut data = [0u8; ELF64RELASIZE as usize];
+        let mut data = [0u8; ELF64RELASIZE];
         for n in 0..ELF64RELASIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;

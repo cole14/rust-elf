@@ -184,7 +184,13 @@ impl ParseAt for VersionIndex {
             0: parse_u16_at(endian, offset, data)?,
         })
     }
+
+    fn size_for(_class: Class) -> usize {
+        ELFVERNDXSIZE
+    }
 }
+
+const ELFVERNDXSIZE: usize = 2;
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                                 _                      _  //
@@ -244,7 +250,13 @@ impl ParseAt for VerDef {
             vd_next: parse_u32_at(endian, offset, data)?,
         })
     }
+
+    fn size_for(_class: Class) -> usize {
+        ELFVERDEFSIZE
+    }
 }
+
+const ELFVERDEFSIZE: usize = 20;
 
 #[derive(Debug, Clone, Copy)]
 pub struct VerDefIterator<'data> {
@@ -338,7 +350,12 @@ impl ParseAt for VerDefAux {
             vda_next: parse_u32_at(endian, offset, data)?,
         })
     }
+
+    fn size_for(_class: Class) -> usize {
+        ELFVERDEFAUXSIZE
+    }
 }
+const ELFVERDEFAUXSIZE: usize = 8;
 
 #[derive(Debug)]
 pub struct VerDefAuxIterator<'data> {
@@ -465,7 +482,13 @@ impl ParseAt for VerNeed {
             vn_next: parse_u32_at(endian, offset, data)?,
         })
     }
+
+    fn size_for(_class: Class) -> usize {
+        ELFVERNEEDSIZE
+    }
 }
+
+const ELFVERNEEDSIZE: usize = 16;
 
 #[derive(Debug, Copy, Clone)]
 pub struct VerNeedIterator<'data> {
@@ -568,7 +591,13 @@ impl ParseAt for VerNeedAux {
             vna_next: parse_u32_at(endian, offset, &data)?,
         })
     }
+
+    fn size_for(_class: Class) -> usize {
+        VERNEEDAUXSIZE
+    }
 }
+
+const VERNEEDAUXSIZE: usize = 16;
 
 #[derive(Debug)]
 pub struct VerNeedAuxIterator<'data> {
@@ -1060,7 +1089,8 @@ mod iter_tests {
     #[test]
     fn version_table() {
         let ver_idx_buf: [u8; 10] = [0x02, 0x00, 0x03, 0x00, 0x09, 0x00, 0x0A, 0x00, 0xff, 0xff];
-        let version_ids = VersionIndexTable::new(Endian::Little, Class::ELF64, 2, &ver_idx_buf);
+        let version_ids =
+            VersionIndexTable::new(Endian::Little, Class::ELF64, 2, &ver_idx_buf).unwrap();
         let verdefs = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
         let verneed_strs = StringTable::new(&GNU_VERNEED_STRINGS);
         let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
@@ -1138,13 +1168,11 @@ mod iter_tests {
 mod parse_tests {
     use super::*;
 
-    const ELFVERNDXSIZE: usize = 2;
-
     #[test]
     fn parse_verndx32_lsb() {
-        let mut data = [0u8; ELFVERNDXSIZE as usize];
+        let mut data = [0u8; ELFVERNDXSIZE];
         for n in 0..ELFVERNDXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -1173,9 +1201,9 @@ mod parse_tests {
 
     #[test]
     fn parse_verndx64_msb() {
-        let mut data = [0u8; ELFVERNDXSIZE as usize];
+        let mut data = [0u8; ELFVERNDXSIZE];
         for n in 0..ELFVERNDXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -1204,13 +1232,11 @@ mod parse_tests {
     //
     // VerDef
     //
-    const ELFVERDEFSIZE: usize = 20;
-
     #[test]
     fn parse_verdef32_lsb() {
-        let mut data = [0u8; ELFVERDEFSIZE as usize];
+        let mut data = [0u8; ELFVERDEFSIZE];
         for n in 0..ELFVERDEFSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         data[0] = 1;
         data[1] = 0;
@@ -1251,9 +1277,9 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef64_msb() {
-        let mut data = [0u8; ELFVERDEFSIZE as usize];
+        let mut data = [0u8; ELFVERDEFSIZE];
         for n in 2..ELFVERDEFSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         data[1] = 1;
 
@@ -1293,7 +1319,7 @@ mod parse_tests {
 
     #[test]
     fn parse_verdef_bad_version_errors() {
-        let data = [0u8; ELFVERDEFSIZE as usize];
+        let data = [0u8; ELFVERDEFSIZE];
         // version is 0, which is not 1, which is bad :)
 
         let mut offset = 0;
@@ -1308,13 +1334,11 @@ mod parse_tests {
     //
     // VerDefAux
     //
-    const ELFVERDEFAUXSIZE: usize = 8;
-
     #[test]
     fn parse_verdefaux32_lsb() {
-        let mut data = [0u8; ELFVERDEFAUXSIZE as usize];
+        let mut data = [0u8; ELFVERDEFAUXSIZE];
         for n in 0..ELFVERDEFAUXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -1348,9 +1372,9 @@ mod parse_tests {
 
     #[test]
     fn parse_verdefaux64_msb() {
-        let mut data = [0u8; ELFVERDEFAUXSIZE as usize];
+        let mut data = [0u8; ELFVERDEFAUXSIZE];
         for n in 0..ELFVERDEFAUXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -1385,13 +1409,11 @@ mod parse_tests {
     //
     // VerNeed
     //
-    const ELFVERNEEDSIZE: usize = 16;
-
     #[test]
     fn parse_verneed32_lsb() {
-        let mut data = [0u8; ELFVERNEEDSIZE as usize];
+        let mut data = [0u8; ELFVERNEEDSIZE];
         for n in 0..ELFVERNEEDSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         data[0] = 1;
         data[1] = 0;
@@ -1430,9 +1452,9 @@ mod parse_tests {
 
     #[test]
     fn parse_verneed64_msb() {
-        let mut data = [0u8; ELFVERNEEDSIZE as usize];
+        let mut data = [0u8; ELFVERNEEDSIZE];
         for n in 0..ELFVERNEEDSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
         data[1] = 1;
 
@@ -1471,13 +1493,11 @@ mod parse_tests {
     //
     // VerNeedAux
     //
-    const VERNEEDAUXSIZE: usize = 16;
-
     #[test]
     fn parse_verneedaux32_lsb() {
-        let mut data = [0u8; VERNEEDAUXSIZE as usize];
+        let mut data = [0u8; VERNEEDAUXSIZE];
         for n in 0..VERNEEDAUXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;
@@ -1514,9 +1534,9 @@ mod parse_tests {
 
     #[test]
     fn parse_verneedaux64_msb() {
-        let mut data = [0u8; VERNEEDAUXSIZE as usize];
+        let mut data = [0u8; VERNEEDAUXSIZE];
         for n in 0..VERNEEDAUXSIZE {
-            data[n as usize] = n as u8;
+            data[n] = n as u8;
         }
 
         let mut offset = 0;

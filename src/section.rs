@@ -61,7 +61,17 @@ impl ParseAt for SectionHeader {
             }),
         }
     }
+
+    fn size_for(class: Class) -> usize {
+        match class {
+            Class::ELF32 => ELF32SHDRSIZE,
+            Class::ELF64 => ELF64SHDRSIZE,
+        }
+    }
 }
+
+const ELF32SHDRSIZE: usize = 40;
+const ELF64SHDRSIZE: usize = 64;
 
 /// Represens ELF Section type
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -83,13 +93,10 @@ impl core::fmt::Debug for SectionType {
 mod shdr_tests {
     use super::*;
 
-    const ELF32SHDRSIZE: u16 = 40;
-    const ELF64SHDRSIZE: u16 = 64;
-
     #[test]
     fn parse_shdr32_fuzz_too_short() {
-        let data = [0u8; ELF32SHDRSIZE as usize];
-        for n in 0..ELF32SHDRSIZE as usize {
+        let data = [0u8; ELF32SHDRSIZE];
+        for n in 0..ELF32SHDRSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset = 0;
             let result = SectionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf);
@@ -102,7 +109,7 @@ mod shdr_tests {
 
     #[test]
     fn parse_shdr32_works() {
-        let mut data = [0u8; ELF32SHDRSIZE as usize];
+        let mut data = [0u8; ELF32SHDRSIZE];
         for n in 0..ELF32SHDRSIZE as u8 {
             data[n as usize] = n;
         }
