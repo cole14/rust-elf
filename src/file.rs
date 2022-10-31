@@ -639,13 +639,13 @@ pub struct FileHeader {
     /// elf version
     pub version: u32,
     /// OS ABI
-    pub osabi: OSABI,
+    pub osabi: u8,
     /// Version of the OS ABI
     pub abiversion: u8,
     /// ELF file type
-    pub elftype: ObjectFileType,
+    pub e_type: u16,
     /// Target machine architecture
-    pub arch: Architecture,
+    pub e_machine: u16,
     /// Virtual address of program entry point
     /// This member gives the virtual address to which the system first transfers control,
     /// thus starting the process. If the file has no associated entry point, this member holds zero.
@@ -728,7 +728,7 @@ impl FileHeader {
     pub fn parse<R: ReadBytesAt>(reader: &mut R) -> Result<Self, ParseError> {
         let class: Class;
         let endian: Endian;
-        let osabi: OSABI;
+        let osabi: u8;
         let abiversion: u8;
 
         {
@@ -747,7 +747,7 @@ impl FileHeader {
                 Endian::Big
             };
 
-            osabi = OSABI(ident[gabi::EI_OSABI]);
+            osabi = ident[gabi::EI_OSABI];
             abiversion = ident[gabi::EI_ABIVERSION];
         }
 
@@ -759,8 +759,8 @@ impl FileHeader {
         let data = reader.read_bytes_at(start..start + size)?;
 
         let mut offset = 0;
-        let elftype = ObjectFileType(parse_u16_at(endian, &mut offset, data)?);
-        let arch = Architecture(parse_u16_at(endian, &mut offset, data)?);
+        let e_type = parse_u16_at(endian, &mut offset, data)?;
+        let e_machine = parse_u16_at(endian, &mut offset, data)?;
         let version = parse_u32_at(endian, &mut offset, data)?;
 
         let e_entry: u64;
@@ -789,8 +789,8 @@ impl FileHeader {
             class,
             endianness: endian,
             version,
-            elftype,
-            arch,
+            e_type,
+            e_machine,
             osabi,
             abiversion,
             e_entry,
@@ -804,36 +804,6 @@ impl FileHeader {
             e_shnum,
             e_shstrndx,
         });
-    }
-}
-
-/// Represents the ELF file OS ABI
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct OSABI(pub u8);
-
-impl core::fmt::Debug for OSABI {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-/// Represents the ELF file type (object, executable, shared lib, core)
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct ObjectFileType(pub u16);
-
-impl core::fmt::Debug for ObjectFileType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-/// Represents the ELF file machine architecture
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Architecture(pub u16);
-
-impl core::fmt::Debug for Architecture {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
     }
 }
 
@@ -852,7 +822,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let c_io = CachedReadBytes::new(io);
         let file = File::open_stream(c_io).expect("Open test1");
-        assert_eq!(file.ehdr.elftype, ObjectFileType(gabi::ET_EXEC));
+        assert_eq!(file.ehdr.e_type, gabi::ET_EXEC);
     }
 
     #[test]
@@ -861,7 +831,7 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = File::open_stream(slice).expect("Open test1");
-        assert_eq!(file.ehdr.elftype, ObjectFileType(gabi::ET_EXEC));
+        assert_eq!(file.ehdr.e_type, gabi::ET_EXEC);
     }
 
     #[test]
@@ -1403,10 +1373,10 @@ mod parse_tests {
                 class: Class::ELF32,
                 endianness: Endian::Little,
                 version: 0x7060504,
-                osabi: OSABI(gabi::ELFOSABI_LINUX),
+                osabi: gabi::ELFOSABI_LINUX,
                 abiversion: 7,
-                elftype: ObjectFileType(0x100),
-                arch: Architecture(0x302),
+                e_type: 0x100,
+                e_machine: 0x302,
                 e_entry: 0x0B0A0908,
                 e_phoff: 0x0F0E0D0C,
                 e_shoff: 0x13121110,
@@ -1485,10 +1455,10 @@ mod parse_tests {
                 class: Class::ELF64,
                 endianness: Endian::Big,
                 version: 0x04050607,
-                osabi: OSABI(gabi::ELFOSABI_LINUX),
+                osabi: gabi::ELFOSABI_LINUX,
                 abiversion: 7,
-                elftype: ObjectFileType(0x0001),
-                arch: Architecture(0x0203),
+                e_type: 0x0001,
+                e_machine: 0x0203,
                 e_entry: 0x08090A0B0C0D0E0F,
                 e_phoff: 0x1011121314151617,
                 e_shoff: 0x18191A1B1C1D1E1F,

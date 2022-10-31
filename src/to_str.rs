@@ -1,4 +1,3 @@
-use crate::file::{Architecture, ObjectFileType, OSABI};
 use crate::gabi;
 
 pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
@@ -24,16 +23,10 @@ pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for OSABI {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match e_osabi_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "e_osabi({})", self.0)
-            }
-        }
+pub fn e_osabi_to_string(e_osabi: u8) -> String {
+    match e_osabi_to_str(e_osabi) {
+        Some(s) => s.to_string(),
+        None => format!("e_osabi({:#x})", e_osabi),
     }
 }
 
@@ -59,16 +52,10 @@ pub fn e_type_to_str(e_type: u16) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for ObjectFileType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match e_type_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "e_type({})", self.0)
-            }
-        }
+pub fn e_type_to_string(e_type: u16) -> String {
+    match e_type_to_str(e_type) {
+        Some(s) => s.to_string(),
+        None => format!("e_type({:#x})", e_type),
     }
 }
 
@@ -456,16 +443,10 @@ pub fn e_machine_to_str(e_machine: u16) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for Architecture {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match e_machine_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "e_machine({})", self.0)
-            }
-        }
+pub fn e_machine_to_string(e_machine: u16) -> String {
+    match e_machine_to_str(e_machine) {
+        Some(s) => s.to_string(),
+        None => format!("e_machine({:#x})", e_machine),
     }
 }
 
