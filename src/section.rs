@@ -8,7 +8,7 @@ pub struct SectionHeader {
     /// Section Name
     pub sh_name: u32,
     /// Section Type
-    pub sh_type: SectionType,
+    pub sh_type: u32,
     /// Section Flags
     pub sh_flags: u64,
     /// in-memory address where this section is loaded
@@ -37,7 +37,7 @@ impl ParseAt for SectionHeader {
         match class {
             Class::ELF32 => Ok(SectionHeader {
                 sh_name: parse_u32_at(endian, offset, data)?,
-                sh_type: SectionType(parse_u32_at(endian, offset, data)?),
+                sh_type: parse_u32_at(endian, offset, data)?,
                 sh_flags: parse_u32_at(endian, offset, data)? as u64,
                 sh_addr: parse_u32_at(endian, offset, data)? as u64,
                 sh_offset: parse_u32_at(endian, offset, data)? as u64,
@@ -49,7 +49,7 @@ impl ParseAt for SectionHeader {
             }),
             Class::ELF64 => Ok(SectionHeader {
                 sh_name: parse_u32_at(endian, offset, data)?,
-                sh_type: SectionType(parse_u32_at(endian, offset, data)?),
+                sh_type: parse_u32_at(endian, offset, data)?,
                 sh_flags: parse_u64_at(endian, offset, data)?,
                 sh_addr: parse_u64_at(endian, offset, data)?,
                 sh_offset: parse_u64_at(endian, offset, data)?,
@@ -74,22 +74,6 @@ impl ParseAt for SectionHeader {
 const ELF32SHDRSIZE: usize = 40;
 const ELF64SHDRSIZE: usize = 64;
 
-/// Represens ELF Section type
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct SectionType(pub u32);
-
-impl PartialEq<u32> for SectionType {
-    fn eq(&self, other: &u32) -> bool {
-        self.0 == *other
-    }
-}
-
-impl core::fmt::Debug for SectionType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -102,7 +86,7 @@ mod parse_tests {
             Class::ELF32,
             SectionHeader {
                 sh_name: 0x03020100,
-                sh_type: SectionType(0x07060504),
+                sh_type: 0x07060504,
                 sh_flags: 0xB0A0908,
                 sh_addr: 0x0F0E0D0C,
                 sh_offset: 0x13121110,
@@ -122,7 +106,7 @@ mod parse_tests {
             Class::ELF32,
             SectionHeader {
                 sh_name: 0x00010203,
-                sh_type: SectionType(0x04050607),
+                sh_type: 0x04050607,
                 sh_flags: 0x08090A0B,
                 sh_addr: 0x0C0D0E0F,
                 sh_offset: 0x10111213,
@@ -142,7 +126,7 @@ mod parse_tests {
             Class::ELF64,
             SectionHeader {
                 sh_name: 0x03020100,
-                sh_type: SectionType(0x07060504),
+                sh_type: 0x07060504,
                 sh_flags: 0x0F0E0D0C0B0A0908,
                 sh_addr: 0x1716151413121110,
                 sh_offset: 0x1F1E1D1C1B1A1918,
@@ -162,7 +146,7 @@ mod parse_tests {
             Class::ELF64,
             SectionHeader {
                 sh_name: 0x00010203,
-                sh_type: SectionType(0x04050607),
+                sh_type: 0x04050607,
                 sh_flags: 0x08090A0B0C0D0E0F,
                 sh_addr: 0x1011121314151617,
                 sh_offset: 0x18191A1B1C1D1E1F,

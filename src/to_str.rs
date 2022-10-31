@@ -1,6 +1,5 @@
 use crate::file::{Architecture, ObjectFileType, OSABI};
 use crate::gabi;
-use crate::section::SectionType;
 use crate::segment::{ProgFlag, ProgType};
 use crate::symbol::{SymbolBind, SymbolType, SymbolVis};
 
@@ -501,16 +500,10 @@ pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for SectionType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match sh_type_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "sh_type({})", self.0)
-            }
-        }
+pub fn sh_type_to_string(sh_type: u32) -> String {
+    match sh_type_to_str(sh_type) {
+        Some(s) => s.to_string(),
+        None => format!("sh_type({:#x})", sh_type),
     }
 }
 

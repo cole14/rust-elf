@@ -7,7 +7,7 @@ use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ReadBytesAt,
 };
 use crate::relocation::{RelIterator, RelaIterator};
-use crate::section::{SectionHeader, SectionHeaderTable, SectionType};
+use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
 use crate::symbol::SymbolTable;
@@ -257,7 +257,7 @@ impl<R: ReadBytesAt> File<R> {
     ) -> Result<StringTable, ParseError> {
         if shdr.sh_type != gabi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
-                shdr.sh_type.0,
+                shdr.sh_type,
                 gabi::SHT_STRTAB,
             )));
         }
@@ -269,7 +269,7 @@ impl<R: ReadBytesAt> File<R> {
 
     fn get_symbol_table_of_type(
         &mut self,
-        symtab_type: SectionType,
+        symtab_type: u32,
     ) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
         let symtab_shdr = match self
@@ -315,7 +315,7 @@ impl<R: ReadBytesAt> File<R> {
     ///
     /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
     pub fn symbol_table(&mut self) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(SectionType(gabi::SHT_SYMTAB))
+        self.get_symbol_table_of_type(gabi::SHT_SYMTAB)
     }
 
     /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
@@ -324,7 +324,7 @@ impl<R: ReadBytesAt> File<R> {
     pub fn dynamic_symbol_table(
         &mut self,
     ) -> Result<Option<(SymbolTable, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(SectionType(gabi::SHT_DYNSYM))
+        self.get_symbol_table_of_type(gabi::SHT_DYNSYM)
     }
 
     /// Get the .dynamic section/segment contents.
@@ -530,7 +530,7 @@ impl<R: ReadBytesAt> File<R> {
     ) -> Result<RelIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
-                shdr.sh_type.0,
+                shdr.sh_type,
                 gabi::SHT_REL,
             )));
         }
@@ -553,7 +553,7 @@ impl<R: ReadBytesAt> File<R> {
     ) -> Result<RelaIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
-                shdr.sh_type.0,
+                shdr.sh_type,
                 gabi::SHT_RELA,
             )));
         }
@@ -580,7 +580,7 @@ impl<R: ReadBytesAt> File<R> {
     ) -> Result<NoteIterator, ParseError> {
         if shdr.sh_type != gabi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
-                shdr.sh_type.0,
+                shdr.sh_type,
                 gabi::SHT_NOTE,
             )));
         }
@@ -878,7 +878,7 @@ mod interface_tests {
             shdr,
             SectionHeader {
                 sh_name: 17,
-                sh_type: SectionType(3),
+                sh_type: 3,
                 sh_flags: 0,
                 sh_addr: 0,
                 sh_offset: 4532,
