@@ -11,14 +11,15 @@ impl<'data> StringTable<'data> {
         StringTable { data: Some(data) }
     }
 
-    pub fn get(&self, offset: usize) -> Result<&'data str, ParseError> {
-        if self.data.is_none() {
-            return Err(ParseError::BadOffset(offset as u64));
-        }
+    pub fn get_raw(&self, offset: usize) -> Result<&'data [u8], ParseError> {
+        let data = match self.data {
+            Some(data) => data,
+            None => {
+                return Err(ParseError::BadOffset(offset as u64));
+            }
+        };
 
-        let start = self
-            .data
-            .unwrap()
+        let start = data
             .get(offset..)
             .ok_or(ParseError::BadOffset(offset as u64))?;
         let end = start
@@ -26,9 +27,12 @@ impl<'data> StringTable<'data> {
             .position(|&b| b == 0u8)
             .ok_or(ParseError::StringTableMissingNul(offset as u64))?;
 
-        let substr = start.split_at(end).0;
-        let string = from_utf8(substr)?;
-        Ok(string)
+        Ok(start.split_at(end).0)
+    }
+
+    pub fn get(&self, offset: usize) -> Result<&'data str, ParseError> {
+        let raw_data = self.get_raw(offset)?;
+        Ok(from_utf8(raw_data)?)
     }
 }
 
@@ -60,6 +64,13 @@ mod tests {
     }
 
     #[test]
+    fn test_get_raw_works() {
+        let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
+        let st = StringTable::new(&data);
+        assert_eq!(st.get_raw(1).unwrap(), [0x45, 0x4c, 0x46]);
+    }
+
+    #[test]
     fn test_get_string_works() {
         let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
         let st = StringTable::new(&data);
@@ -67,12 +78,34 @@ mod tests {
     }
 
     #[test]
-    fn test_index_out_of_bounds_errors() {
+    fn test_get_raw_index_out_of_bounds_errors() {
+        let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
+        let st = StringTable::new(&data);
+        let result = st.get_raw(7);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(7))),
+            "Unexpected Error type found: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_get_index_out_of_bounds_errors() {
         let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
         let st = StringTable::new(&data);
         let result = st.get(7);
         assert!(
             matches!(result, Err(ParseError::BadOffset(7))),
+            "Unexpected Error type found: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_get_raw_with_malformed_table_no_trailing_nul() {
+        let data = [0u8, 0x45, 0x4C, 0x46];
+        let st = StringTable::new(&data);
+        let result = st.get_raw(1);
+        assert!(
+            matches!(result, Err(ParseError::StringTableMissingNul(1))),
             "Unexpected Error type found: {result:?}"
         );
     }
