@@ -223,7 +223,7 @@ impl<R: ReadBytesAt> File<R> {
         let size = shdr.sh_size as usize;
         let buf = self.reader.read_bytes_at(start..start + size)?;
 
-        if shdr.sh_flags.0 & gabi::SHF_COMPRESSED as u64 == 0 {
+        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
         } else {
             let mut offset = 0;
@@ -839,7 +839,6 @@ mod interface_tests {
     use crate::note::Note;
     use crate::parse::CachedReadBytes;
     use crate::relocation::Rela;
-    use crate::section::SectionFlag;
     use crate::segment::{ProgFlag, ProgType};
     use crate::symbol::Symbol;
 
@@ -875,7 +874,7 @@ mod interface_tests {
             SectionHeader {
                 sh_name: 17,
                 sh_type: SectionType(3),
-                sh_flags: SectionFlag(0),
+                sh_flags: 0,
                 sh_addr: 0,
                 sh_offset: 4532,
                 sh_size: 268,

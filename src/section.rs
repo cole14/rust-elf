@@ -10,7 +10,7 @@ pub struct SectionHeader {
     /// Section Type
     pub sh_type: SectionType,
     /// Section Flags
-    pub sh_flags: SectionFlag,
+    pub sh_flags: u64,
     /// in-memory address where this section is loaded
     pub sh_addr: u64,
     /// Byte-offset into the file where this section starts
@@ -38,7 +38,7 @@ impl ParseAt for SectionHeader {
             Class::ELF32 => Ok(SectionHeader {
                 sh_name: parse_u32_at(endian, offset, data)?,
                 sh_type: SectionType(parse_u32_at(endian, offset, data)?),
-                sh_flags: SectionFlag(parse_u32_at(endian, offset, data)? as u64),
+                sh_flags: parse_u32_at(endian, offset, data)? as u64,
                 sh_addr: parse_u32_at(endian, offset, data)? as u64,
                 sh_offset: parse_u32_at(endian, offset, data)? as u64,
                 sh_size: parse_u32_at(endian, offset, data)? as u64,
@@ -50,7 +50,7 @@ impl ParseAt for SectionHeader {
             Class::ELF64 => Ok(SectionHeader {
                 sh_name: parse_u32_at(endian, offset, data)?,
                 sh_type: SectionType(parse_u32_at(endian, offset, data)?),
-                sh_flags: SectionFlag(parse_u64_at(endian, offset, data)?),
+                sh_flags: parse_u64_at(endian, offset, data)?,
                 sh_addr: parse_u64_at(endian, offset, data)?,
                 sh_offset: parse_u64_at(endian, offset, data)?,
                 sh_size: parse_u64_at(endian, offset, data)?,
@@ -74,24 +74,6 @@ impl PartialEq<u32> for SectionType {
 }
 
 impl core::fmt::Debug for SectionType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-///
-/// Wrapper type for SectionFlag
-///
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct SectionFlag(pub u64);
-
-impl core::fmt::Debug for SectionFlag {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
-impl core::fmt::Display for SectionFlag {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:#x}", self.0)
     }
@@ -132,7 +114,7 @@ mod shdr_tests {
             SectionHeader {
                 sh_name: 0x03020100,
                 sh_type: SectionType(0x07060504),
-                sh_flags: SectionFlag(0xB0A0908),
+                sh_flags: 0xB0A0908,
                 sh_addr: 0x0F0E0D0C,
                 sh_offset: 0x13121110,
                 sh_size: 0x17161514,
@@ -171,7 +153,7 @@ mod shdr_tests {
             SectionHeader {
                 sh_name: 0x00010203,
                 sh_type: SectionType(0x04050607),
-                sh_flags: SectionFlag(0x08090A0B0C0D0E0F),
+                sh_flags: 0x08090A0B0C0D0E0F,
                 sh_addr: 0x1011121314151617,
                 sh_offset: 0x18191A1B1C1D1E1F,
                 sh_size: 0x2021222324252627,
