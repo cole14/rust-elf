@@ -295,7 +295,7 @@ impl<R: Read + Seek> ReadBytesAt for CachedReadBytes<R> {
     }
 }
 
-pub trait ParseAt: Sized {
+pub trait ParseAt: Sized + core::fmt::Debug + PartialEq {
     fn parse_at(
         endian: Endian,
         class: Class,
@@ -734,5 +734,35 @@ mod parse_tests {
             "Unexpected Error type found: {result:?}"
         );
         assert_eq!(offset, 0);
+    }
+}
+
+#[cfg(test)]
+pub fn test_parse_for<P: ParseAt>(endian: Endian, class: Class, expected: P) {
+    let size = P::size_for(class);
+    let mut data = vec![0u8; size];
+    for n in 0..size {
+        data[n] = n as u8;
+    }
+
+    let mut offset = 0;
+    let entry = P::parse_at(endian, class, &mut offset, data.as_ref()).expect("Failed to parse");
+
+    assert_eq!(entry, expected);
+    assert_eq!(offset, size);
+}
+
+#[cfg(test)]
+pub fn test_parse_fuzz_too_short<P: ParseAt>(endian: Endian, class: Class) {
+    let size = P::size_for(class);
+    let data = vec![0u8; size];
+    for n in 0..size {
+        let buf = data.split_at(n).0.as_ref();
+        let mut offset: usize = 0;
+        let error = P::parse_at(endian, class, &mut offset, buf).expect_err("Expected an error");
+        assert!(
+            matches!(error, ParseError::BadOffset(_)),
+            "Unexpected Error type found: {error}"
+        );
     }
 }

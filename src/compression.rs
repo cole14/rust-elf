@@ -47,80 +47,77 @@ const ELF64CHDRSIZE: usize = 24;
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_chdr32_lsb() {
-        let mut data = [0u8; ELF32CHDRSIZE];
-        for n in 0..ELF32CHDRSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry =
-            CompressionHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-                .expect("Failed to parse CompressionHeader");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             CompressionHeader {
                 ch_type: 0x03020100,
                 ch_size: 0x07060504,
                 ch_addralign: 0x0B0A0908,
-            }
+            },
         );
-        assert_eq!(offset, ELF32CHDRSIZE);
     }
 
     #[test]
-    fn parse_chdr32_fuzz_too_short() {
-        let data = [0u8; ELF32CHDRSIZE];
-        for n in 0..ELF32CHDRSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_chdr32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            CompressionHeader {
+                ch_type: 0x00010203,
+                ch_size: 0x04050607,
+                ch_addralign: 0x08090A0B,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_chdr64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            CompressionHeader {
+                ch_type: 0x03020100,
+                ch_size: 0x0F0E0D0C0B0A0908,
+                ch_addralign: 0x1716151413121110,
+            },
+        );
     }
 
     #[test]
     fn parse_chdr64_msb() {
-        let mut data = [0u8; ELF64CHDRSIZE];
-        for n in 0..ELF64CHDRSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry =
-            CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-                .expect("Failed to parse CompressionHeader");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             CompressionHeader {
                 ch_type: 0x00010203,
                 ch_size: 0x08090A0B0C0D0E0F,
                 ch_addralign: 0x1011121314151617,
-            }
+            },
         );
-        assert_eq!(offset, ELF64CHDRSIZE);
     }
 
     #[test]
-    fn parse_chdr64_fuzz_too_short() {
-        let data = [0u8; ELF64CHDRSIZE];
-        for n in 0..ELF64CHDRSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = CompressionHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_chdr32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_chdr32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_chdr64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_chdr64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Big, Class::ELF64);
     }
 }

@@ -295,79 +295,77 @@ mod parse_tests {
         assert_eq!(offset, 16);
     }
 
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
+
     #[test]
     fn parse_nhdr32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF32NOTESIZE];
-        for n in 0..ELF32NOTESIZE {
-            data[n as usize] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = NoteHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-            .expect("Failed to parse NoteHeader");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             NoteHeader {
                 n_namesz: 0x03020100,
                 n_descsz: 0x07060504,
                 n_type: 0x0B0A0908,
-            }
+            },
         );
-        assert_eq!(offset, ELF32NOTESIZE);
     }
 
     #[test]
-    fn parse_nhdr32_fuzz_too_short() {
-        let data = [0u8; ELF32NOTESIZE];
-        for n in 0..ELF32NOTESIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = NoteHeader::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_nhdr32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            NoteHeader {
+                n_namesz: 0x00010203,
+                n_descsz: 0x04050607,
+                n_type: 0x08090A0B,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_nhdr64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            NoteHeader {
+                n_namesz: 0x0706050403020100,
+                n_descsz: 0x0F0E0D0C0B0A0908,
+                n_type: 0x1716151413121110,
+            },
+        );
     }
 
     #[test]
     fn parse_nhdr64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF64NOTESIZE];
-        for n in 0..ELF64NOTESIZE {
-            data[n as usize] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse NoteHeader");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             NoteHeader {
                 n_namesz: 0x0001020304050607,
                 n_descsz: 0x08090A0B0C0D0E0F,
                 n_type: 0x1011121314151617,
-            }
+            },
         );
-        assert_eq!(offset, ELF64NOTESIZE);
     }
 
     #[test]
-    fn parse_nhdr64_fuzz_too_short() {
-        let data = [0u8; ELF64NOTESIZE];
-        for n in 0..ELF64NOTESIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = NoteHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_nhdr32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<NoteHeader>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_nhdr32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<NoteHeader>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_nhdr64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<NoteHeader>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_nhdr64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<NoteHeader>(Endian::Big, Class::ELF64);
     }
 }

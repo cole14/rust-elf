@@ -110,154 +110,153 @@ const ELF64RELASIZE: usize = 24;
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_rel32_lsb() {
-        let mut data = [0u8; ELF32RELSIZE];
-        for n in 0..ELF32RELSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = Rel::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-            .expect("Failed to parse Rel");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             Rel {
                 r_offset: 0x03020100,
                 r_sym: 0x00070605,
                 r_type: 0x00000004,
-            }
+            },
         );
-        assert_eq!(offset, ELF32RELSIZE);
     }
 
     #[test]
-    fn parse_rel32_fuzz_too_short() {
-        let data = [0u8; ELF32RELSIZE];
-        for n in 0..ELF32RELSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = Rel::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_rel32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            Rel {
+                r_offset: 0x00010203,
+                r_sym: 0x00040506,
+                r_type: 0x00000007,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_rel64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            Rel {
+                r_offset: 0x0706050403020100,
+                r_sym: 0x0F0E0D0C,
+                r_type: 0x0B0A0908,
+            },
+        );
     }
 
     #[test]
     fn parse_rel64_msb() {
-        let mut data = [0u8; ELF64RELSIZE];
-        for n in 0..ELF64RELSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse Rel");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             Rel {
                 r_offset: 0x0001020304050607,
                 r_sym: 0x08090A0B,
                 r_type: 0x0C0D0E0F,
-            }
+            },
         );
-        assert_eq!(offset, ELF64RELSIZE);
     }
 
     #[test]
-    fn parse_rel64_fuzz_too_short() {
-        let data = [0u8; ELF64RELSIZE];
-        for n in 0..ELF64RELSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = Rel::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_rel32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rel>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_rel32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rel>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_rel64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rel>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_rel64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rel>(Endian::Big, Class::ELF64);
     }
 
     #[test]
     fn parse_rela32_lsb() {
-        let mut data = [0u8; ELF32RELASIZE];
-        for n in 0..ELF32RELASIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = Rela::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-            .expect("Failed to parse Rela");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             Rela {
                 r_offset: 0x03020100,
                 r_sym: 0x00070605,
                 r_type: 0x00000004,
                 r_addend: 0x0B0A0908,
-            }
+            },
         );
-        assert_eq!(offset, ELF32RELASIZE);
     }
 
     #[test]
-    fn parse_rela32_fuzz_too_short() {
-        let data = [0u8; ELF32RELASIZE];
-        for n in 0..ELF32RELASIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = Rela::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_rela32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            Rela {
+                r_offset: 0x00010203,
+                r_sym: 0x00040506,
+                r_type: 0x00000007,
+                r_addend: 0x08090A0B,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_rela64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            Rela {
+                r_offset: 0x0706050403020100,
+                r_sym: 0x0F0E0D0C,
+                r_type: 0x0B0A0908,
+                r_addend: 0x1716151413121110,
+            },
+        );
     }
 
     #[test]
     fn parse_rela64_msb() {
-        let mut data = [0u8; ELF64RELASIZE];
-        for n in 0..ELF64RELASIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse Rela");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             Rela {
                 r_offset: 0x0001020304050607,
                 r_sym: 0x08090A0B,
                 r_type: 0x0C0D0E0F,
-                r_addend: 0x1011121314151617
-            }
+                r_addend: 0x1011121314151617,
+            },
         );
-        assert_eq!(offset, ELF64RELASIZE);
     }
 
     #[test]
-    fn parse_rela64_fuzz_too_short() {
-        let data = [0u8; ELF64RELASIZE];
-        for n in 0..ELF64RELASIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = Rela::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_rela32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rela>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_rela32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rela>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_rela64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rela>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_rela64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Rela>(Endian::Big, Class::ELF64);
     }
 }

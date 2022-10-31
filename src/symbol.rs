@@ -136,11 +136,8 @@ pub struct SymbolBind(pub u8);
 pub struct SymbolVis(pub u8);
 
 #[cfg(test)]
-mod table_tests {
+mod symbol_tests {
     use super::*;
-
-    const ELF32SYMSIZE: usize = 16;
-    const ELF64SYMSIZE: usize = 24;
 
     #[test]
     fn symbol_undefined() {
@@ -164,18 +161,18 @@ mod table_tests {
         };
         assert!(!def_sym.is_undefined());
     }
+}
+
+#[cfg(test)]
+mod parse_tests {
+    use super::*;
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
-    fn get_32_lsb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF32SYMSIZE];
-        for n in 0..ELF32SYMSIZE {
-            data[n] = n as u8;
-        }
-        let table = SymbolTable::new(Endian::Little, Class::ELF32, &data);
-
-        assert_eq!(
-            table.get(0).unwrap(),
+    fn parse_sym32_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             Symbol {
                 st_name: 0x03020100,
                 st_value: 0x07060504,
@@ -183,27 +180,47 @@ mod table_tests {
                 st_shndx: 0x0F0E,
                 st_info: 0x0C,
                 st_other: 0x0D,
-            }
-        );
-        let result = table.get(42);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(42))),
-            "Unexpected Error type found: {result:?}"
+            },
         );
     }
 
     #[test]
-    fn get_64_msb() {
-        // All symbol tables are defined to have a zeroed out symbol at index 0.
-        let mut data = [0u8; ELF64SYMSIZE];
-        for n in 0..ELF64SYMSIZE {
-            data[n] = n as u8;
-        }
+    fn parse_sym32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            Symbol {
+                st_name: 0x00010203,
+                st_value: 0x04050607,
+                st_size: 0x08090A0B,
+                st_shndx: 0x0E0F,
+                st_info: 0x0C,
+                st_other: 0x0D,
+            },
+        );
+    }
 
-        let table = SymbolTable::new(Endian::Big, Class::ELF64, &data);
+    #[test]
+    fn parse_sym64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            Symbol {
+                st_name: 0x03020100,
+                st_value: 0x0F0E0D0C0B0A0908,
+                st_size: 0x1716151413121110,
+                st_shndx: 0x0706,
+                st_info: 0x04,
+                st_other: 0x05,
+            },
+        );
+    }
 
-        assert_eq!(
-            table.get(0).unwrap(),
+    #[test]
+    fn parse_sym64_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             Symbol {
                 st_name: 0x00010203,
                 st_value: 0x08090A0B0C0D0E0F,
@@ -211,7 +228,27 @@ mod table_tests {
                 st_shndx: 0x0607,
                 st_info: 0x04,
                 st_other: 0x05,
-            }
+            },
         );
+    }
+
+    #[test]
+    fn parse_sym32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Symbol>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_sym32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Symbol>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_sym64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Symbol>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_sym64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<Symbol>(Endian::Big, Class::ELF64);
     }
 }

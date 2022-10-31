@@ -1171,66 +1171,46 @@ mod iter_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_verndx32_lsb() {
-        let mut data = [0u8; ELFVERNDXSIZE];
-        for n in 0..ELFVERNDXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry =
-            VersionIndex::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-                .expect("Failed to parse VersionIndex");
-
-        assert_eq!(entry, VersionIndex { 0: 0x0100 });
-        assert_eq!(offset, ELFVERNDXSIZE);
+        test_parse_for(Endian::Little, Class::ELF32, VersionIndex { 0: 0x0100 });
     }
 
     #[test]
-    fn parse_verndx32_fuzz_too_short() {
-        let data = [0u8; ELFVERNDXSIZE];
-        for n in 0..ELFVERNDXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VersionIndex::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_verndx32_msb() {
+        test_parse_for(Endian::Big, Class::ELF32, VersionIndex { 0: 0x0001 });
+    }
+
+    #[test]
+    fn parse_verndx64_lsb() {
+        test_parse_for(Endian::Little, Class::ELF64, VersionIndex { 0: 0x0100 });
     }
 
     #[test]
     fn parse_verndx64_msb() {
-        let mut data = [0u8; ELFVERNDXSIZE];
-        for n in 0..ELFVERNDXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse VersionIndex");
-
-        assert_eq!(entry, VersionIndex { 0: 0x0001 });
-        assert_eq!(offset, ELFVERNDXSIZE);
+        test_parse_for(Endian::Big, Class::ELF64, VersionIndex { 0: 0x0001 });
     }
 
     #[test]
-    fn parse_verndx64_fuzz_too_short() {
-        let data = [0u8; ELFVERNDXSIZE];
-        for n in 0..ELFVERNDXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VersionIndex::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_verndx32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VersionIndex>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verndx32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VersionIndex>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verndx64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VersionIndex>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_verndx64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VersionIndex>(Endian::Big, Class::ELF64);
     }
 
     //
@@ -1340,74 +1320,70 @@ mod parse_tests {
     //
     #[test]
     fn parse_verdefaux32_lsb() {
-        let mut data = [0u8; ELFVERDEFAUXSIZE];
-        for n in 0..ELFVERDEFAUXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = VerDefAux::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-            .expect("Failed to parse VerDefAux");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             VerDefAux {
                 vda_name: 0x03020100,
                 vda_next: 0x07060504,
-            }
+            },
         );
-        assert_eq!(offset, ELFVERDEFAUXSIZE);
     }
 
     #[test]
-    fn parse_verdefaux32_fuzz_too_short() {
-        let data = [0u8; ELFVERDEFAUXSIZE];
-        for n in 0..ELFVERDEFAUXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VerDefAux::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_verdefaux32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            VerDefAux {
+                vda_name: 0x00010203,
+                vda_next: 0x04050607,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_verdefaux64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            VerDefAux {
+                vda_name: 0x03020100,
+                vda_next: 0x07060504,
+            },
+        );
     }
 
     #[test]
     fn parse_verdefaux64_msb() {
-        let mut data = [0u8; ELFVERDEFAUXSIZE];
-        for n in 0..ELFVERDEFAUXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse VerDefAux");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             VerDefAux {
                 vda_name: 0x00010203,
                 vda_next: 0x04050607,
-            }
+            },
         );
-        assert_eq!(offset, ELFVERDEFAUXSIZE);
     }
 
     #[test]
-    fn parse_verdefaux64_fuzz_too_short() {
-        let data = [0u8; ELFVERDEFAUXSIZE];
-        for n in 0..ELFVERDEFAUXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VerDefAux::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_verdefaux32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerDefAux>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verdefaux32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerDefAux>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verdefaux64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerDefAux>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_verdefaux64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerDefAux>(Endian::Big, Class::ELF64);
     }
 
     //
@@ -1499,80 +1475,82 @@ mod parse_tests {
     //
     #[test]
     fn parse_verneedaux32_lsb() {
-        let mut data = [0u8; VERNEEDAUXSIZE];
-        for n in 0..VERNEEDAUXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = VerNeedAux::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
-            .expect("Failed to parse VerNeedAux");
-
-        assert_eq!(
-            entry,
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             VerNeedAux {
                 vna_hash: 0x03020100,
                 vna_flags: 0x0504,
                 vna_other: 0x0706,
                 vna_name: 0x0B0A0908,
                 vna_next: 0x0F0E0D0C,
-            }
+            },
         );
-        assert_eq!(offset, VERNEEDAUXSIZE);
     }
 
     #[test]
-    fn parse_verneedaux32_fuzz_too_short() {
-        let data = [0u8; VERNEEDAUXSIZE];
-        for n in 0..VERNEEDAUXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
-    }
-
-    #[test]
-    fn parse_verneedaux64_msb() {
-        let mut data = [0u8; VERNEEDAUXSIZE];
-        for n in 0..VERNEEDAUXSIZE {
-            data[n] = n as u8;
-        }
-
-        let mut offset = 0;
-        let entry = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
-            .expect("Failed to parse VerNeedAux");
-
-        assert_eq!(
-            entry,
+    fn parse_verneedaux32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
             VerNeedAux {
                 vna_hash: 0x00010203,
                 vna_flags: 0x0405,
                 vna_other: 0x0607,
                 vna_name: 0x08090A0B,
                 vna_next: 0x0C0D0E0F,
-            }
+            },
         );
-        assert_eq!(offset, VERNEEDAUXSIZE);
     }
 
     #[test]
-    fn parse_verneedaux64_fuzz_too_short() {
-        let data = [0u8; VERNEEDAUXSIZE];
-        for n in 0..VERNEEDAUXSIZE {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = VerNeedAux::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_verneedaux64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            VerNeedAux {
+                vna_hash: 0x03020100,
+                vna_flags: 0x0504,
+                vna_other: 0x0706,
+                vna_name: 0x0B0A0908,
+                vna_next: 0x0F0E0D0C,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_verneedaux64_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
+            VerNeedAux {
+                vna_hash: 0x00010203,
+                vna_flags: 0x0405,
+                vna_other: 0x0607,
+                vna_name: 0x08090A0B,
+                vna_next: 0x0C0D0E0F,
+            },
+        );
+    }
+
+    #[test]
+    fn parse_verneedaux32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verneedaux32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_verneedaux64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_verneedaux64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Big, Class::ELF64);
     }
 }
 

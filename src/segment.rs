@@ -106,36 +106,15 @@ impl core::fmt::Debug for ProgType {
 }
 
 #[cfg(test)]
-mod tests {
+mod parse_tests {
     use super::*;
-    use crate::parse::Endian;
+    use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
-    fn parse_phdr32_fuzz_too_short() {
-        let data = [0u8; 32];
-        for n in 0..32 {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
-    }
-
-    #[test]
-    fn parse_phdr32_works() {
-        let mut data = [0u8; 32];
-        for n in 0u8..32 {
-            data[n as usize] = n;
-        }
-
-        let buf = data.as_ref();
-        let mut offset: usize = 0;
-        assert_eq!(
-            ProgramHeader::parse_at(Endian::Little, Class::ELF32, &mut offset, buf).unwrap(),
+    fn parse_phdr32_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF32,
             ProgramHeader {
                 p_type: ProgType(0x03020100),
                 p_offset: 0x07060504,
@@ -145,36 +124,51 @@ mod tests {
                 p_memsz: 0x17161514,
                 p_flags: ProgFlag(0x1B1A1918),
                 p_align: 0x1F1E1D1C,
-            }
+            },
         );
     }
 
     #[test]
-    fn parse_phdr64_fuzz_too_short() {
-        let data = [0u8; 56];
-        for n in 0..56 {
-            let buf = data.split_at(n).0.as_ref();
-            let mut offset: usize = 0;
-            let error = ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
-                .expect_err("Expected an error");
-            assert!(
-                matches!(error, ParseError::BadOffset(_)),
-                "Unexpected Error type found: {error}"
-            );
-        }
+    fn parse_phdr32_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF32,
+            ProgramHeader {
+                p_type: ProgType(0x00010203),
+                p_offset: 0x04050607,
+                p_vaddr: 0x08090A0B,
+                p_paddr: 0x0C0D0E0F,
+                p_filesz: 0x10111213,
+                p_memsz: 0x14151617,
+                p_flags: ProgFlag(0x18191A1B),
+                p_align: 0x1C1D1E1F,
+            },
+        );
     }
 
     #[test]
-    fn parse_phdr64_works() {
-        let mut data = [0u8; 56];
-        for n in 0u8..56 {
-            data[n as usize] = n;
-        }
+    fn parse_phdr64_lsb() {
+        test_parse_for(
+            Endian::Little,
+            Class::ELF64,
+            ProgramHeader {
+                p_type: ProgType(0x03020100),
+                p_offset: 0x0F0E0D0C0B0A0908,
+                p_vaddr: 0x1716151413121110,
+                p_paddr: 0x1F1E1D1C1B1A1918,
+                p_filesz: 0x2726252423222120,
+                p_memsz: 0x2F2E2D2C2B2A2928,
+                p_flags: ProgFlag(0x07060504),
+                p_align: 0x3736353433323130,
+            },
+        );
+    }
 
-        let buf = data.as_ref();
-        let mut offset: usize = 0;
-        assert_eq!(
-            ProgramHeader::parse_at(Endian::Big, Class::ELF64, &mut offset, buf).unwrap(),
+    #[test]
+    fn parse_phdr64_msb() {
+        test_parse_for(
+            Endian::Big,
+            Class::ELF64,
             ProgramHeader {
                 p_type: ProgType(0x00010203),
                 p_offset: 0x08090A0B0C0D0E0F,
@@ -184,7 +178,27 @@ mod tests {
                 p_memsz: 0x28292A2B2C2D2E2F,
                 p_flags: ProgFlag(0x04050607),
                 p_align: 0x3031323334353637,
-            }
+            },
         );
+    }
+
+    #[test]
+    fn parse_phdr32_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Little, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_phdr32_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Big, Class::ELF32);
+    }
+
+    #[test]
+    fn parse_phdr64_lsb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Little, Class::ELF64);
+    }
+
+    #[test]
+    fn parse_phdr64_msb_fuzz_too_short() {
+        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Big, Class::ELF64);
     }
 }
