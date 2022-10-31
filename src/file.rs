@@ -608,7 +608,7 @@ impl<R: ReadBytesAt> File<R> {
     ) -> Result<NoteIterator, ParseError> {
         if phdr.p_type != gabi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
-                phdr.p_type.0,
+                phdr.p_type,
                 gabi::PT_NOTE,
             )));
         }
@@ -844,7 +844,6 @@ mod interface_tests {
     use crate::note::Note;
     use crate::parse::CachedReadBytes;
     use crate::relocation::Rela;
-    use crate::segment::{ProgFlag, ProgType};
     use crate::symbol::Symbol;
 
     #[test]
@@ -984,13 +983,13 @@ mod interface_tests {
         assert_eq!(
             segments[0],
             ProgramHeader {
-                p_type: ProgType(gabi::PT_PHDR),
+                p_type: gabi::PT_PHDR,
                 p_offset: 64,
                 p_vaddr: 4194368,
                 p_paddr: 4194368,
                 p_filesz: 448,
                 p_memsz: 448,
-                p_flags: ProgFlag(5),
+                p_flags: 5,
                 p_align: 8,
             }
         )

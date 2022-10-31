@@ -1,6 +1,5 @@
 use crate::file::{Architecture, ObjectFileType, OSABI};
 use crate::gabi;
-use crate::segment::{ProgFlag, ProgType};
 
 pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
     match e_osabi {
@@ -506,23 +505,15 @@ pub fn sh_type_to_string(sh_type: u32) -> String {
     }
 }
 
-impl core::fmt::Display for ProgFlag {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        if (self.0 & gabi::PF_R) != 0 {
-            write!(f, "R")?;
-        } else {
-            write!(f, " ")?;
+pub fn p_flags_to_string(p_flags: u32) -> String {
+    match p_flags < 8 {
+        true => {
+            let r = if p_flags & gabi::PF_R != 0 { "R" } else { " " };
+            let w = if p_flags & gabi::PF_W != 0 { "W" } else { " " };
+            let x = if p_flags & gabi::PF_X != 0 { "E" } else { " " };
+            format!("{r}{w}{x}")
         }
-        if (self.0 & gabi::PF_W) != 0 {
-            write!(f, "W")?;
-        } else {
-            write!(f, " ")?;
-        }
-        if (self.0 & gabi::PF_X) != 0 {
-            write!(f, "E")
-        } else {
-            write!(f, " ")
-        }
+        false => format!("p_flags({:#x})", p_flags),
     }
 }
 
@@ -543,16 +534,10 @@ pub fn p_type_to_str(p_type: u32) -> Option<&'static str> {
     }
 }
 
-impl core::fmt::Display for ProgType {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match p_type_to_str(self.0) {
-            Some(s) => {
-                write!(f, "{s}")
-            }
-            None => {
-                write!(f, "p_type({})", self.0)
-            }
-        }
+pub fn p_type_to_string(p_type: u32) -> String {
+    match p_type_to_str(p_type) {
+        Some(s) => s.to_string(),
+        None => format!("p_type({:#x})", p_type),
     }
 }
 
