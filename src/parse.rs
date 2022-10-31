@@ -372,9 +372,12 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
     pub fn iter(&self) -> ParsingIterator<'data, P> {
         ParsingIterator::new(self.endianness, self.class, self.data)
     }
-}
 
-impl<'data, P: ParseAt> ParsingTable<'data, P> {
+    /// Returns the number of elements of type P in the table.
+    pub fn len(&self) -> usize {
+        self.data.len() / P::size_for(self.class)
+    }
+
     pub fn get(&self, index: usize) -> Result<P, ParseError> {
         if self.data.len() == 0 {
             return Err(ParseError::BadOffset(index as u64));
@@ -571,6 +574,63 @@ mod read_bytes_tests {
         let bytes2 = cached.get_loaded_bytes_at(2..4);
         assert_eq!(bytes1, [1u8, 2u8]);
         assert_eq!(bytes2, [3u8, 4u8]);
+    }
+}
+
+#[cfg(test)]
+mod parsing_table_tests {
+    use super::*;
+
+    impl ParseAt for u32 {
+        fn parse_at(
+            endian: Endian,
+            _class: Class,
+            offset: &mut usize,
+            data: &[u8],
+        ) -> Result<Self, ParseError> {
+            Ok(parse_u32_at(endian, offset, data)?)
+        }
+
+        #[inline]
+        fn size_for(_class: Class) -> usize {
+            core::mem::size_of::<u32>()
+        }
+    }
+
+    type U32Table<'data> = ParsingTable<'data, u32>;
+
+    #[test]
+    fn test_u32_table_validate_entsize() {
+        assert!(matches!(U32Table::validate_entsize(Class::ELF32, 4), Ok(4)));
+        assert!(matches!(
+            U32Table::validate_entsize(Class::ELF32, 8),
+            Err(ParseError::BadEntsize((8, 4)))
+        ));
+    }
+
+    #[test]
+    fn test_u32_table_len() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(Endian::Little, Class::ELF32, data.as_ref());
+        assert_eq!(table.len(), 2);
+    }
+
+    #[test]
+    fn test_u32_lsb_table_get() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(Endian::Little, Class::ELF32, data.as_ref());
+        assert!(matches!(table.get(0), Ok(0x03020100)));
+        assert!(matches!(table.get(1), Ok(0x07060504)));
+        assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
+    }
+
+    #[test]
+    fn test_u32_msb_table_get() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(Endian::Big, Class::ELF32, data.as_ref());
+        assert!(matches!(table.get(0), Ok(0x00010203)));
+        assert!(matches!(table.get(1), Ok(0x04050607)));
+        assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
     }
 }
 
