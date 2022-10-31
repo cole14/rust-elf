@@ -172,7 +172,7 @@ mod table_tests {
         for n in 0..ELF32SYMSIZE {
             data[n] = n as u8;
         }
-        let table = SymbolTable::new(Endian::Little, Class::ELF32, ELF32SYMSIZE, &data).unwrap();
+        let table = SymbolTable::new(Endian::Little, Class::ELF32, &data);
 
         assert_eq!(
             table.get(0).unwrap(),
@@ -200,7 +200,7 @@ mod table_tests {
             data[n] = n as u8;
         }
 
-        let table = SymbolTable::new(Endian::Big, Class::ELF64, ELF64SYMSIZE, &data).unwrap();
+        let table = SymbolTable::new(Endian::Big, Class::ELF64, &data);
 
         assert_eq!(
             table.get(0).unwrap(),

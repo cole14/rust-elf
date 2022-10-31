@@ -351,19 +351,13 @@ pub struct ParsingTable<'data, P: ParseAt> {
 }
 
 impl<'data, P: ParseAt> ParsingTable<'data, P> {
-    pub fn new(
-        endianness: Endian,
-        class: Class,
-        entsize: usize,
-        data: &'data [u8],
-    ) -> Result<Self, ParseError> {
-        Self::validate_entsize(class, entsize)?;
-        Ok(ParsingTable {
+    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
+        ParsingTable {
             endianness,
             class,
             data,
             pd: PhantomData,
-        })
+        }
     }
 
     /// Checks whether the given entsize matches what we expect

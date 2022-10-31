@@ -1094,8 +1094,7 @@ mod iter_tests {
     #[test]
     fn version_table() {
         let ver_idx_buf: [u8; 10] = [0x02, 0x00, 0x03, 0x00, 0x09, 0x00, 0x0A, 0x00, 0xff, 0xff];
-        let version_ids =
-            VersionIndexTable::new(Endian::Little, Class::ELF64, 2, &ver_idx_buf).unwrap();
+        let version_ids = VersionIndexTable::new(Endian::Little, Class::ELF64, &ver_idx_buf);
         let verdefs = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
         let verneed_strs = StringTable::new(&GNU_VERNEED_STRINGS);
         let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
