@@ -185,6 +185,7 @@ impl ParseAt for VersionIndex {
         })
     }
 
+    #[inline]
     fn size_for(_class: Class) -> usize {
         ELFVERNDXSIZE
     }
@@ -251,6 +252,7 @@ impl ParseAt for VerDef {
         })
     }
 
+    #[inline]
     fn size_for(_class: Class) -> usize {
         ELFVERDEFSIZE
     }
@@ -351,6 +353,7 @@ impl ParseAt for VerDefAux {
         })
     }
 
+    #[inline]
     fn size_for(_class: Class) -> usize {
         ELFVERDEFAUXSIZE
     }
@@ -483,6 +486,7 @@ impl ParseAt for VerNeed {
         })
     }
 
+    #[inline]
     fn size_for(_class: Class) -> usize {
         ELFVERNEEDSIZE
     }
@@ -592,6 +596,7 @@ impl ParseAt for VerNeedAux {
         })
     }
 
+    #[inline]
     fn size_for(_class: Class) -> usize {
         VERNEEDAUXSIZE
     }

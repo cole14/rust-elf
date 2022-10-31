@@ -42,6 +42,7 @@ impl ParseAt for Rel {
         }
     }
 
+    #[inline]
     fn size_for(class: Class) -> usize {
         match class {
             Class::ELF32 => ELF32RELSIZE,
@@ -94,6 +95,7 @@ impl ParseAt for Rela {
         }
     }
 
+    #[inline]
     fn size_for(class: Class) -> usize {
         match class {
             Class::ELF32 => ELF32RELASIZE,

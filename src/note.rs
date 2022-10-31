@@ -125,6 +125,7 @@ impl ParseAt for NoteHeader {
         }
     }
 
+    #[inline]
     fn size_for(class: Class) -> usize {
         match class {
             Class::ELF32 => ELF32NOTESIZE,

@@ -345,7 +345,6 @@ impl<'data, P: ParseAt> Iterator for ParsingIterator<'data, P> {
 pub struct ParsingTable<'data, P: ParseAt> {
     endianness: Endian,
     class: Class,
-    entsize: usize,
     data: &'data [u8],
     // This struct doesn't technically own a P, but it yields them
     pd: PhantomData<&'data P>,
@@ -362,7 +361,6 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
         Ok(ParsingTable {
             endianness,
             class,
-            entsize,
             data,
             pd: PhantomData,
         })
@@ -388,7 +386,8 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
             return Err(ParseError::BadOffset(index as u64));
         }
 
-        let mut start = index * self.entsize;
+        let entsize = P::size_for(self.class);
+        let mut start = index * entsize;
         if start > self.data.len() {
             return Err(ParseError::BadOffset(index as u64));
         }

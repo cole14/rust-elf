@@ -40,6 +40,7 @@ impl ParseAt for Dyn {
         }
     }
 
+    #[inline]
     fn size_for(class: Class) -> usize {
         match class {
             Class::ELF32 => ELF32DYNSIZE,

@@ -32,6 +32,7 @@ impl ParseAt for CompressionHeader {
         }
     }
 
+    #[inline]
     fn size_for(class: Class) -> usize {
         match class {
             Class::ELF32 => ELF32CHDRSIZE,
