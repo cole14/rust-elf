@@ -303,31 +303,31 @@ impl<R: ReadBytesAt> File<R> {
 
         // Load the section bytes for the symtab
         // (we want immutable references to both the symtab and its strtab concurrently)
-        let symtab_start = symtab_shdr.sh_offset as usize;
-        let symtab_size = symtab_shdr.sh_size as usize;
-        self.reader
-            .load_bytes_at(symtab_start..symtab_start + symtab_size)?;
+        let symtab_start: usize = symtab_shdr.sh_offset.try_into()?;
+        let symtab_size: usize = symtab_shdr.sh_size.try_into()?;
+        let symtab_end = symtab_start
+            .checked_add(symtab_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes_at(symtab_start..symtab_end)?;
 
         // Load the section bytes for the strtab
         // (we want immutable references to both the symtab and its strtab concurrently)
         let strtab = self.section_header_by_index(symtab_shdr.sh_link as usize)?;
-        let strtab_start = strtab.sh_offset as usize;
-        let strtab_size = strtab.sh_size as usize;
-        self.reader
-            .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
+        let strtab_start: usize = strtab.sh_offset.try_into()?;
+        let strtab_size: usize = strtab.sh_size.try_into()?;
+        let strtab_end = strtab_start
+            .checked_add(strtab_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes_at(strtab_start..strtab_end)?;
 
         // Validate entsize before trying to read the table so that we can error early for corrupted files
-        SymbolTable::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize as usize)?;
+        SymbolTable::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize.try_into()?)?;
         let symtab = SymbolTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            self.reader
-                .get_loaded_bytes_at(symtab_start..symtab_start + symtab_size),
+            self.reader.get_loaded_bytes_at(symtab_start..symtab_end),
         );
-        let strtab = StringTable::new(
-            self.reader
-                .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
-        );
+        let strtab = StringTable::new(self.reader.get_loaded_bytes_at(strtab_start..strtab_end));
         Ok(Some((symtab, strtab)))
     }
 
