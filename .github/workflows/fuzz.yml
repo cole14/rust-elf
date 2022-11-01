@@ -1,0 +1,38 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Rust
+      shell: bash
+      run: |
+        curl -sSL https://sh.rustup.rs | sh -s -- -y --profile=minimal --default-toolchain=nightly
+        export PATH="$HOME/.cargo/bin:$PATH"
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Install tools
+      run: apt-get install gcc g++
+    - name: Install cargo fuzz
+      run: cargo install cargo-fuzz
+    - name: Build
+      run: cargo build --verbose
+    - name: run fuzz targets
+      run: cargo fuzz run section_headers -- -max_total_time=60
+    - name: run fuzz targets
+      run: cargo fuzz run notes -- -max_total_time=60
+    - name: run fuzz targets
+      run: cargo fuzz run symver -- -max_total_time=60
+    - name: run fuzz targets
+      run: cargo fuzz run symbol_table -- -max_total_time=60
