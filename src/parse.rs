@@ -402,7 +402,9 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
         }
 
         let entsize = P::size_for(self.class);
-        let mut start = index * entsize;
+        let mut start = index
+            .checked_mul(entsize)
+            .ok_or(ParseError::IntegerOverflow)?;
         if start > self.data.len() {
             return Err(ParseError::BadOffset(index as u64));
         }
