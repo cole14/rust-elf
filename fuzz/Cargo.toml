@@ -1,0 +1,45 @@
+[package]
+name = "elf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.elf]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "section_headers"
+path = "fuzz_targets/section_headers.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "notes"
+path = "fuzz_targets/notes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "symbol_table"
+path = "fuzz_targets/symbol_table.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "symver"
+path = "fuzz_targets/symver.rs"
+test = false
+doc = false
