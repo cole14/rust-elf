@@ -3,23 +3,21 @@ use core::str::from_utf8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StringTable<'data> {
-    data: Option<&'data [u8]>,
+    data: &'data [u8],
 }
 
 impl<'data> StringTable<'data> {
     pub fn new(data: &'data [u8]) -> Self {
-        StringTable { data: Some(data) }
+        StringTable { data }
     }
 
     pub fn get_raw(&self, offset: usize) -> Result<&'data [u8], ParseError> {
-        let data = match self.data {
-            Some(data) => data,
-            None => {
-                return Err(ParseError::BadOffset(offset as u64));
-            }
+        if self.data.len() == 0 {
+            return Err(ParseError::BadOffset(offset as u64));
         };
 
-        let start = data
+        let start = self
+            .data
             .get(offset..)
             .ok_or(ParseError::BadOffset(offset as u64))?;
         let end = start
@@ -38,7 +36,7 @@ impl<'data> StringTable<'data> {
 
 impl<'data> Default for StringTable<'data> {
     fn default() -> Self {
-        StringTable { data: None }
+        StringTable { data: &[] }
     }
 }
 
