@@ -71,6 +71,17 @@ impl ParseAt for SectionHeader {
     }
 }
 
+impl SectionHeader {
+    /// Helper method which uses checked integer math to get a tuple of (start,end) for
+    /// this SectionHeader's (sh_offset, sh_offset + sh_size)
+    pub(crate) fn get_data_range(&self) -> Result<(usize, usize), ParseError> {
+        let start: usize = self.sh_offset.try_into()?;
+        let size: usize = self.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        Ok((start, end))
+    }
+}
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;

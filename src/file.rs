@@ -201,11 +201,7 @@ impl<R: ReadBytesAt> File<R> {
         let shstrndx: usize = self.shstrndx()?.try_into()?;
 
         let strtab = self.section_header_by_index(shstrndx)?;
-        let strtab_start: usize = strtab.sh_offset.try_into()?;
-        let strtab_size: usize = strtab.sh_size.try_into()?;
-        let strtab_end = strtab_start
-            .checked_add(strtab_size)
-            .ok_or(ParseError::IntegerOverflow)?;
+        let (strtab_start, strtab_end) = strtab.get_data_range()?;
         self.reader.load_bytes_at(strtab_start..strtab_end)?;
 
         // Return the (symtab, strtab)
@@ -240,9 +236,7 @@ impl<R: ReadBytesAt> File<R> {
             return Ok((&[], None));
         }
 
-        let start: usize = shdr.sh_offset.try_into()?;
-        let size: usize = shdr.sh_size.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
 
         if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
@@ -255,9 +249,10 @@ impl<R: ReadBytesAt> File<R> {
                 &mut offset,
                 buf,
             )?;
-            let compressed_buf = buf
-                .get(offset..)
-                .ok_or(ParseError::SliceReadError((offset, size)))?;
+            let compressed_buf = buf.get(offset..).ok_or(ParseError::SliceReadError((
+                offset,
+                shdr.sh_size.try_into()?,
+            )))?;
             Ok((compressed_buf, Some(chdr)))
         }
     }
@@ -280,9 +275,7 @@ impl<R: ReadBytesAt> File<R> {
             )));
         }
 
-        let start: usize = shdr.sh_offset.try_into()?;
-        let size: usize = shdr.sh_size.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
         Ok(StringTable::new(buf))
     }
@@ -303,21 +296,13 @@ impl<R: ReadBytesAt> File<R> {
 
         // Load the section bytes for the symtab
         // (we want immutable references to both the symtab and its strtab concurrently)
-        let symtab_start: usize = symtab_shdr.sh_offset.try_into()?;
-        let symtab_size: usize = symtab_shdr.sh_size.try_into()?;
-        let symtab_end = symtab_start
-            .checked_add(symtab_size)
-            .ok_or(ParseError::IntegerOverflow)?;
+        let (symtab_start, symtab_end) = symtab_shdr.get_data_range()?;
         self.reader.load_bytes_at(symtab_start..symtab_end)?;
 
         // Load the section bytes for the strtab
         // (we want immutable references to both the symtab and its strtab concurrently)
         let strtab = self.section_header_by_index(symtab_shdr.sh_link as usize)?;
-        let strtab_start: usize = strtab.sh_offset.try_into()?;
-        let strtab_size: usize = strtab.sh_size.try_into()?;
-        let strtab_end = strtab_start
-            .checked_add(strtab_size)
-            .ok_or(ParseError::IntegerOverflow)?;
+        let (strtab_start, strtab_end) = strtab.get_data_range()?;
         self.reader.load_bytes_at(strtab_start..strtab_end)?;
 
         // Validate entsize before trying to read the table so that we can error early for corrupted files
@@ -356,9 +341,7 @@ impl<R: ReadBytesAt> File<R> {
                 .iter()
                 .find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC)
             {
-                let start: usize = shdr.sh_offset.try_into()?;
-                let size: usize = shdr.sh_size.try_into()?;
-                let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+                let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.read_bytes_at(start..end)?;
                 return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
@@ -557,9 +540,7 @@ impl<R: ReadBytesAt> File<R> {
             )));
         }
 
-        let start: usize = shdr.sh_offset.try_into()?;
-        let size: usize = shdr.sh_size.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
         Ok(RelIterator::new(self.ehdr.endianness, self.ehdr.class, buf))
     }
@@ -582,9 +563,7 @@ impl<R: ReadBytesAt> File<R> {
             )));
         }
 
-        let start: usize = shdr.sh_offset.try_into()?;
-        let size: usize = shdr.sh_size.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
         Ok(RelaIterator::new(
             self.ehdr.endianness,
@@ -611,9 +590,7 @@ impl<R: ReadBytesAt> File<R> {
             )));
         }
 
-        let start: usize = shdr.sh_offset.try_into()?;
-        let size: usize = shdr.sh_size.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
         Ok(NoteIterator::new(
             self.ehdr.endianness,
