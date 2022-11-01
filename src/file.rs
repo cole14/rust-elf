@@ -49,9 +49,12 @@ impl<R: ReadBytesAt> File<R> {
         let entsize =
             SegmentTable::validate_entsize(self.ehdr.class, self.ehdr.e_phentsize as usize)?;
 
-        let start = self.ehdr.e_phoff as usize;
-        let size = entsize * self.ehdr.e_phnum as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+        let start: usize = self.ehdr.e_phoff.try_into()?;
+        let size = entsize
+            .checked_mul(self.ehdr.e_phnum as usize)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(SegmentTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
