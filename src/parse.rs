@@ -445,22 +445,26 @@ impl<'data, P: ParseAt> IntoIterator for ParsingTable<'data, P> {
 
 pub fn parse_u8_at(offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
     const SIZE: usize = core::mem::size_of::<u8>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?;
-    *offset += SIZE;
+    *offset = end;
     Ok(buf[0])
 }
 
 pub fn parse_u16_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
     const SIZE: usize = core::mem::size_of::<u16>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf: [u8; SIZE] = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?
         .try_into()?;
-    *offset += SIZE;
+    *offset = end;
     match endian {
         Endian::Little => Ok(u16::from_le_bytes(buf)),
         Endian::Big => Ok(u16::from_be_bytes(buf)),
@@ -469,12 +473,14 @@ pub fn parse_u16_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u
 
 pub fn parse_u32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
     const SIZE: usize = core::mem::size_of::<u32>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf: [u8; SIZE] = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?
         .try_into()?;
-    *offset += SIZE;
+    *offset = end;
     match endian {
         Endian::Little => Ok(u32::from_le_bytes(buf)),
         Endian::Big => Ok(u32::from_be_bytes(buf)),
@@ -483,12 +489,14 @@ pub fn parse_u32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u
 
 pub fn parse_u64_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
     const SIZE: usize = core::mem::size_of::<u64>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf: [u8; SIZE] = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?
         .try_into()?;
-    *offset += SIZE;
+    *offset = end;
     match endian {
         Endian::Little => Ok(u64::from_le_bytes(buf)),
         Endian::Big => Ok(u64::from_be_bytes(buf)),
@@ -497,12 +505,14 @@ pub fn parse_u64_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u
 
 pub fn parse_i32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
     const SIZE: usize = core::mem::size_of::<i32>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf: [u8; SIZE] = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?
         .try_into()?;
-    *offset += SIZE;
+    *offset = end;
     match endian {
         Endian::Little => Ok(i32::from_le_bytes(buf)),
         Endian::Big => Ok(i32::from_be_bytes(buf)),
@@ -511,12 +521,14 @@ pub fn parse_i32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<i
 
 pub fn parse_i64_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
     const SIZE: usize = core::mem::size_of::<i64>();
-    let range = *offset..*offset + SIZE;
+    let end = (*offset)
+        .checked_add(SIZE)
+        .ok_or(ParseError::IntegerOverflow)?;
     let buf: [u8; SIZE] = data
-        .get(range)
+        .get(*offset..end)
         .ok_or(ParseError::BadOffset(*offset as u64))?
         .try_into()?;
-    *offset += SIZE;
+    *offset = end;
     match endian {
         Endian::Little => Ok(i64::from_le_bytes(buf)),
         Endian::Big => Ok(i64::from_be_bytes(buf)),
