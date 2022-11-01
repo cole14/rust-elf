@@ -57,11 +57,6 @@ impl<'data> Note<'data> {
     ) -> Result<Self, ParseError> {
         // It looks like clang and gcc emit 32-bit notes for 64-bit files, so we
         // currently always parse all note headers as 32-bit.
-        let align = align;
-        if align != 4 {
-            return Err(ParseError::UnexpectedAlignment(align));
-        }
-
         let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
 
         let name_start = *offset;
@@ -142,16 +137,40 @@ mod parse_tests {
     use super::*;
 
     #[test]
-    fn parse_note_errors_for_non_4_byte_alignment() {
-        let data = [];
+    fn parse_note_with_8_byte_alignment() {
+        // This is a .note.gnu.property section, which has been seen generated with 8-byte alignment
+        #[rustfmt::skip]
+        let data = [
+            0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+            0x05, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,
+            0x02, 0x00, 0x00, 0xc0, 0x04, 0x00, 0x00, 0x00,
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
 
-        let mut offset = 0;
         // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
-        // even though the GABI states that ELF64 files should contain 64-bit notes. When it does this, it still
-        // correctly sets the shdr.sh_addralign to 4, so if we see 8 then that means we're parsing a file with
-        // actual 64-bit notes.
-        Note::parse_at(Endian::Little, Class::ELF64, 8, &mut offset, &data)
-            .expect_err("Expected alignment error");
+        // even though the GABI states that ELF64 files should contain 64-bit notes. Sometimes those notes are generated
+        // in sections with 4-byte alignment, and other times with 8-byte alignment, as specified by shdr.sh_addralign.
+        //
+        // See https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf
+        // Excerpt:
+        //     All entries in a PT_NOTE segment have the same alignment which equals to the
+        //     p_align field in program header.
+        //     According to gABI, each note entry should be aligned to 4 bytes in 32-bit
+        //     objects or 8 bytes in 64-bit objects. But .note.ABI-tag section (see Sec-
+        //     tion 2.1.6) and .note.gnu.build-id section (see Section 2.1.4) are aligned
+        //     to 4 bytes in both 32-bit and 64-bit objects. Note parser should use p_align for
+        //     note alignment, instead of assuming alignment based on ELF file class.
+        let mut offset = 0;
+        let note = Note::parse_at(Endian::Little, Class::ELF64, 8, &mut offset, &data)
+            .expect("Failed to parse");
+        assert_eq!(
+            note,
+            Note {
+                n_type: 5,
+                name: "GNU",
+                desc: &[2, 0, 0, 192, 4, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
+            }
+        );
     }
 
     #[test]
