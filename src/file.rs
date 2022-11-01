@@ -240,9 +240,10 @@ impl<R: ReadBytesAt> File<R> {
             return Ok((&[], None));
         }
 
-        let start = shdr.sh_offset as usize;
-        let size = shdr.sh_size as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+        let start: usize = shdr.sh_offset.try_into()?;
+        let size: usize = shdr.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
 
         if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
@@ -256,7 +257,7 @@ impl<R: ReadBytesAt> File<R> {
             )?;
             let compressed_buf = buf
                 .get(offset..)
-                .ok_or(ParseError::SliceReadError((offset, shdr.sh_size as usize)))?;
+                .ok_or(ParseError::SliceReadError((offset, size)))?;
             Ok((compressed_buf, Some(chdr)))
         }
     }
