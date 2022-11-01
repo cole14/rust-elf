@@ -123,14 +123,11 @@ impl ParseAt for NoteHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32NOTESIZE,
-            Class::ELF64 => ELF64NOTESIZE,
+            Class::ELF32 => 12,
+            Class::ELF64 => 24,
         }
     }
 }
-
-const ELF32NOTESIZE: usize = 12;
-const ELF64NOTESIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {

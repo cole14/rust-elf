@@ -65,14 +65,11 @@ impl ParseAt for SectionHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32SHDRSIZE,
-            Class::ELF64 => ELF64SHDRSIZE,
+            Class::ELF32 => 40,
+            Class::ELF64 => 64,
         }
     }
 }
-
-const ELF32SHDRSIZE: usize = 40;
-const ELF64SHDRSIZE: usize = 64;
 
 #[cfg(test)]
 mod parse_tests {

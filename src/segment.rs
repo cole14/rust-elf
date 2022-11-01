@@ -70,14 +70,11 @@ impl ParseAt for ProgramHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32PHDRSIZE,
-            Class::ELF64 => ELF64PHDRSIZE,
+            Class::ELF32 => 32,
+            Class::ELF64 => 56,
         }
     }
 }
-
-const ELF32PHDRSIZE: usize = 32;
-const ELF64PHDRSIZE: usize = 56;
 
 #[cfg(test)]
 mod parse_tests {

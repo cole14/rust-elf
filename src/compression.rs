@@ -35,14 +35,11 @@ impl ParseAt for CompressionHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32CHDRSIZE,
-            Class::ELF64 => ELF64CHDRSIZE,
+            Class::ELF32 => 12,
+            Class::ELF64 => 24,
         }
     }
 }
-
-const ELF32CHDRSIZE: usize = 12;
-const ELF64CHDRSIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {

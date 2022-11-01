@@ -117,14 +117,11 @@ impl ParseAt for Symbol {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32SYMSIZE,
-            Class::ELF64 => ELF64SYMSIZE,
+            Class::ELF32 => 16,
+            Class::ELF64 => 24,
         }
     }
 }
-
-const ELF32SYMSIZE: usize = 16;
-const ELF64SYMSIZE: usize = 24;
 
 #[cfg(test)]
 mod symbol_tests {

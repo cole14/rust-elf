@@ -45,14 +45,11 @@ impl ParseAt for Rel {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32RELSIZE,
-            Class::ELF64 => ELF64RELSIZE,
+            Class::ELF32 => 8,
+            Class::ELF64 => 16,
         }
     }
 }
-
-const ELF32RELSIZE: usize = 8;
-const ELF64RELSIZE: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rela {
@@ -98,14 +95,11 @@ impl ParseAt for Rela {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32RELASIZE,
-            Class::ELF64 => ELF64RELASIZE,
+            Class::ELF32 => 12,
+            Class::ELF64 => 24,
         }
     }
 }
-
-const ELF32RELASIZE: usize = 12;
-const ELF64RELASIZE: usize = 24;
 
 #[cfg(test)]
 mod parse_tests {

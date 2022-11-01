@@ -43,14 +43,11 @@ impl ParseAt for Dyn {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => ELF32DYNSIZE,
-            Class::ELF64 => ELF64DYNSIZE,
+            Class::ELF32 => 8,
+            Class::ELF64 => 16,
         }
     }
 }
-
-const ELF32DYNSIZE: usize = 8;
-const ELF64DYNSIZE: usize = 16;
 
 #[cfg(test)]
 mod parse_tests {

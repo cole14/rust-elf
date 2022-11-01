@@ -187,11 +187,9 @@ impl ParseAt for VersionIndex {
 
     #[inline]
     fn size_for(_class: Class) -> usize {
-        ELFVERNDXSIZE
+        core::mem::size_of::<u16>()
     }
 }
-
-const ELFVERNDXSIZE: usize = 2;
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                                 _                      _  //
@@ -355,10 +353,9 @@ impl ParseAt for VerDefAux {
 
     #[inline]
     fn size_for(_class: Class) -> usize {
-        ELFVERDEFAUXSIZE
+        8
     }
 }
-const ELFVERDEFAUXSIZE: usize = 8;
 
 #[derive(Debug)]
 pub struct VerDefAuxIterator<'data> {
@@ -598,11 +595,9 @@ impl ParseAt for VerNeedAux {
 
     #[inline]
     fn size_for(_class: Class) -> usize {
-        VERNEEDAUXSIZE
+        16
     }
 }
-
-const VERNEEDAUXSIZE: usize = 16;
 
 #[derive(Debug)]
 pub struct VerNeedAuxIterator<'data> {
