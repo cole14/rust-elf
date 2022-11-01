@@ -133,15 +133,18 @@ impl<R: ReadBytesAt> File<R> {
         }
 
         // Get the number of section headers (could be in ehdr or shdrs[0])
-        let shnum = self.shnum()?;
+        let shnum: usize = self.shnum()?.try_into()?;
 
         // Validate shentsize before trying to read the table so that we can error early for corrupted files
         let entsize =
             SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
 
-        let start = self.ehdr.e_shoff as usize;
-        let size = entsize * shnum as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+        let start: usize = self.ehdr.e_shoff.try_into()?;
+        let size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(SectionHeaderTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
