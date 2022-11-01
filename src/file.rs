@@ -166,38 +166,40 @@ impl<R: ReadBytesAt> File<R> {
         }
 
         // Load the section header table bytes (we want concurrent referneces to strtab too)
-        let shnum = self.shnum()?;
+        let shnum: usize = self.shnum()?.try_into()?;
 
         // Validate shentsize before trying to read the table so that we can error early for corrupted files
         let entsize =
             SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
-        let shdrs_start = self.ehdr.e_shoff as usize;
-        let shdrs_size = entsize * shnum as usize;
-        self.reader
-            .load_bytes_at(shdrs_start..shdrs_start + shdrs_size)?;
+        let shdrs_start: usize = self.ehdr.e_shoff.try_into()?;
+        let shdrs_size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let shdrs_end = shdrs_start
+            .checked_add(shdrs_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes_at(shdrs_start..shdrs_end)?;
 
         // Load the section bytes for the strtab
         // (we want immutable references to both the symtab and its strtab concurrently)
         // Get the index of section headers' strtab (could be in ehdr or shdrs[0])
-        let shstrndx = self.shstrndx()?;
+        let shstrndx: usize = self.shstrndx()?.try_into()?;
 
-        let strtab = self.section_header_by_index(shstrndx as usize)?;
-        let strtab_start = strtab.sh_offset as usize;
-        let strtab_size = strtab.sh_size as usize;
-        self.reader
-            .load_bytes_at(strtab_start..strtab_start + strtab_size)?;
+        let strtab = self.section_header_by_index(shstrndx)?;
+        let strtab_start: usize = strtab.sh_offset.try_into()?;
+        let strtab_size: usize = strtab.sh_size.try_into()?;
+        let strtab_end = strtab_start
+            .checked_add(strtab_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes_at(strtab_start..strtab_end)?;
 
         // Return the (symtab, strtab)
         let shdrs = SectionHeaderTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            self.reader
-                .get_loaded_bytes_at(shdrs_start..shdrs_start + shdrs_size),
+            self.reader.get_loaded_bytes_at(shdrs_start..shdrs_end),
         );
-        let strtab = StringTable::new(
-            self.reader
-                .get_loaded_bytes_at(strtab_start..strtab_start + strtab_size),
-        );
+        let strtab = StringTable::new(self.reader.get_loaded_bytes_at(strtab_start..strtab_end));
         Ok((shdrs, strtab))
     }
 

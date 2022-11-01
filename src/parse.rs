@@ -45,12 +45,18 @@ pub enum ParseError {
     /// resulted in a request for a section of file bytes outside the range of
     /// the slice. Commonly caused by truncated file contents.
     SliceReadError((usize, usize)),
+    /// Returned when doing math with parsed elf fields that resulted in integer overflow.
+    IntegerOverflow,
     /// Returned when parsing a string out of a StringTable that contained
     /// invalid Utf8
     Utf8Error(core::str::Utf8Error),
     /// Returned when parsing an ELF structure and the underlying structure data
     /// was truncated and thus the full structure contents could not be parsed.
     TryFromSliceError(core::array::TryFromSliceError),
+    /// Returned when parsing an ELF structure whose on-disk fields were too big
+    /// to represent in the native machine's usize type for in-memory processing.
+    /// This could be the case when processessing large 64-bit files on a 32-bit machine.
+    TryFromIntError(core::num::TryFromIntError),
     #[cfg(feature = "std")]
     /// Returned when parsing an ELF structure out of an io stream encountered
     /// an io error.
@@ -72,8 +78,10 @@ impl std::error::Error for ParseError {
             ParseError::UnexpectedSegmentType(_) => None,
             ParseError::UnexpectedAlignment(_) => None,
             ParseError::SliceReadError(_) => None,
+            ParseError::IntegerOverflow => None,
             ParseError::Utf8Error(ref err) => Some(err),
             ParseError::TryFromSliceError(ref err) => Some(err),
+            ParseError::TryFromIntError(ref err) => Some(err),
             #[cfg(feature = "std")]
             ParseError::IOError(ref err) => Some(err),
         }
@@ -134,8 +142,12 @@ impl core::fmt::Display for ParseError {
             ParseError::SliceReadError((start, end)) => {
                 write!(f, "Could not read bytes in range [{start:#X}, {end:#X})")
             }
+            ParseError::IntegerOverflow => {
+                write!(f, "Integer overflow detected")
+            }
             ParseError::Utf8Error(ref err) => err.fmt(f),
             ParseError::TryFromSliceError(ref err) => err.fmt(f),
+            ParseError::TryFromIntError(ref err) => err.fmt(f),
             #[cfg(feature = "std")]
             ParseError::IOError(ref err) => err.fmt(f),
         }
@@ -151,6 +163,12 @@ impl From<core::str::Utf8Error> for ParseError {
 impl From<core::array::TryFromSliceError> for ParseError {
     fn from(err: core::array::TryFromSliceError) -> Self {
         ParseError::TryFromSliceError(err)
+    }
+}
+
+impl From<core::num::TryFromIntError> for ParseError {
+    fn from(err: core::num::TryFromIntError) -> Self {
+        ParseError::TryFromIntError(err)
     }
 }
 
