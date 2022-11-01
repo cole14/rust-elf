@@ -60,28 +60,38 @@ impl<'data> Note<'data> {
         let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
 
         let name_start = *offset;
-        let name_end = name_start + nhdr.n_namesz.saturating_sub(1) as usize;
+        let name_size: usize = nhdr.n_namesz.saturating_sub(1).try_into()?;
+        let name_end = name_start
+            .checked_add(name_size)
+            .ok_or(ParseError::IntegerOverflow)?;
         let name_buf = data
             .get(name_start..name_end)
             .ok_or(ParseError::SliceReadError((name_start, name_end)))?;
         let name = from_utf8(name_buf)?;
-        *offset += nhdr.n_namesz as usize;
+        *offset = name_end;
 
         // skip over padding if needed to get back to 4-byte alignment
         if *offset % align > 0 {
-            *offset += align - *offset % align;
+            *offset = (*offset)
+                .checked_add(align - *offset % align)
+                .ok_or(ParseError::IntegerOverflow)?;
         }
 
         let desc_start = *offset;
-        let desc_end = desc_start + nhdr.n_descsz as usize;
+        let desc_size: usize = nhdr.n_descsz.try_into()?;
+        let desc_end = desc_start
+            .checked_add(desc_size)
+            .ok_or(ParseError::IntegerOverflow)?;
         let desc = data
             .get(desc_start..desc_end)
             .ok_or(ParseError::SliceReadError((desc_start, desc_end)))?;
-        *offset += nhdr.n_descsz as usize;
+        *offset = desc_end;
 
         // skip over padding if needed to get back to 4-byte alignment
         if *offset % align > 0 {
-            *offset += align - *offset % align;
+            *offset = (*offset)
+                .checked_add(align - *offset % align)
+                .ok_or(ParseError::IntegerOverflow)?;
         }
 
         Ok(Note {
