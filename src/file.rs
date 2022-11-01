@@ -95,8 +95,17 @@ impl<R: ReadBytesAt> File<R> {
         let entsize =
             SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
 
-        let start = self.ehdr.e_shoff as usize + (index * entsize);
-        let buf = self.reader.read_bytes_at(start..start + entsize)?;
+        let shoff: usize = self.ehdr.e_shoff.try_into()?;
+        let entry_off = index
+            .checked_mul(entsize)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let start = shoff
+            .checked_add(entry_off)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = start
+            .checked_add(entsize)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         let mut offset = 0;
         SectionHeader::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
     }
