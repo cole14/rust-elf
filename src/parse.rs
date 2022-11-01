@@ -295,7 +295,7 @@ impl<R: Read + Seek> ReadBytesAt for CachedReadBytes<R> {
     }
 }
 
-pub trait ParseAt: Sized + core::fmt::Debug + PartialEq {
+pub trait ParseAt: Sized {
     fn parse_at(
         endian: Endian,
         class: Class,
@@ -397,6 +397,24 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
         )?)
     }
 }
+
+impl ParseAt for u32 {
+    fn parse_at(
+        endian: Endian,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        Ok(parse_u32_at(endian, offset, data)?)
+    }
+
+    #[inline]
+    fn size_for(_class: Class) -> usize {
+        core::mem::size_of::<u32>()
+    }
+}
+
+pub type U32Table<'data> = ParsingTable<'data, u32>;
 
 impl<'data, P: ParseAt> IntoIterator for ParsingTable<'data, P> {
     type IntoIter = ParsingIterator<'data, P>;
@@ -580,24 +598,6 @@ mod read_bytes_tests {
 #[cfg(test)]
 mod parsing_table_tests {
     use super::*;
-
-    impl ParseAt for u32 {
-        fn parse_at(
-            endian: Endian,
-            _class: Class,
-            offset: &mut usize,
-            data: &[u8],
-        ) -> Result<Self, ParseError> {
-            Ok(parse_u32_at(endian, offset, data)?)
-        }
-
-        #[inline]
-        fn size_for(_class: Class) -> usize {
-            core::mem::size_of::<u32>()
-        }
-    }
-
-    type U32Table<'data> = ParsingTable<'data, u32>;
 
     #[test]
     fn test_u32_table_validate_entsize() {
@@ -798,7 +798,11 @@ mod parse_tests {
 }
 
 #[cfg(test)]
-pub fn test_parse_for<P: ParseAt>(endian: Endian, class: Class, expected: P) {
+pub fn test_parse_for<P: ParseAt + core::fmt::Debug + PartialEq>(
+    endian: Endian,
+    class: Class,
+    expected: P,
+) {
     let size = P::size_for(class);
     let mut data = vec![0u8; size];
     for n in 0..size {
@@ -813,7 +817,7 @@ pub fn test_parse_for<P: ParseAt>(endian: Endian, class: Class, expected: P) {
 }
 
 #[cfg(test)]
-pub fn test_parse_fuzz_too_short<P: ParseAt>(endian: Endian, class: Class) {
+pub fn test_parse_fuzz_too_short<P: ParseAt + core::fmt::Debug>(endian: Endian, class: Class) {
     let size = P::size_for(class);
     let data = vec![0u8; size];
     for n in 0..size {

@@ -60,6 +60,7 @@ pub mod dynamic;
 pub mod file;
 pub mod gabi;
 pub mod gnu_symver;
+pub mod hash;
 pub mod note;
 pub mod relocation;
 pub mod section;

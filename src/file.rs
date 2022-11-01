@@ -811,6 +811,7 @@ impl FileHeader {
 mod interface_tests {
     use super::*;
     use crate::dynamic::Dyn;
+    use crate::hash::SysVHashTable;
     use crate::note::Note;
     use crate::parse::CachedReadBytes;
     use crate::relocation::Rela;
@@ -1185,6 +1186,60 @@ mod interface_tests {
 
         let req3 = vst.get_requirement(3).expect("Failed to parse NEED");
         assert!(req3.is_none());
+    }
+
+    #[test]
+    fn sysv_hash_table() {
+        let path = std::path::PathBuf::from("tests/samples/hello.so");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let mut file = File::open_stream(slice).expect("Open test1");
+
+        // Look up the SysV hash section header
+        let hash_shdr = file
+            .section_headers()
+            .expect("Failed to parse shdrs")
+            .iter()
+            .find(|shdr| shdr.sh_type == gabi::SHT_HASH)
+            .expect("Failed to find sysv hash section");
+
+        // We don't have a file interface for getting the SysV hash section yet, so clone the section bytes
+        // So we can use them to back a SysVHashTable
+        let (data, _) = file
+            .section_data(&hash_shdr)
+            .expect("Failed to get hash section data");
+        let data_copy: Vec<u8> = data.into();
+        let hash_table =
+            SysVHashTable::new(file.ehdr.endianness, file.ehdr.class, data_copy.as_ref())
+                .expect("Failed to parse hash table");
+
+        // Get the dynamic symbol table.
+        let (symtab, strtab) = file
+            .dynamic_symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+
+        // Verify that these three symbols all collide in the hash table's buckets
+        assert_eq!(crate::hash::sysv_hash(b"use_memset_v2"), 0x8080542);
+        assert_eq!(crate::hash::sysv_hash(b"__gmon_start__"), 0xF4D007F);
+        assert_eq!(crate::hash::sysv_hash(b"memset"), 0x73C49C4);
+        assert_eq!(crate::hash::sysv_hash(b"use_memset_v2") % 3, 0);
+        assert_eq!(crate::hash::sysv_hash(b"__gmon_start__") % 3, 0);
+        assert_eq!(crate::hash::sysv_hash(b"memset") % 3, 0);
+
+        // Use the hash table to find a given symbol in it.
+        let (sym_idx, sym) = hash_table
+            .find(b"memset", 0x73C49C4, &symtab, &strtab)
+            .expect("Failed to parse hash")
+            .expect("Failed to find hash");
+
+        // Verify that we got the same symbol from the hash table we expected
+        assert_eq!(sym_idx, 2);
+        assert_eq!(strtab.get(sym.st_name as usize).unwrap(), "memset");
+        assert_eq!(
+            sym,
+            symtab.get(sym_idx).expect("Failed to get expected sym")
+        );
     }
 }
 
