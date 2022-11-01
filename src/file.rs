@@ -356,9 +356,10 @@ impl<R: ReadBytesAt> File<R> {
                 .iter()
                 .find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC)
             {
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                let buf = self.reader.read_bytes_at(start..start + size)?;
+                let start: usize = shdr.sh_offset.try_into()?;
+                let size: usize = shdr.sh_size.try_into()?;
+                let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+                let buf = self.reader.read_bytes_at(start..end)?;
                 return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
                     self.ehdr.class,
@@ -371,9 +372,10 @@ impl<R: ReadBytesAt> File<R> {
                 .iter()
                 .find(|phdr| phdr.p_type == gabi::PT_DYNAMIC)
             {
-                let start = phdr.p_offset as usize;
-                let size = phdr.p_filesz as usize;
-                let buf = self.reader.read_bytes_at(start..start + size)?;
+                let start: usize = phdr.p_offset.try_into()?;
+                let size: usize = phdr.p_filesz.try_into()?;
+                let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+                let buf = self.reader.read_bytes_at(start..end)?;
                 return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
                     self.ehdr.class,
