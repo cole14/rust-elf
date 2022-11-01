@@ -1,4 +1,4 @@
-name: Rust
+name: Fuzz
 
 on:
   push:
@@ -16,14 +16,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install Rust
+    - name: Install nightly Rust
       shell: bash
       run: |
         curl -sSL https://sh.rustup.rs | sh -s -- -y --profile=minimal --default-toolchain=nightly
         export PATH="$HOME/.cargo/bin:$PATH"
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-    - name: Install tools
-      run: apt-get install gcc g++
+    - name: Install tools needed to build cargo fuzz
+      run: |
+        sudo apt-get update && sudo apt-get upgrade
+        sudo apt-get install gcc g++
     - name: Install cargo fuzz
       run: cargo install cargo-fuzz
     - name: Build
