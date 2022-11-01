@@ -279,9 +279,11 @@ impl<R: ReadBytesAt> File<R> {
                 gabi::SHT_STRTAB,
             )));
         }
-        let start = shdr.sh_offset as usize;
-        let size = shdr.sh_size as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        let start: usize = shdr.sh_offset.try_into()?;
+        let size: usize = shdr.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(StringTable::new(buf))
     }
 
@@ -552,9 +554,11 @@ impl<R: ReadBytesAt> File<R> {
                 gabi::SHT_REL,
             )));
         }
-        let start = shdr.sh_offset as usize;
-        let size = shdr.sh_size as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        let start: usize = shdr.sh_offset.try_into()?;
+        let size: usize = shdr.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(RelIterator::new(self.ehdr.endianness, self.ehdr.class, buf))
     }
 
@@ -575,9 +579,11 @@ impl<R: ReadBytesAt> File<R> {
                 gabi::SHT_RELA,
             )));
         }
-        let start = shdr.sh_offset as usize;
-        let size = shdr.sh_size as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        let start: usize = shdr.sh_offset.try_into()?;
+        let size: usize = shdr.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(RelaIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
@@ -602,9 +608,11 @@ impl<R: ReadBytesAt> File<R> {
                 gabi::SHT_NOTE,
             )));
         }
-        let start = shdr.sh_offset as usize;
-        let size = shdr.sh_size as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        let start: usize = shdr.sh_offset.try_into()?;
+        let size: usize = shdr.sh_size.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(NoteIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
@@ -630,9 +638,11 @@ impl<R: ReadBytesAt> File<R> {
                 gabi::PT_NOTE,
             )));
         }
-        let start = phdr.p_offset as usize;
-        let size = phdr.p_filesz as usize;
-        let buf = self.reader.read_bytes_at(start..start + size)?;
+
+        let start: usize = phdr.p_offset.try_into()?;
+        let size: usize = phdr.p_filesz.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self.reader.read_bytes_at(start..end)?;
         Ok(NoteIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
