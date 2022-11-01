@@ -317,7 +317,11 @@ impl<'data> Iterator for VerDefIterator<'data> {
             self.data,
         );
 
-        self.offset += vd.vd_next as usize;
+        // If offset overflows, silently end iteration
+        match self.offset.checked_add(vd.vd_next as usize) {
+            Some(new_off) => self.offset = new_off,
+            None => self.count = 0,
+        }
         self.count -= 1;
 
         // Silently end iteration early if the next link stops pointing somewhere new
@@ -419,7 +423,11 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
         let mut start = self.offset;
         let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
 
-        self.offset += vda.vda_next as usize;
+        // If offset overflows, silently end iteration
+        match self.offset.checked_add(vda.vda_next as usize) {
+            Some(new_off) => self.offset = new_off,
+            None => self.count = 0,
+        }
         self.count -= 1;
 
         // Silently end iteration early if the next link stops pointing somewhere new
@@ -550,7 +558,11 @@ impl<'data> Iterator for VerNeedIterator<'data> {
             self.data,
         );
 
-        self.offset += vn.vn_next as usize;
+        // If offset overflows, silently end iteration
+        match self.offset.checked_add(vn.vn_next as usize) {
+            Some(new_off) => self.offset = new_off,
+            None => self.count = 0,
+        }
         self.count -= 1;
 
         // Silently end iteration early if the next link stops pointing somewhere new
@@ -635,7 +647,12 @@ impl<'data> Iterator for VerNeedAuxIterator<'data> {
 
         let mut start = self.offset;
         let vna = VerNeedAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
-        self.offset += vna.vna_next as usize;
+
+        // If offset overflows, silently end iteration
+        match self.offset.checked_add(vna.vna_next as usize) {
+            Some(new_off) => self.offset = new_off,
+            None => self.count = 0,
+        }
         self.count -= 1;
 
         // Silently end iteration early if the next link stops pointing somewhere new
