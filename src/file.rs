@@ -404,24 +404,19 @@ impl<R: ReadBytesAt> File<R> {
         // Load the versym table
         let versym_shdr = versym_opt.unwrap();
         // Validate VERSYM entsize before trying to read the table so that we can error early for corrupted files
-        VersionIndexTable::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize as usize)?;
-        let versym_start = versym_shdr.sh_offset as usize;
-        let versym_size = versym_shdr.sh_size as usize;
-        self.reader
-            .load_bytes_at(versym_start..versym_start + versym_size)?;
+        VersionIndexTable::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
+        let (versym_start, versym_end) = versym_shdr.get_data_range()?;
+        self.reader.load_bytes_at(versym_start..versym_end)?;
 
         // Get the VERNEED string shdr and load the VERNEED section data (if any)
         let needs_shdrs = match needs_opt {
             Some(shdr) => {
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                self.reader.load_bytes_at(start..start + size)?;
+                let (start, end) = shdr.get_data_range()?;
+                self.reader.load_bytes_at(start..end)?;
 
                 let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
-                let strs_start = strs_shdr.sh_offset as usize;
-                let strs_size = strs_shdr.sh_size as usize;
-                self.reader
-                    .load_bytes_at(strs_start..strs_start + strs_size)?;
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                self.reader.load_bytes_at(strs_start..strs_end)?;
 
                 Some((shdr, strs_shdr))
             }
@@ -433,15 +428,12 @@ impl<R: ReadBytesAt> File<R> {
         // Get the VERDEF string shdr and load the VERDEF section data (if any)
         let defs_shdrs = match defs_opt {
             Some(shdr) => {
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                self.reader.load_bytes_at(start..start + size)?;
+                let (start, end) = shdr.get_data_range()?;
+                self.reader.load_bytes_at(start..end)?;
 
                 let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
-                let strs_start = strs_shdr.sh_offset as usize;
-                let strs_size = strs_shdr.sh_size as usize;
-                self.reader
-                    .load_bytes_at(strs_start..strs_start + strs_size)?;
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                self.reader.load_bytes_at(strs_start..strs_end)?;
 
                 Some((shdr, strs_shdr))
             }
@@ -453,15 +445,11 @@ impl<R: ReadBytesAt> File<R> {
         // Wrap the VERNEED section and strings data in an iterator and string table
         let (verneeds, verneed_strs) = match needs_shdrs {
             Some((shdr, strs_shdr)) => {
-                let strs_start = strs_shdr.sh_offset as usize;
-                let strs_size = strs_shdr.sh_size as usize;
-                let strs_buf = self
-                    .reader
-                    .get_loaded_bytes_at(strs_start..strs_start + strs_size);
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
 
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                let buf = self.reader.get_loaded_bytes_at(start..start + size);
+                let (start, end) = shdr.get_data_range()?;
+                let buf = self.reader.get_loaded_bytes_at(start..end);
                 (
                     VerNeedIterator::new(
                         self.ehdr.endianness,
@@ -480,15 +468,11 @@ impl<R: ReadBytesAt> File<R> {
         // Wrap the VERDEF section and strings data in an iterator and string table
         let (verdefs, verdef_strs) = match defs_shdrs {
             Some((shdr, strs_shdr)) => {
-                let strs_start = strs_shdr.sh_offset as usize;
-                let strs_size = strs_shdr.sh_size as usize;
-                let strs_buf = self
-                    .reader
-                    .get_loaded_bytes_at(strs_start..strs_start + strs_size);
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
 
-                let start = shdr.sh_offset as usize;
-                let size = shdr.sh_size as usize;
-                let buf = self.reader.get_loaded_bytes_at(start..start + size);
+                let (start, end) = shdr.get_data_range()?;
+                let buf = self.reader.get_loaded_bytes_at(start..end);
                 (
                     VerDefIterator::new(
                         self.ehdr.endianness,
@@ -508,8 +492,7 @@ impl<R: ReadBytesAt> File<R> {
         let version_ids = VersionIndexTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
-            self.reader
-                .get_loaded_bytes_at(versym_start..versym_start + versym_size),
+            self.reader.get_loaded_bytes_at(versym_start..versym_end),
         );
 
         // whew, we're done here!
