@@ -52,18 +52,28 @@ impl<'data> SysVHashTable<'data> {
         let mut offset = 0;
         let hdr = SysVHashHeader::parse_at(endian, class, &mut offset, data)?;
 
-        let bucket_size = hdr.nbucket as usize * u32::size_for(class);
-        let bucket_buf = data
-            .get(offset..offset + bucket_size)
+        let buckets_size = core::mem::size_of::<u32>()
+            .checked_mul(hdr.nbucket.try_into()?)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let buckets_end = offset
+            .checked_add(buckets_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let buckets_buf = data
+            .get(offset..buckets_end)
             .ok_or(ParseError::BadOffset(offset as u64))?;
-        let buckets = U32Table::new(endian, class, bucket_buf);
-        offset += bucket_size;
+        let buckets = U32Table::new(endian, class, buckets_buf);
+        offset = buckets_end;
 
-        let chain_size = hdr.nchain as usize * u32::size_for(class);
-        let chain_buf = data
-            .get(offset..offset + chain_size)
+        let chains_size = core::mem::size_of::<u32>()
+            .checked_mul(hdr.nchain.try_into()?)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let chains_end = offset
+            .checked_add(chains_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let chains_buf = data
+            .get(offset..chains_end)
             .ok_or(ParseError::BadOffset(offset as u64))?;
-        let chains = U32Table::new(endian, class, chain_buf);
+        let chains = U32Table::new(endian, class, chains_buf);
 
         Ok(SysVHashTable { buckets, chains })
     }
