@@ -55,6 +55,12 @@ impl<'data> Note<'data> {
         offset: &mut usize,
         data: &'data [u8],
     ) -> Result<Self, ParseError> {
+        // We don't know what to do if the section or segment header specified a zero alignment, so error
+        // (this is likely a file corruption)
+        if align == 0 {
+            return Err(ParseError::UnexpectedAlignment(align));
+        }
+
         // It looks like clang and gcc emit 32-bit notes for 64-bit files, so we
         // currently always parse all note headers as 32-bit.
         let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
@@ -143,6 +149,21 @@ impl ParseAt for NoteHeader {
 mod parse_tests {
     use super::*;
 
+    #[test]
+    fn parse_note_errors_with_zero_alignment() {
+        // This is a .note.gnu.property section
+        #[rustfmt::skip]
+        let data = [
+            0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+            0x05, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,
+            0x02, 0x00, 0x00, 0xc0, 0x04, 0x00, 0x00, 0x00,
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let mut offset = 0;
+        Note::parse_at(Endian::Little, Class::ELF64, 0, &mut offset, &data)
+            .expect_err("Should have gotten an alignment error");
+    }
     #[test]
     fn parse_note_with_8_byte_alignment() {
         // This is a .note.gnu.property section, which has been seen generated with 8-byte alignment
