@@ -467,6 +467,10 @@ pub const SHT_HIUSER: u32 = 0x8fffffff;
 /// This value marks an undefined, missing, irrelevant, or otherwise meaningless
 /// section reference.
 pub const SHN_UNDEF: u16 = 0;
+/// Symbols with st_shndx=SHN_ABS are absolute and are not affected by relocation.
+pub const SHN_ABS: u16 = 0xfff1;
+/// Symbols with st_shndx=SHN_COMMON are sometimes used for unallocated C external variables.
+pub const SHN_COMMON: u16 = 0xfff2;
 pub const SHN_XINDEX: u16 = 0xffff;
 
 /// SHF_* define constants for the ELF Section Header's sh_flags field.
