@@ -511,6 +511,7 @@ pub fn p_type_to_str(p_type: u32) -> Option<&'static str> {
         gabi::PT_GNU_EH_FRAME => Some("PT_GNU_EH_FRAME"),
         gabi::PT_GNU_STACK => Some("PT_GNU_STACK"),
         gabi::PT_GNU_RELRO => Some("PT_GNU_RELRO"),
+        gabi::PT_GNU_PROPERTY => Some("PT_GNU_PROPERTY"),
         _ => None,
     }
 }

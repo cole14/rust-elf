@@ -370,6 +370,8 @@ pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
 pub const PT_GNU_STACK: u32 = 0x6474e551;
 /// Read-only after relocation
 pub const PT_GNU_RELRO: u32 = 0x6474e552;
+/// The segment contains .note.gnu.property section
+pub const PT_GNU_PROPERTY: u32 = 0x6474e553;
 /// Values between [PT_LOOS, PT_HIOS] in this inclusive range are reserved for
 /// operating system-specific semantics.
 pub const PT_LOOS: u32 = 0x60000000;
