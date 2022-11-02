@@ -37,29 +37,27 @@ impl<R: ReadBytesAt> File<R> {
     /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
     pub fn segments(&mut self) -> Result<SegmentTable, ParseError> {
-        if self.ehdr.e_phnum == 0 {
-            return Ok(SegmentTable::new(
+        match self.ehdr.get_phdrs_data_range()? {
+            Some((start, end)) => {
+                let buf = self.reader.read_bytes_at(start..end)?;
+                Ok(SegmentTable::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                ))
+            }
+            // If the file doesn't have a program header table, return an empty table
+            //
+            // Note: It'd be more intuitive if this interface returned a
+            // Result<Option<SegmentTable>, ParseError> instead so that users could match on None
+            // instead of getting a real but empty table. I'm going to defer that change for
+            // a release where I can bundle other such breaking interface changes together.
+            None => Ok(SegmentTable::new(
                 self.ehdr.endianness,
                 self.ehdr.class,
                 &[],
-            ));
+            )),
         }
-
-        // Validate shentsize before trying to read the table so that we can error early for corrupted files
-        let entsize =
-            SegmentTable::validate_entsize(self.ehdr.class, self.ehdr.e_phentsize as usize)?;
-
-        let start: usize = self.ehdr.e_phoff.try_into()?;
-        let size = entsize
-            .checked_mul(self.ehdr.e_phnum as usize)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.reader.read_bytes_at(start..end)?;
-        Ok(SegmentTable::new(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            buf,
-        ))
     }
 
     fn shnum(&mut self) -> Result<u64, ParseError> {
@@ -794,6 +792,28 @@ impl FileHeader {
             e_shnum,
             e_shstrndx,
         });
+    }
+
+    /// Calculate the (start, end) range in bytes for where the ProgramHeader table resides in
+    /// this ELF file containing this FileHeader.
+    ///
+    /// Returns Ok(None) if the file does not contain any ProgramHeaders.
+    /// Returns a ParseError if the range could not fit in the system's usize or encountered overflow
+    pub(crate) fn get_phdrs_data_range(self) -> Result<Option<(usize, usize)>, ParseError> {
+        if self.e_phnum == 0 {
+            return Ok(None);
+        }
+
+        // Validate ph entsize. We do this when calculating the range before so that we can error
+        // early for corrupted files.
+        let entsize = SegmentTable::validate_entsize(self.class, self.e_phentsize as usize)?;
+
+        let start: usize = self.e_phoff.try_into()?;
+        let size = entsize
+            .checked_mul(self.e_phnum as usize)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        Ok(Some((start, end)))
     }
 }
 
