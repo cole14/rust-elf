@@ -353,9 +353,7 @@ impl<R: ReadBytesAt> File<R> {
                 .iter()
                 .find(|phdr| phdr.p_type == gabi::PT_DYNAMIC)
             {
-                let start: usize = phdr.p_offset.try_into()?;
-                let size: usize = phdr.p_filesz.try_into()?;
-                let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+                let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes_at(start..end)?;
                 return Ok(Some(DynIterator::new(
                     self.ehdr.endianness,
@@ -599,9 +597,7 @@ impl<R: ReadBytesAt> File<R> {
             )));
         }
 
-        let start: usize = phdr.p_offset.try_into()?;
-        let size: usize = phdr.p_filesz.try_into()?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let (start, end) = phdr.get_file_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
         Ok(NoteIterator::new(
             self.ehdr.endianness,

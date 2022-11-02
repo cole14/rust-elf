@@ -76,6 +76,18 @@ impl ParseAt for ProgramHeader {
     }
 }
 
+impl ProgramHeader {
+    /// Helper method which uses checked integer math to get a tuple of (start, end) for
+    /// the location in bytes for this ProgramHeader's data in the file.
+    /// i.e. (p_offset, p_offset + p_filesz)
+    pub(crate) fn get_file_data_range(&self) -> Result<(usize, usize), ParseError> {
+        let start: usize = self.p_offset.try_into()?;
+        let size: usize = self.p_filesz.try_into()?;
+        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        Ok((start, end))
+    }
+}
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;
