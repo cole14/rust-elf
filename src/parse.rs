@@ -323,6 +323,17 @@ pub trait ParseAt: Sized {
 
     /// Returns the expected size of the type being parsed for the given ELF class
     fn size_for(class: Class) -> usize;
+
+    /// Checks whether the given entsize matches what we need to parse this type
+    ///
+    /// Returns a ParseError for bad/unexpected entsizes that don't match what this type parses.
+    fn validate_entsize(class: Class, entsize: usize) -> Result<usize, ParseError> {
+        let expected = Self::size_for(class);
+        match entsize == expected {
+            true => Ok(entsize),
+            false => Err(ParseError::BadEntsize((entsize as u64, expected as u64))),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -375,15 +386,6 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
             class,
             data,
             pd: PhantomData,
-        }
-    }
-
-    /// Checks whether the given entsize matches what we expect
-    pub fn validate_entsize(class: Class, entsize: usize) -> Result<usize, ParseError> {
-        let expected = P::size_for(class);
-        match entsize == expected {
-            true => Ok(entsize),
-            false => Err(ParseError::BadEntsize((entsize as u64, expected as u64))),
         }
     }
 
@@ -633,9 +635,9 @@ mod parsing_table_tests {
 
     #[test]
     fn test_u32_table_validate_entsize() {
-        assert!(matches!(U32Table::validate_entsize(Class::ELF32, 4), Ok(4)));
+        assert!(matches!(u32::validate_entsize(Class::ELF32, 4), Ok(4)));
         assert!(matches!(
-            U32Table::validate_entsize(Class::ELF32, 8),
+            u32::validate_entsize(Class::ELF32, 8),
             Err(ParseError::BadEntsize((8, 4)))
         ));
     }

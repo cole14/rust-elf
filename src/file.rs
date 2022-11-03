@@ -1,7 +1,9 @@
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::gabi;
-use crate::gnu_symver::{SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndexTable};
+use crate::gnu_symver::{
+    SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
+};
 use crate::note::NoteIterator;
 use crate::parse::{
     parse_u16_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ReadBytesAt,
@@ -10,7 +12,7 @@ use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
-use crate::symbol::SymbolTable;
+use crate::symbol::{Symbol, SymbolTable};
 
 pub struct File<R: ReadBytesAt> {
     reader: R,
@@ -94,7 +96,7 @@ impl<R: ReadBytesAt> File<R> {
 
         // Validate shentsize before trying to read so that we can error early for corrupted files
         let entsize =
-            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
 
         let shoff: usize = self.ehdr.e_shoff.try_into()?;
         let entry_off = index
@@ -138,7 +140,7 @@ impl<R: ReadBytesAt> File<R> {
 
         // Validate shentsize before trying to read the table so that we can error early for corrupted files
         let entsize =
-            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
 
         let start: usize = self.ehdr.e_shoff.try_into()?;
         let size = entsize
@@ -183,7 +185,7 @@ impl<R: ReadBytesAt> File<R> {
 
         // Validate shentsize before trying to read the table so that we can error early for corrupted files
         let entsize =
-            SectionHeaderTable::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
         let shdrs_start: usize = self.ehdr.e_shoff.try_into()?;
         let shdrs_size = entsize
             .checked_mul(shnum)
@@ -304,7 +306,7 @@ impl<R: ReadBytesAt> File<R> {
         self.reader.load_bytes_at(strtab_start..strtab_end)?;
 
         // Validate entsize before trying to read the table so that we can error early for corrupted files
-        SymbolTable::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize.try_into()?)?;
+        Symbol::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize.try_into()?)?;
         let symtab = SymbolTable::new(
             self.ehdr.endianness,
             self.ehdr.class,
@@ -400,7 +402,7 @@ impl<R: ReadBytesAt> File<R> {
         // Load the versym table
         let versym_shdr = versym_opt.unwrap();
         // Validate VERSYM entsize before trying to read the table so that we can error early for corrupted files
-        VersionIndexTable::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
+        VersionIndex::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
         let (versym_start, versym_end) = versym_shdr.get_data_range()?;
         self.reader.load_bytes_at(versym_start..versym_end)?;
 
@@ -802,7 +804,7 @@ impl FileHeader {
 
         // Validate ph entsize. We do this when calculating the range before so that we can error
         // early for corrupted files.
-        let entsize = SegmentTable::validate_entsize(self.class, self.e_phentsize as usize)?;
+        let entsize = ProgramHeader::validate_entsize(self.class, self.e_phentsize as usize)?;
 
         let start: usize = self.e_phoff.try_into()?;
         let size = entsize
