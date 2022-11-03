@@ -1,3 +1,36 @@
+//! This module provides an interface for parsing ELF files
+//!
+//! Example usage of the bytes-based interface:
+//!
+//! ```
+//! use elf::gabi::PT_LOAD;
+//! use elf::elf::{ElfParser, from_bytes};
+//! use elf::endian::AnyEndian;
+//! use elf::segment::ProgramHeader;
+//! use elf::to_str::p_type_to_string;
+//!
+//! let path = std::path::PathBuf::from("tests/samples/test1");
+//! let file_data = std::fs::read(path).unwrap();
+//!
+//! let slice = file_data.as_slice();
+//! let file = from_bytes::<AnyEndian>(slice).unwrap();
+//!
+//! // Get a lazy-parsing type for the segment table into `phdr_table`
+//! if let Some(phdr_table) = file.segments().unwrap() {
+//!     // This table lets us parse specific indexes on-demand without parsing the whole table
+//!     let phdr3 = phdr_table.get(3).unwrap();
+//!     println!("Program Header 3 is of type: {}", p_type_to_string(phdr3.p_type));
+//!
+//!     // It can also yield an iterator on which we can do normal iterator things, like filtering
+//!     // for all the segments of a specific type. Parsing is done on each iter.next() call, so
+//!     // if you end iteration early, it won't parse the rest of the table.
+//!     let load_phdrs: Vec<ProgramHeader> = phdr_table
+//!         .iter()
+//!         .filter(|phdr|{phdr.p_type == PT_LOAD})
+//!         .collect();
+//!     println!("First load segment is at: {}", load_phdrs[0].p_vaddr);
+//! }
+//! ```
 use core::ops::Range;
 
 use crate::endian::EndianParse;
@@ -29,6 +62,11 @@ pub trait ReadBytes {
 //                          |___/
 //
 
+/// Parse the ELF [FileHeader] and construct a lazy-parsing [ElfBytes] from the given bytes.
+///
+/// This provides an interface for zero-alloc lazy parsing of ELF structures from a byte slice containing
+/// the complete ELF file contents. The various ELF structures are parsed on-demand into the native Rust
+/// representation.
 pub fn from_bytes<'data, E: EndianParse>(
     data: &'data [u8],
 ) -> Result<ElfBytes<'data, E>, ParseError> {
@@ -237,8 +275,8 @@ mod bytes_tests {
     fn segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
-        let mut slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(&mut slice).expect("Open test1");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
 
         // With the bytes interface, we should be able to get multiple lazy-parsing types concurrently,
         // since the trait is implemented for shared references.
