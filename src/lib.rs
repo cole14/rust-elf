@@ -74,6 +74,8 @@ pub mod to_str;
 pub mod endian;
 mod parse;
 
+pub mod elf;
+
 pub use file::File;
 #[cfg(feature = "std")]
 pub use parse::CachedReadBytes;

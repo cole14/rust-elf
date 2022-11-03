@@ -633,8 +633,8 @@ pub struct FileHeader {
     pub e_shstrndx: u16,
 }
 
-const ELF32_EHDR_TAILSIZE: usize = 36;
-const ELF64_EHDR_TAILSIZE: usize = 48;
+pub const ELF32_EHDR_TAILSIZE: usize = 36;
+pub const ELF64_EHDR_TAILSIZE: usize = 48;
 
 // Read the platform-independent ident bytes
 impl FileHeader {
@@ -645,11 +645,6 @@ impl FileHeader {
             return Err(ParseError::BadMagic([
                 magic[0], magic[1], magic[2], magic[3],
             ]));
-        }
-
-        let class = buf[gabi::EI_CLASS];
-        if class != gabi::ELFCLASS32 && class != gabi::ELFCLASS64 {
-            return Err(ParseError::UnsupportedElfClass(class));
         }
 
         // Verify ELF Version
@@ -664,6 +659,7 @@ impl FileHeader {
         return Ok(());
     }
 
+    // deprecated, will go away with adoption of new bytes/stream interface
     pub fn parse<R: ReadBytesAt>(reader: &mut R) -> Result<Self, ParseError> {
         let class: Class;
         let osabi: u8;
@@ -679,10 +675,13 @@ impl FileHeader {
             ei_data = ident[gabi::EI_DATA];
             file_endian = AnyEndian::from_ei_data(ei_data)?;
 
-            class = if ident[gabi::EI_CLASS] == gabi::ELFCLASS32 {
-                Class::ELF32
-            } else {
-                Class::ELF64
+            let e_class = ident[gabi::EI_CLASS];
+            class = match e_class {
+                gabi::ELFCLASS32 => Class::ELF32,
+                gabi::ELFCLASS64 => Class::ELF64,
+                _ => {
+                    return Err(ParseError::UnsupportedElfClass(e_class));
+                }
             };
 
             osabi = ident[gabi::EI_OSABI];
@@ -695,6 +694,81 @@ impl FileHeader {
             Class::ELF64 => ELF64_EHDR_TAILSIZE,
         };
         let data = reader.read_bytes_at(start..start + size)?;
+
+        let mut offset = 0;
+        let e_type = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_machine = file_endian.parse_u16_at(&mut offset, data)?;
+        let version = file_endian.parse_u32_at(&mut offset, data)?;
+
+        let e_entry: u64;
+        let e_phoff: u64;
+        let e_shoff: u64;
+
+        if class == Class::ELF32 {
+            e_entry = file_endian.parse_u32_at(&mut offset, data)? as u64;
+            e_phoff = file_endian.parse_u32_at(&mut offset, data)? as u64;
+            e_shoff = file_endian.parse_u32_at(&mut offset, data)? as u64;
+        } else {
+            e_entry = file_endian.parse_u64_at(&mut offset, data)?;
+            e_phoff = file_endian.parse_u64_at(&mut offset, data)?;
+            e_shoff = file_endian.parse_u64_at(&mut offset, data)?;
+        }
+
+        let e_flags = file_endian.parse_u32_at(&mut offset, data)?;
+        let e_ehsize = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_phentsize = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_phnum = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_shentsize = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_shnum = file_endian.parse_u16_at(&mut offset, data)?;
+        let e_shstrndx = file_endian.parse_u16_at(&mut offset, data)?;
+
+        Ok(FileHeader {
+            class,
+            ei_data,
+            version,
+            e_type,
+            e_machine,
+            osabi,
+            abiversion,
+            e_entry,
+            e_phoff,
+            e_shoff,
+            e_flags,
+            e_ehsize,
+            e_phentsize,
+            e_phnum,
+            e_shentsize,
+            e_shnum,
+            e_shstrndx,
+        })
+    }
+
+    pub fn parse_ident(data: &[u8]) -> Result<(u8, Class, u8, u8), ParseError> {
+        Self::verify_ident(data)?;
+
+        let e_class = data[gabi::EI_CLASS];
+        let class = match e_class {
+            gabi::ELFCLASS32 => Class::ELF32,
+            gabi::ELFCLASS64 => Class::ELF64,
+            _ => {
+                return Err(ParseError::UnsupportedElfClass(e_class));
+            }
+        };
+
+        Ok((
+            data[gabi::EI_DATA],
+            class,
+            data[gabi::EI_OSABI],
+            data[gabi::EI_ABIVERSION],
+        ))
+    }
+
+    pub fn parse_tail(ident: (u8, Class, u8, u8), data: &[u8]) -> Result<FileHeader, ParseError> {
+        let (ei_data, class, osabi, abiversion) = ident;
+        let file_endian: AnyEndian;
+
+        // Verify endianness is something we know how to parse
+        file_endian = AnyEndian::from_ei_data(ei_data)?;
 
         let mut offset = 0;
         let e_type = file_endian.parse_u16_at(&mut offset, data)?;
