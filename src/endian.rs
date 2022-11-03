@@ -1,3 +1,22 @@
+//! An all-safe-code endian-aware integer parsing implementation via the
+//! [EndianParse] trait. Each trait impl represents a specification that encapsulates
+//! an interface for parsing integers from some set of allowed byte orderings.
+//!
+//! This module provides four endian parsing implementations optimized to support the different
+//! common use-cases for an ELF parsing library:
+//!
+//! * [AnyEndian]: Dynamically parsing either byte order at runtime based on the type of ELF object being parsed.
+//! * [BigEndian]/[LittleEndian]: For tools that know they only want to parse a single given byte order known at compile time.
+//! * [type@NativeEndian]: For tools that know they want to parse the same byte order as the target's byte order.
+//
+// Note: This is largely inspired by the endian parsing code in the object crate (I tried valiantly to
+// explore alternate shapes, but this won out). The design choices for ParseAt/EndianParse
+// are to avoid the unsafe reinterpret cast/transmute calls that rely on `#[repr(C)]` and
+// proper alignment that is done in the Pod trait over there.
+//
+// That method is slick, and also - do we need really it? I want to see how far we can get
+// using only safe code.
+
 use crate::gabi;
 use crate::parse::ParseError;
 
@@ -32,15 +51,14 @@ macro_rules! safe_from {
     }};
 }
 
-/// A all-safe-code endian-aware integer parsing trait.
+/// An all-safe-code endian-aware integer parsing trait.
 ///
-/// Largely inspired by the endian parsing code in the object crate (I tried valiantly to
-/// explore alternate shapes, but this won out). The design choices for ParseAt/EndianParse
-/// are to avoid the unsafe reinterpret cast/transmute calls that rely on `#[repr(C)]` and
-/// proper alignment that is done in the Pod trait over there.
+/// These methods use safe code to get a subslice from the the byte slice $data
+/// at the given $off as a [u8; size_of<$typ>], then calls the corresponding safe
+/// endian-aware conversion on it.
 ///
-/// That method is slick, and also - do we need really it? I want to see how far we can get
-/// using only safe code.
+/// These use checked integer math and returns a ParseError on overflow or if $data did
+/// not contain enough bytes at $off to perform the conversion.
 pub trait EndianParse: Clone + Copy + PartialEq + Eq {
     fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
         safe_from!(self, u8, offset, data)
@@ -66,11 +84,13 @@ pub trait EndianParse: Clone + Copy + PartialEq + Eq {
         safe_from!(self, i64, offset, data)
     }
 
-    /// Get an endian-aware integer parsing spec for an ELF FileHeader's ident[EI_DATA] byte.
+    /// Get an endian-aware integer parsing spec for an ELF [FileHeader](crate::file::FileHeader)'s
+    /// `ident[EI_DATA]` byte.
     ///
-    /// Returns a ParseError::UnsupportedElfEndianness if this spec doesn't support parsing
-    /// the byte-order represented by ei_data. If you're seeing this error, are you trying to
-    /// read files of any endianness? i.e. did you want to use AnyEndian?
+    /// Returns an [UnsupportedElfEndianness](ParseError::UnsupportedElfEndianness) if this spec
+    /// doesn't support parsing the byte-order represented by ei_data. If you're
+    /// seeing this error, are you trying to read files of any endianness? i.e.
+    /// did you want to use AnyEndian?
     fn from_ei_data(ei_data: u8) -> Result<Self, ParseError>;
 
     fn is_little(self) -> bool;
@@ -81,14 +101,14 @@ pub trait EndianParse: Clone + Copy + PartialEq + Eq {
     }
 }
 
-/// An endian parsing type that can choose at runtime which byte order to parse as
+/// An endian parsing type that can choose at runtime which byte order to parse integers as.
 /// This is useful for scenarios where a single compiled binary wants to dynamically
 /// interpret ELF files of any byte order.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AnyEndian {
-    /// Used for a little-endian ELF file that has been parsed with AnyEndian
+    /// Used for a little-endian ELF structures that have been parsed with AnyEndian
     Little,
-    /// Used for a big-endian ELF file that has been parsed with AnyEndian
+    /// Used for a big-endian ELF structures that have been parsed with AnyEndian
     Big,
 }
 
