@@ -819,7 +819,7 @@ impl FileHeader {
     }
 
     /// Calculate the (start, end) range in bytes for where the ProgramHeader table resides in
-    /// this ELF file containing this FileHeader.
+    /// the ELF file containing this FileHeader.
     ///
     /// Returns Ok(None) if the file does not contain any ProgramHeaders.
     /// Returns a ParseError if the range could not fit in the system's usize or encountered overflow

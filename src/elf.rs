@@ -36,7 +36,8 @@ use core::ops::Range;
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gabi;
-use crate::parse::{Class, ParseError};
+use crate::parse::{Class, ParseAt, ParseError};
+use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::SegmentTable;
 
 //  _____ _     _____ ____
@@ -48,6 +49,8 @@ use crate::segment::SegmentTable;
 
 pub trait ElfParser<'data, E: EndianParse> {
     fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError>;
+
+    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError>;
 }
 
 pub trait ReadBytes {
@@ -107,6 +110,43 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             }
             None => Ok(None),
         }
+    }
+
+    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
+            return Ok(None);
+        }
+
+        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+        // e_shnum is zero and the actual number of section header table entries
+        // is contained in the sh_size field of the section header at index 0.
+        let shoff: usize = self.ehdr.e_shoff.try_into()?;
+        let mut shnum = self.ehdr.e_shnum as usize;
+        if shnum == 0 {
+            let mut offset = shoff;
+            let shdr0 =
+                SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, self.data)?;
+            shnum = shdr0.sh_size.try_into()?;
+        }
+
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+
+        let size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = self
+            .data
+            .get_bytes(shoff..end)
+            .ok_or(ParseError::SliceReadError((shoff, end)))?;
+        Ok(Some(SectionHeaderTable::new(
+            self.endian,
+            self.ehdr.class,
+            buf,
+        )))
     }
 }
 
@@ -176,6 +216,49 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
             None => Ok(None),
         }
     }
+
+    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
+            return Ok(None);
+        }
+
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+
+        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+        // e_shnum is zero and the actual number of section header table entries
+        // is contained in the sh_size field of the section header at index 0.
+        let shoff: usize = self.ehdr.e_shoff.try_into()?;
+        let mut shnum = self.ehdr.e_shnum as usize;
+        if shnum == 0 {
+            let mut offset = shoff;
+            self.reader.load_bytes(shoff..entsize)?;
+            let shdr0_buf = self
+                .reader
+                .get_bytes(shoff..entsize)
+                .ok_or(ParseError::SliceReadError((shoff, entsize)))?;
+            let shdr0 =
+                SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, shdr0_buf)?;
+            shnum = shdr0.sh_size.try_into()?;
+        }
+
+        let size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes(shoff..end)?;
+        let buf = self
+            .reader
+            .get_bytes(shoff..end)
+            .ok_or(ParseError::SliceReadError((shoff, end)))?;
+        Ok(Some(SectionHeaderTable::new(
+            self.endian,
+            self.ehdr.class,
+            buf,
+        )))
+    }
 }
 
 #[cfg(feature = "std")]
@@ -233,16 +316,12 @@ impl<R: Read + Seek> CachingReader<R> {
 //
 
 #[cfg(test)]
-mod stream_tests {
+mod interface_tests {
     use super::*;
     use crate::endian::AnyEndian;
     use crate::segment::ProgramHeader;
 
-    #[test]
-    fn segments() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+    fn test_segments<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
         let segments: Vec<ProgramHeader> = file
             .segments()
             .expect("File should have a segment table")
@@ -263,16 +342,20 @@ mod stream_tests {
             }
         );
     }
-}
 
-#[cfg(test)]
-mod bytes_tests {
-    use super::*;
-    use crate::endian::AnyEndian;
-    use crate::segment::ProgramHeader;
+    fn test_section_headers<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
+        let shdrs = file
+            .section_headers()
+            .expect("File should have a section table")
+            .expect("Failed to get shdrs");
+
+        let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
+
+        assert_eq!(shdrs_vec[4].sh_type, gabi::SHT_GNU_HASH);
+    }
 
     #[test]
-    fn segments() {
+    fn bytes_test_for_simultaenous_segments_parsing() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -314,5 +397,43 @@ mod bytes_tests {
             iter.get(0).expect("should be able to parse phdr"),
             expected_phdr
         )
+    }
+
+    #[test]
+    fn stream_test_for_segments() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        test_segments(&mut file);
+    }
+
+    #[test]
+    fn bytes_test_for_segments() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        test_segments(&file);
+    }
+
+    #[test]
+    fn stream_test_for_section_headers() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        test_section_headers(&mut file);
+    }
+
+    #[test]
+    fn bytes_test_for_section_headers() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        test_section_headers(&file);
     }
 }
