@@ -441,14 +441,14 @@ impl<R: ReadBytesAt> File<R> {
         };
 
         // Wrap the VERNEED section and strings data in an iterator and string table
-        let (verneeds, verneed_strs) = match needs_shdrs {
+        let verneeds = match needs_shdrs {
             Some((shdr, strs_shdr)) => {
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
                 let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
 
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.get_loaded_bytes_at(start..end);
-                (
+                Some((
                     VerNeedIterator::new(
                         self.ehdr.endianness,
                         self.ehdr.class,
@@ -457,21 +457,21 @@ impl<R: ReadBytesAt> File<R> {
                         buf,
                     ),
                     StringTable::new(strs_buf),
-                )
+                ))
             }
             // If there's no NEEDs, then construct empty wrappers for them
-            None => (VerNeedIterator::default(), StringTable::default()),
+            None => None,
         };
 
         // Wrap the VERDEF section and strings data in an iterator and string table
-        let (verdefs, verdef_strs) = match defs_shdrs {
+        let verdefs = match defs_shdrs {
             Some((shdr, strs_shdr)) => {
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
                 let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
 
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.get_loaded_bytes_at(start..end);
-                (
+                Some((
                     VerDefIterator::new(
                         self.ehdr.endianness,
                         self.ehdr.class,
@@ -480,10 +480,10 @@ impl<R: ReadBytesAt> File<R> {
                         buf,
                     ),
                     StringTable::new(strs_buf),
-                )
+                ))
             }
             // If there's no DEFs, then construct empty wrappers for them
-            None => (VerDefIterator::default(), StringTable::default()),
+            None => None,
         };
 
         // Wrap the versym section data in a parsing table
@@ -497,9 +497,7 @@ impl<R: ReadBytesAt> File<R> {
         Ok(Some(SymbolVersionTable::new(
             version_ids,
             verneeds,
-            verneed_strs,
             verdefs,
-            verdef_strs,
         )))
     }
 

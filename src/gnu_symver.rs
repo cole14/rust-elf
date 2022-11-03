@@ -44,41 +44,41 @@ impl<'data> Iterator for SymbolNamesIterator<'data> {
 pub struct SymbolVersionTable<'data> {
     version_ids: VersionIndexTable<'data>,
 
-    verneeds: VerNeedIterator<'data>,
-    verneed_strs: StringTable<'data>,
-
-    verdefs: VerDefIterator<'data>,
-    verdef_strs: StringTable<'data>,
+    verneeds: Option<(VerNeedIterator<'data>, StringTable<'data>)>,
+    verdefs: Option<(VerDefIterator<'data>, StringTable<'data>)>,
 }
 
 impl<'data> SymbolVersionTable<'data> {
     pub fn new(
         version_ids: VersionIndexTable<'data>,
-        verneeds: VerNeedIterator<'data>,
-        verneed_strs: StringTable<'data>,
-        verdefs: VerDefIterator<'data>,
-        verdef_strs: StringTable<'data>,
+        verneeds: Option<(VerNeedIterator<'data>, StringTable<'data>)>,
+        verdefs: Option<(VerDefIterator<'data>, StringTable<'data>)>,
     ) -> Self {
         SymbolVersionTable {
             version_ids,
             verneeds,
-            verneed_strs,
             verdefs,
-            verdef_strs,
         }
     }
 
     pub fn get_requirement(&self, sym_idx: usize) -> Result<Option<SymbolRequirement>, ParseError> {
+        let (verneeds, verneed_strs) = match self.verneeds {
+            Some(verneeds) => verneeds,
+            None => {
+                return Ok(None);
+            }
+        };
+
         let ver_ndx = self.version_ids.get(sym_idx)?;
-        let iter = self.verneeds.clone();
+        let iter = verneeds.clone();
         for (vn, vna_iter) in iter {
             for vna in vna_iter {
                 if vna.vna_other != ver_ndx.index() {
                     continue;
                 }
 
-                let file = self.verneed_strs.get(vn.vn_file as usize)?;
-                let name = self.verneed_strs.get(vna.vna_name as usize)?;
+                let file = verneed_strs.get(vn.vn_file as usize)?;
+                let name = verneed_strs.get(vna.vna_name as usize)?;
                 let hash = vna.vna_hash;
                 let hidden = ver_ndx.is_hidden();
                 return Ok(Some(SymbolRequirement {
@@ -99,8 +99,15 @@ impl<'data> SymbolVersionTable<'data> {
     }
 
     pub fn get_definition(&self, sym_idx: usize) -> Result<Option<SymbolDefinition>, ParseError> {
+        let (ref verdefs, ref verdef_strs) = match self.verdefs {
+            Some(ref verdefs) => verdefs,
+            None => {
+                return Ok(None);
+            }
+        };
+
         let ver_ndx = self.version_ids.get(sym_idx)?;
-        let iter = self.verdefs.clone();
+        let iter = verdefs.clone();
         for (vd, vda_iter) in iter {
             if vd.vd_ndx != ver_ndx.index() {
                 continue;
@@ -114,7 +121,7 @@ impl<'data> SymbolVersionTable<'data> {
                 flags,
                 names: SymbolNamesIterator {
                     vda_iter,
-                    strtab: &self.verdef_strs,
+                    strtab: verdef_strs,
                 },
                 hidden,
             }));
@@ -283,19 +290,6 @@ impl<'data> VerDefIterator<'data> {
             count,
             data,
             offset: starting_offset,
-        }
-    }
-}
-
-/// Create an empty iterator that yields nothing
-impl<'data> Default for VerDefIterator<'data> {
-    fn default() -> Self {
-        VerDefIterator {
-            endianness: Endian::Little,
-            class: Class::ELF64,
-            count: 0,
-            data: &[],
-            offset: 0,
         }
     }
 }
@@ -524,19 +518,6 @@ impl<'data> VerNeedIterator<'data> {
             count,
             data,
             offset: starting_offset,
-        }
-    }
-}
-
-/// Create an empty iterator that yields nothing
-impl<'data> Default for VerNeedIterator<'data> {
-    fn default() -> Self {
-        VerNeedIterator {
-            endianness: Endian::Little,
-            class: Class::ELF64,
-            count: 0,
-            data: &[],
-            offset: 0,
         }
     }
 }
@@ -1112,8 +1093,11 @@ mod iter_tests {
         let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
         let verdef_strs = StringTable::new(&GNU_VERDEF_STRINGS);
 
-        let table =
-            SymbolVersionTable::new(version_ids, verneeds, verneed_strs, verdefs, verdef_strs);
+        let table = SymbolVersionTable::new(
+            version_ids,
+            Some((verneeds, verneed_strs)),
+            Some((verdefs, verdef_strs)),
+        );
 
         let def1 = table
             .get_definition(0)
