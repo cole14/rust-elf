@@ -1,4 +1,5 @@
-use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompressionHeader {
@@ -8,25 +9,25 @@ pub struct CompressionHeader {
 }
 
 impl ParseAt for CompressionHeader {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(CompressionHeader {
-                ch_type: parse_u32_at(endian, offset, data)?,
-                ch_size: parse_u32_at(endian, offset, data)? as u64,
-                ch_addralign: parse_u32_at(endian, offset, data)? as u64,
+                ch_type: endian.parse_u32_at(offset, data)?,
+                ch_size: endian.parse_u32_at(offset, data)? as u64,
+                ch_addralign: endian.parse_u32_at(offset, data)? as u64,
             }),
             Class::ELF64 => {
-                let ch_type = parse_u32_at(endian, offset, data)?;
-                let _ch_reserved = parse_u32_at(endian, offset, data)?;
+                let ch_type = endian.parse_u32_at(offset, data)?;
+                let _ch_reserved = endian.parse_u32_at(offset, data)?;
                 Ok(CompressionHeader {
                     ch_type,
-                    ch_size: parse_u64_at(endian, offset, data)?,
-                    ch_addralign: parse_u64_at(endian, offset, data)?,
+                    ch_size: endian.parse_u64_at(offset, data)?,
+                    ch_addralign: endian.parse_u64_at(offset, data)?,
                 })
             }
         }
@@ -44,12 +45,13 @@ impl ParseAt for CompressionHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_chdr32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             CompressionHeader {
                 ch_type: 0x03020100,
@@ -62,7 +64,7 @@ mod parse_tests {
     #[test]
     fn parse_chdr32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             CompressionHeader {
                 ch_type: 0x00010203,
@@ -75,7 +77,7 @@ mod parse_tests {
     #[test]
     fn parse_chdr64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             CompressionHeader {
                 ch_type: 0x03020100,
@@ -88,7 +90,7 @@ mod parse_tests {
     #[test]
     fn parse_chdr64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             CompressionHeader {
                 ch_type: 0x00010203,
@@ -100,21 +102,21 @@ mod parse_tests {
 
     #[test]
     fn parse_chdr32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, CompressionHeader>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_chdr32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, CompressionHeader>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_chdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, CompressionHeader>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_chdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<CompressionHeader>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, CompressionHeader>(BigEndian, Class::ELF64);
     }
 }

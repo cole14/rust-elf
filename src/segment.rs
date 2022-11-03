@@ -1,6 +1,7 @@
-use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingTable};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 
-pub type SegmentTable<'data> = ParsingTable<'data, ProgramHeader>;
+pub type SegmentTable<'data, E> = ParsingTable<'data, E, ProgramHeader>;
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -27,34 +28,34 @@ pub struct ProgramHeader {
 }
 
 impl ParseAt for ProgramHeader {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         if class == Class::ELF32 {
             return Ok(ProgramHeader {
-                p_type: parse_u32_at(endian, offset, data)?,
-                p_offset: parse_u32_at(endian, offset, data)? as u64,
-                p_vaddr: parse_u32_at(endian, offset, data)? as u64,
-                p_paddr: parse_u32_at(endian, offset, data)? as u64,
-                p_filesz: parse_u32_at(endian, offset, data)? as u64,
-                p_memsz: parse_u32_at(endian, offset, data)? as u64,
-                p_flags: parse_u32_at(endian, offset, data)?,
-                p_align: parse_u32_at(endian, offset, data)? as u64,
+                p_type: endian.parse_u32_at(offset, data)?,
+                p_offset: endian.parse_u32_at(offset, data)? as u64,
+                p_vaddr: endian.parse_u32_at(offset, data)? as u64,
+                p_paddr: endian.parse_u32_at(offset, data)? as u64,
+                p_filesz: endian.parse_u32_at(offset, data)? as u64,
+                p_memsz: endian.parse_u32_at(offset, data)? as u64,
+                p_flags: endian.parse_u32_at(offset, data)?,
+                p_align: endian.parse_u32_at(offset, data)? as u64,
             });
         }
 
         // Note: 64-bit fields are in a different order
-        let p_type = parse_u32_at(endian, offset, data)?;
-        let p_flags = parse_u32_at(endian, offset, data)?;
-        let p_offset = parse_u64_at(endian, offset, data)?;
-        let p_vaddr = parse_u64_at(endian, offset, data)?;
-        let p_paddr = parse_u64_at(endian, offset, data)?;
-        let p_filesz = parse_u64_at(endian, offset, data)?;
-        let p_memsz = parse_u64_at(endian, offset, data)?;
-        let p_align = parse_u64_at(endian, offset, data)?;
+        let p_type = endian.parse_u32_at(offset, data)?;
+        let p_flags = endian.parse_u32_at(offset, data)?;
+        let p_offset = endian.parse_u64_at(offset, data)?;
+        let p_vaddr = endian.parse_u64_at(offset, data)?;
+        let p_paddr = endian.parse_u64_at(offset, data)?;
+        let p_filesz = endian.parse_u64_at(offset, data)?;
+        let p_memsz = endian.parse_u64_at(offset, data)?;
+        let p_align = endian.parse_u64_at(offset, data)?;
         Ok(ProgramHeader {
             p_type,
             p_offset,
@@ -91,12 +92,13 @@ impl ProgramHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_phdr32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             ProgramHeader {
                 p_type: 0x03020100,
@@ -114,7 +116,7 @@ mod parse_tests {
     #[test]
     fn parse_phdr32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             ProgramHeader {
                 p_type: 0x00010203,
@@ -132,7 +134,7 @@ mod parse_tests {
     #[test]
     fn parse_phdr64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             ProgramHeader {
                 p_type: 0x03020100,
@@ -150,7 +152,7 @@ mod parse_tests {
     #[test]
     fn parse_phdr64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             ProgramHeader {
                 p_type: 0x00010203,
@@ -167,21 +169,21 @@ mod parse_tests {
 
     #[test]
     fn parse_phdr32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, ProgramHeader>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_phdr32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, ProgramHeader>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_phdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, ProgramHeader>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_phdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<ProgramHeader>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, ProgramHeader>(BigEndian, Class::ELF64);
     }
 }

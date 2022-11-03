@@ -1,6 +1,7 @@
-use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError, ParsingTable};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 
-pub type SectionHeaderTable<'data> = ParsingTable<'data, SectionHeader>;
+pub type SectionHeaderTable<'data, E> = ParsingTable<'data, E, SectionHeader>;
 
 /// Encapsulates the contents of an ELF Section Header
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -28,36 +29,36 @@ pub struct SectionHeader {
 }
 
 impl ParseAt for SectionHeader {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(SectionHeader {
-                sh_name: parse_u32_at(endian, offset, data)?,
-                sh_type: parse_u32_at(endian, offset, data)?,
-                sh_flags: parse_u32_at(endian, offset, data)? as u64,
-                sh_addr: parse_u32_at(endian, offset, data)? as u64,
-                sh_offset: parse_u32_at(endian, offset, data)? as u64,
-                sh_size: parse_u32_at(endian, offset, data)? as u64,
-                sh_link: parse_u32_at(endian, offset, data)?,
-                sh_info: parse_u32_at(endian, offset, data)?,
-                sh_addralign: parse_u32_at(endian, offset, data)? as u64,
-                sh_entsize: parse_u32_at(endian, offset, data)? as u64,
+                sh_name: endian.parse_u32_at(offset, data)?,
+                sh_type: endian.parse_u32_at(offset, data)?,
+                sh_flags: endian.parse_u32_at(offset, data)? as u64,
+                sh_addr: endian.parse_u32_at(offset, data)? as u64,
+                sh_offset: endian.parse_u32_at(offset, data)? as u64,
+                sh_size: endian.parse_u32_at(offset, data)? as u64,
+                sh_link: endian.parse_u32_at(offset, data)?,
+                sh_info: endian.parse_u32_at(offset, data)?,
+                sh_addralign: endian.parse_u32_at(offset, data)? as u64,
+                sh_entsize: endian.parse_u32_at(offset, data)? as u64,
             }),
             Class::ELF64 => Ok(SectionHeader {
-                sh_name: parse_u32_at(endian, offset, data)?,
-                sh_type: parse_u32_at(endian, offset, data)?,
-                sh_flags: parse_u64_at(endian, offset, data)?,
-                sh_addr: parse_u64_at(endian, offset, data)?,
-                sh_offset: parse_u64_at(endian, offset, data)?,
-                sh_size: parse_u64_at(endian, offset, data)?,
-                sh_link: parse_u32_at(endian, offset, data)?,
-                sh_info: parse_u32_at(endian, offset, data)?,
-                sh_addralign: parse_u64_at(endian, offset, data)?,
-                sh_entsize: parse_u64_at(endian, offset, data)?,
+                sh_name: endian.parse_u32_at(offset, data)?,
+                sh_type: endian.parse_u32_at(offset, data)?,
+                sh_flags: endian.parse_u64_at(offset, data)?,
+                sh_addr: endian.parse_u64_at(offset, data)?,
+                sh_offset: endian.parse_u64_at(offset, data)?,
+                sh_size: endian.parse_u64_at(offset, data)?,
+                sh_link: endian.parse_u32_at(offset, data)?,
+                sh_info: endian.parse_u32_at(offset, data)?,
+                sh_addralign: endian.parse_u64_at(offset, data)?,
+                sh_entsize: endian.parse_u64_at(offset, data)?,
             }),
         }
     }
@@ -85,12 +86,13 @@ impl SectionHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_shdr32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             SectionHeader {
                 sh_name: 0x03020100,
@@ -110,7 +112,7 @@ mod parse_tests {
     #[test]
     fn parse_shdr32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             SectionHeader {
                 sh_name: 0x00010203,
@@ -130,7 +132,7 @@ mod parse_tests {
     #[test]
     fn parse_shdr64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             SectionHeader {
                 sh_name: 0x03020100,
@@ -150,7 +152,7 @@ mod parse_tests {
     #[test]
     fn parse_shdr64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             SectionHeader {
                 sh_name: 0x00010203,
@@ -169,21 +171,21 @@ mod parse_tests {
 
     #[test]
     fn parse_shdr32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SectionHeader>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, SectionHeader>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_shdr32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SectionHeader>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, SectionHeader>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_shdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SectionHeader>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, SectionHeader>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_shdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SectionHeader>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, SectionHeader>(BigEndian, Class::ELF64);
     }
 }

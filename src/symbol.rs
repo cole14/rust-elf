@@ -1,10 +1,8 @@
+use crate::endian::EndianParse;
 use crate::gabi;
-use crate::parse::{
-    parse_u16_at, parse_u32_at, parse_u64_at, parse_u8_at, Class, Endian, ParseAt, ParseError,
-    ParsingTable,
-};
+use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 
-pub type SymbolTable<'data> = ParsingTable<'data, Symbol>;
+pub type SymbolTable<'data, E> = ParsingTable<'data, E, Symbol>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
@@ -75,8 +73,8 @@ impl Symbol {
 }
 
 impl ParseAt for Symbol {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
@@ -89,19 +87,19 @@ impl ParseAt for Symbol {
         let st_other: u8;
 
         if class == Class::ELF32 {
-            st_name = parse_u32_at(endian, offset, data)?;
-            st_value = parse_u32_at(endian, offset, data)? as u64;
-            st_size = parse_u32_at(endian, offset, data)? as u64;
-            st_info = parse_u8_at(offset, data)?;
-            st_other = parse_u8_at(offset, data)?;
-            st_shndx = parse_u16_at(endian, offset, data)?;
+            st_name = endian.parse_u32_at(offset, data)?;
+            st_value = endian.parse_u32_at(offset, data)? as u64;
+            st_size = endian.parse_u32_at(offset, data)? as u64;
+            st_info = endian.parse_u8_at(offset, data)?;
+            st_other = endian.parse_u8_at(offset, data)?;
+            st_shndx = endian.parse_u16_at(offset, data)?;
         } else {
-            st_name = parse_u32_at(endian, offset, data)?;
-            st_info = parse_u8_at(offset, data)?;
-            st_other = parse_u8_at(offset, data)?;
-            st_shndx = parse_u16_at(endian, offset, data)?;
-            st_value = parse_u64_at(endian, offset, data)?;
-            st_size = parse_u64_at(endian, offset, data)?;
+            st_name = endian.parse_u32_at(offset, data)?;
+            st_info = endian.parse_u8_at(offset, data)?;
+            st_other = endian.parse_u8_at(offset, data)?;
+            st_shndx = endian.parse_u16_at(offset, data)?;
+            st_value = endian.parse_u64_at(offset, data)?;
+            st_size = endian.parse_u64_at(offset, data)?;
         }
 
         Ok(Symbol {
@@ -154,12 +152,13 @@ mod symbol_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_sym32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             Symbol {
                 st_name: 0x03020100,
@@ -175,7 +174,7 @@ mod parse_tests {
     #[test]
     fn parse_sym32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             Symbol {
                 st_name: 0x00010203,
@@ -191,7 +190,7 @@ mod parse_tests {
     #[test]
     fn parse_sym64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             Symbol {
                 st_name: 0x03020100,
@@ -207,7 +206,7 @@ mod parse_tests {
     #[test]
     fn parse_sym64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             Symbol {
                 st_name: 0x00010203,
@@ -222,21 +221,21 @@ mod parse_tests {
 
     #[test]
     fn parse_sym32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Symbol>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Symbol>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_sym32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Symbol>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Symbol>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_sym64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Symbol>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Symbol>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_sym64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Symbol>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Symbol>(BigEndian, Class::ELF64);
     }
 }

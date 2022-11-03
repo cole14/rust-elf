@@ -1,19 +1,20 @@
-use crate::parse::{parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError};
 use core::str::from_utf8;
 
 #[derive(Debug)]
-pub struct NoteIterator<'data> {
-    endianness: Endian,
+pub struct NoteIterator<'data, E: EndianParse> {
+    endian: E,
     class: Class,
     align: usize,
     data: &'data [u8],
     offset: usize,
 }
 
-impl<'data> NoteIterator<'data> {
-    pub fn new(endianness: Endian, class: Class, align: usize, data: &'data [u8]) -> Self {
+impl<'data, E: EndianParse> NoteIterator<'data, E> {
+    pub fn new(endian: E, class: Class, align: usize, data: &'data [u8]) -> Self {
         NoteIterator {
-            endianness,
+            endian,
             class,
             align,
             data,
@@ -22,7 +23,7 @@ impl<'data> NoteIterator<'data> {
     }
 }
 
-impl<'data> Iterator for NoteIterator<'data> {
+impl<'data, E: EndianParse> Iterator for NoteIterator<'data, E> {
     type Item = Note<'data>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 {
@@ -30,7 +31,7 @@ impl<'data> Iterator for NoteIterator<'data> {
         }
 
         Note::parse_at(
-            self.endianness,
+            self.endian,
             self.class,
             self.align,
             &mut self.offset,
@@ -48,8 +49,8 @@ pub struct Note<'data> {
 }
 
 impl<'data> Note<'data> {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         align: usize,
         offset: &mut usize,
@@ -116,22 +117,22 @@ struct NoteHeader {
 }
 
 impl ParseAt for NoteHeader {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(NoteHeader {
-                n_namesz: parse_u32_at(endian, offset, data)? as u64,
-                n_descsz: parse_u32_at(endian, offset, data)? as u64,
-                n_type: parse_u32_at(endian, offset, data)? as u64,
+                n_namesz: endian.parse_u32_at(offset, data)? as u64,
+                n_descsz: endian.parse_u32_at(offset, data)? as u64,
+                n_type: endian.parse_u32_at(offset, data)? as u64,
             }),
             Class::ELF64 => Ok(NoteHeader {
-                n_namesz: parse_u64_at(endian, offset, data)?,
-                n_descsz: parse_u64_at(endian, offset, data)?,
-                n_type: parse_u64_at(endian, offset, data)?,
+                n_namesz: endian.parse_u64_at(offset, data)?,
+                n_descsz: endian.parse_u64_at(offset, data)?,
+                n_type: endian.parse_u64_at(offset, data)?,
             }),
         }
     }
@@ -148,6 +149,7 @@ impl ParseAt for NoteHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
 
     #[test]
     fn parse_note_errors_with_zero_alignment() {
@@ -161,7 +163,7 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        Note::parse_at(Endian::Little, Class::ELF64, 0, &mut offset, &data)
+        Note::parse_at(LittleEndian, Class::ELF64, 0, &mut offset, &data)
             .expect_err("Should have gotten an alignment error");
     }
     #[test]
@@ -189,7 +191,7 @@ mod parse_tests {
         //     to 4 bytes in both 32-bit and 64-bit objects. Note parser should use p_align for
         //     note alignment, instead of assuming alignment based on ELF file class.
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF64, 8, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF64, 8, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -212,7 +214,7 @@ mod parse_tests {
         let mut offset = 0;
         // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
         // even though the GABI states that ELF64 files should contain 64-bit notes.
-        let note = Note::parse_at(Endian::Little, Class::ELF64, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF64, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -235,7 +237,7 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF32, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -259,7 +261,7 @@ mod parse_tests {
         ]; // desc 01020304
 
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF32, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -283,7 +285,7 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF32, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -306,7 +308,7 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF32, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -329,7 +331,7 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        let note = Note::parse_at(Endian::Little, Class::ELF32, 4, &mut offset, &data)
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
             note,
@@ -347,7 +349,7 @@ mod parse_tests {
     #[test]
     fn parse_nhdr32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             NoteHeader {
                 n_namesz: 0x03020100,
@@ -360,7 +362,7 @@ mod parse_tests {
     #[test]
     fn parse_nhdr32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             NoteHeader {
                 n_namesz: 0x00010203,
@@ -373,7 +375,7 @@ mod parse_tests {
     #[test]
     fn parse_nhdr64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             NoteHeader {
                 n_namesz: 0x0706050403020100,
@@ -386,7 +388,7 @@ mod parse_tests {
     #[test]
     fn parse_nhdr64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             NoteHeader {
                 n_namesz: 0x0001020304050607,
@@ -398,21 +400,21 @@ mod parse_tests {
 
     #[test]
     fn parse_nhdr32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<NoteHeader>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, NoteHeader>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_nhdr32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<NoteHeader>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, NoteHeader>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_nhdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<NoteHeader>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, NoteHeader>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_nhdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<NoteHeader>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, NoteHeader>(BigEndian, Class::ELF64);
     }
 }

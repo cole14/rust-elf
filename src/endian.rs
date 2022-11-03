@@ -1,36 +1,95 @@
 use crate::gabi;
 use crate::parse::ParseError;
 
-/// A safe endian-aware integer parsing trait.
+/// This macro writes out safe code to get a subslice from the the byte slice $data
+/// at the given $off as a [u8; size_of<$typ>], then calls the corresponding safe
+/// endian-aware conversion on it.
 ///
-/// See implementors below for details.
+/// This uses safe integer math and returns a ParseError on overflow or if $data did
+/// not contain enough bytes at $off to perform the conversion.
+macro_rules! safe_from {
+    ( $self:ident, $typ:ty, $off:ident, $data:ident) => {{
+        const SIZE: usize = core::mem::size_of::<$typ>();
+
+        let end = (*$off)
+            .checked_add(SIZE)
+            .ok_or(ParseError::IntegerOverflow)?;
+
+        let buf: [u8; SIZE] = $data
+            .get(*$off..end)
+            .ok_or(ParseError::BadOffset(*$off as u64))?
+            .try_into()?;
+
+        *$off = end;
+
+        // Note: This check evaluates to a constant true/false for the "fixed" types
+        // so the compiler should optimize out the check (LittleEndian, BigEndian, NativeEndian)
+        if $self.is_little() {
+            Ok(<$typ>::from_le_bytes(buf))
+        } else {
+            Ok(<$typ>::from_be_bytes(buf))
+        }
+    }};
+}
+
+/// A all-safe-code endian-aware integer parsing trait.
+///
+/// Largely inspired by the endian parsing code in the object crate (I tried valiantly to
+/// explore alternate shapes, but this won out). The design choices for ParseAt/EndianParse
+/// are to avoid the unsafe reinterpret cast/transmute calls that rely on `#[repr(C)]` and
+/// proper alignment that is done in the Pod trait over there.
+///
+/// That method is slick, and also - do we need really it? I want to see how far we can get
+/// using only safe code.
 pub trait EndianParse: Clone + Copy + PartialEq + Eq {
-    fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError>;
-    fn parse_u16_at(self, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError>;
-    fn parse_u32_at(self, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError>;
-    fn parse_u64_at(self, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError>;
-    fn parse_i32_at(self, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError>;
-    fn parse_i64_at(self, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError>;
+    fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
+        safe_from!(self, u8, offset, data)
+    }
+
+    fn parse_u16_at(self, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
+        safe_from!(self, u16, offset, data)
+    }
+
+    fn parse_u32_at(self, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
+        safe_from!(self, u32, offset, data)
+    }
+
+    fn parse_u64_at(self, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
+        safe_from!(self, u64, offset, data)
+    }
+
+    fn parse_i32_at(self, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
+        safe_from!(self, i32, offset, data)
+    }
+
+    fn parse_i64_at(self, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
+        safe_from!(self, i64, offset, data)
+    }
+
+    /// Get an endian-aware integer parsing spec for an ELF FileHeader's ident[EI_DATA] byte.
+    ///
+    /// Returns a ParseError::UnsupportedElfEndianness if this spec doesn't support parsing
+    /// the byte-order represented by ei_data. If you're seeing this error, are you trying to
+    /// read files of any endianness? i.e. did you want to use AnyEndian?
+    fn from_ei_data(ei_data: u8) -> Result<Self, ParseError>;
+
+    fn is_little(self) -> bool;
+
+    #[inline(always)]
+    fn is_big(self) -> bool {
+        !self.is_little()
+    }
 }
 
 /// An endian parsing type that can choose at runtime which byte order to parse as
 /// This is useful for scenarios where a single compiled binary wants to dynamically
 /// interpret ELF files of any byte order.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AnyEndian {
+    /// Used for a little-endian ELF file that has been parsed with AnyEndian
     Little,
+    /// Used for a big-endian ELF file that has been parsed with AnyEndian
     Big,
-}
-
-impl AnyEndian {
-    #[allow(dead_code)]
-    pub fn from_ei_data(ei_data: u8) -> Result<AnyEndian, ParseError> {
-        match ei_data {
-            gabi::ELFDATA2LSB => Ok(AnyEndian::Little),
-            gabi::ELFDATA2MSB => Ok(AnyEndian::Big),
-            _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
-        }
-    }
 }
 
 /// A zero-sized type that always parses integers as if they're in little-endian order.
@@ -47,122 +106,72 @@ pub struct LittleEndian;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct BigEndian;
 
-// This macro writes out safe code to get a subslice from the the byte slice $data
-// at the given $off as a [u8; size_of<$typ>], then calls the corresponding safe
-// endian-aware conversion $method on it.
-//
-// This uses safe integer math and returns a ParseError on overflow or if $data did
-// not contain enough bytes at $off to perform the conversion.
-macro_rules! safe_from {
-    ( $typ:ty, $method:ident, $off:ident, $data:ident) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
+/// A zero-sized type that always parses integers as if they're in the compilation target's native-endian order.
+/// This is useful for toolchain scenarios where a combiled binary knows it only wants to interpret
+/// ELF files compiled for the same target and doesn't want the performance penalty of evaluating a match
+/// each time it parses an integer.
+#[cfg(target_endian = "little")]
+pub type NativeEndian = LittleEndian;
 
-        let end = (*$off)
-            .checked_add(SIZE)
-            .ok_or(ParseError::IntegerOverflow)?;
+#[cfg(target_endian = "little")]
+#[allow(non_upper_case_globals)]
+#[doc(hidden)]
+pub const NativeEndian: LittleEndian = LittleEndian;
 
-        let buf: [u8; SIZE] = $data
-            .get(*$off..end)
-            .ok_or(ParseError::BadOffset(*$off as u64))?
-            .try_into()?;
+/// A zero-sized type that always parses integers as if they're in the compilation target's native-endian order.
+/// This is useful for toolchain scenarios where a combiled binary knows it only wants to interpret
+/// ELF files compiled for the same target and doesn't want the performance penalty of evaluating a match
+/// each time it parses an integer.
+#[cfg(target_endian = "big")]
+pub type NativeEndian = BigEndian;
 
-        *$off = end;
-        Ok(<$typ>::$method(buf))
-    }};
-}
+#[cfg(target_endian = "big")]
+#[allow(non_upper_case_globals)]
+#[doc(hidden)]
+pub const NativeEndian: BigEndian = BigEndian;
 
 impl EndianParse for LittleEndian {
-    fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
-        safe_from!(u8, from_le_bytes, offset, data)
+    fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
+        match ei_data {
+            gabi::ELFDATA2LSB => Ok(LittleEndian),
+            _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
+        }
     }
 
-    fn parse_u16_at(self, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
-        safe_from!(u16, from_le_bytes, offset, data)
-    }
-
-    fn parse_u32_at(self, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
-        safe_from!(u32, from_le_bytes, offset, data)
-    }
-
-    fn parse_u64_at(self, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
-        safe_from!(u64, from_le_bytes, offset, data)
-    }
-
-    fn parse_i32_at(self, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
-        safe_from!(i32, from_le_bytes, offset, data)
-    }
-
-    fn parse_i64_at(self, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
-        safe_from!(i64, from_le_bytes, offset, data)
+    #[inline(always)]
+    fn is_little(self) -> bool {
+        true
     }
 }
 
 impl EndianParse for BigEndian {
-    fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
-        safe_from!(u8, from_be_bytes, offset, data)
+    fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
+        match ei_data {
+            gabi::ELFDATA2MSB => Ok(BigEndian),
+            _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
+        }
     }
 
-    fn parse_u16_at(self, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
-        safe_from!(u16, from_be_bytes, offset, data)
-    }
-
-    fn parse_u32_at(self, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
-        safe_from!(u32, from_be_bytes, offset, data)
-    }
-
-    fn parse_u64_at(self, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
-        safe_from!(u64, from_be_bytes, offset, data)
-    }
-
-    fn parse_i32_at(self, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
-        safe_from!(i32, from_be_bytes, offset, data)
-    }
-
-    fn parse_i64_at(self, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
-        safe_from!(i64, from_be_bytes, offset, data)
+    #[inline(always)]
+    fn is_little(self) -> bool {
+        false
     }
 }
 
 impl EndianParse for AnyEndian {
-    fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
-        match self {
-            Self::Little => LittleEndian.parse_u8_at(offset, data),
-            Self::Big => BigEndian.parse_u8_at(offset, data),
+    fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
+        match ei_data {
+            gabi::ELFDATA2LSB => Ok(AnyEndian::Little),
+            gabi::ELFDATA2MSB => Ok(AnyEndian::Big),
+            _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
         }
     }
 
-    fn parse_u16_at(self, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
+    #[inline(always)]
+    fn is_little(self) -> bool {
         match self {
-            Self::Little => LittleEndian.parse_u16_at(offset, data),
-            Self::Big => BigEndian.parse_u16_at(offset, data),
-        }
-    }
-
-    fn parse_u32_at(self, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
-        match self {
-            Self::Little => LittleEndian.parse_u32_at(offset, data),
-            Self::Big => BigEndian.parse_u32_at(offset, data),
-        }
-    }
-
-    fn parse_u64_at(self, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
-        match self {
-            Self::Little => LittleEndian.parse_u64_at(offset, data),
-            Self::Big => BigEndian.parse_u64_at(offset, data),
-        }
-    }
-
-    fn parse_i32_at(self, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
-        match self {
-            Self::Little => LittleEndian.parse_i32_at(offset, data),
-            Self::Big => BigEndian.parse_i32_at(offset, data),
-        }
-    }
-
-    fn parse_i64_at(self, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
-        match self {
-            Self::Little => LittleEndian.parse_i64_at(offset, data),
-            Self::Big => BigEndian.parse_i64_at(offset, data),
+            AnyEndian::Little => true,
+            AnyEndian::Big => false,
         }
     }
 }

@@ -1,4 +1,5 @@
-use crate::parse::{parse_u32_at, Class, Endian, ParseAt, ParseError, U32Table};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError, U32Table};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
 
@@ -10,15 +11,15 @@ pub struct SysVHashHeader {
 }
 
 impl ParseAt for SysVHashHeader {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(SysVHashHeader {
-            nbucket: parse_u32_at(endian, offset, data)?,
-            nchain: parse_u32_at(endian, offset, data)?,
+            nbucket: endian.parse_u32_at(offset, data)?,
+            nchain: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -39,16 +40,16 @@ pub fn sysv_hash(name: &[u8]) -> u32 {
 }
 
 #[derive(Debug)]
-pub struct SysVHashTable<'data> {
-    buckets: U32Table<'data>,
-    chains: U32Table<'data>,
+pub struct SysVHashTable<'data, E: EndianParse> {
+    buckets: U32Table<'data, E>,
+    chains: U32Table<'data, E>,
 }
 
 /// This constructs a lazy-parsing type that keeps a reference to the provided data
 /// bytes from which it lazily parses and interprets its contents.
-impl<'data> SysVHashTable<'data> {
+impl<'data, E: EndianParse> SysVHashTable<'data, E> {
     /// Construct a SysVHashTable from given bytes. Keeps a reference to the data for lazy parsing.
-    pub fn new(endian: Endian, class: Class, data: &'data [u8]) -> Result<Self, ParseError> {
+    pub fn new(endian: E, class: Class, data: &'data [u8]) -> Result<Self, ParseError> {
         let mut offset = 0;
         let hdr = SysVHashHeader::parse_at(endian, class, &mut offset, data)?;
 
@@ -83,7 +84,7 @@ impl<'data> SysVHashTable<'data> {
         &self,
         name: &[u8],
         hash: u32,
-        symtab: &SymbolTable<'data>,
+        symtab: &SymbolTable<'data, E>,
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
         let start = (hash as usize) % self.buckets.len();
@@ -107,12 +108,13 @@ impl<'data> SysVHashTable<'data> {
 #[cfg(test)]
 mod sysv_parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_sysvhdr32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             SysVHashHeader {
                 nbucket: 0x03020100,
@@ -124,7 +126,7 @@ mod sysv_parse_tests {
     #[test]
     fn parse_sysvhdr32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             SysVHashHeader {
                 nbucket: 0x00010203,
@@ -136,7 +138,7 @@ mod sysv_parse_tests {
     #[test]
     fn parse_sysvhdr64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             SysVHashHeader {
                 nbucket: 0x03020100,
@@ -148,7 +150,7 @@ mod sysv_parse_tests {
     #[test]
     fn parse_sysvhdr64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             SysVHashHeader {
                 nbucket: 0x00010203,
@@ -159,21 +161,21 @@ mod sysv_parse_tests {
 
     #[test]
     fn parse_sysvhdr32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SysVHashHeader>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, SysVHashHeader>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_sysvhdr32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SysVHashHeader>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, SysVHashHeader>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_sysvhdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SysVHashHeader>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, SysVHashHeader>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_sysvhdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<SysVHashHeader>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, SysVHashHeader>(BigEndian, Class::ELF64);
     }
 }

@@ -71,7 +71,7 @@ pub mod symbol;
 #[cfg(feature = "to_str")]
 pub mod to_str;
 
-mod endian;
+pub mod endian;
 mod parse;
 
 pub use file::File;

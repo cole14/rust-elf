@@ -1,10 +1,8 @@
-use crate::parse::{
-    parse_i32_at, parse_i64_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError,
-    ParsingIterator,
-};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError, ParsingIterator};
 
-pub type RelIterator<'data> = ParsingIterator<'data, Rel>;
-pub type RelaIterator<'data> = ParsingIterator<'data, Rela>;
+pub type RelIterator<'data, E> = ParsingIterator<'data, E, Rel>;
+pub type RelaIterator<'data, E> = ParsingIterator<'data, E, Rela>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rel {
@@ -14,16 +12,16 @@ pub struct Rel {
 }
 
 impl ParseAt for Rel {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => {
-                let r_offset = parse_u32_at(endian, offset, data)? as u64;
-                let r_info = parse_u32_at(endian, offset, data)?;
+                let r_offset = endian.parse_u32_at(offset, data)? as u64;
+                let r_info = endian.parse_u32_at(offset, data)?;
                 Ok(Rel {
                     r_offset,
                     r_sym: r_info >> 8,
@@ -31,8 +29,8 @@ impl ParseAt for Rel {
                 })
             }
             Class::ELF64 => {
-                let r_offset = parse_u64_at(endian, offset, data)?;
-                let r_info = parse_u64_at(endian, offset, data)?;
+                let r_offset = endian.parse_u64_at(offset, data)?;
+                let r_info = endian.parse_u64_at(offset, data)?;
                 Ok(Rel {
                     r_offset,
                     r_sym: (r_info >> 32) as u32,
@@ -60,17 +58,17 @@ pub struct Rela {
 }
 
 impl ParseAt for Rela {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => {
-                let r_offset = parse_u32_at(endian, offset, data)? as u64;
-                let r_info = parse_u32_at(endian, offset, data)?;
-                let r_addend = parse_i32_at(endian, offset, data)? as i64;
+                let r_offset = endian.parse_u32_at(offset, data)? as u64;
+                let r_info = endian.parse_u32_at(offset, data)?;
+                let r_addend = endian.parse_i32_at(offset, data)? as i64;
                 Ok(Rela {
                     r_offset,
                     r_sym: r_info >> 8,
@@ -79,9 +77,9 @@ impl ParseAt for Rela {
                 })
             }
             Class::ELF64 => {
-                let r_offset = parse_u64_at(endian, offset, data)?;
-                let r_info = parse_u64_at(endian, offset, data)?;
-                let r_addend = parse_i64_at(endian, offset, data)?;
+                let r_offset = endian.parse_u64_at(offset, data)?;
+                let r_info = endian.parse_u64_at(offset, data)?;
+                let r_addend = endian.parse_i64_at(offset, data)?;
                 Ok(Rela {
                     r_offset,
                     r_sym: (r_info >> 32) as u32,
@@ -104,12 +102,13 @@ impl ParseAt for Rela {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_rel32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             Rel {
                 r_offset: 0x03020100,
@@ -122,7 +121,7 @@ mod parse_tests {
     #[test]
     fn parse_rel32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             Rel {
                 r_offset: 0x00010203,
@@ -135,7 +134,7 @@ mod parse_tests {
     #[test]
     fn parse_rel64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             Rel {
                 r_offset: 0x0706050403020100,
@@ -148,7 +147,7 @@ mod parse_tests {
     #[test]
     fn parse_rel64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             Rel {
                 r_offset: 0x0001020304050607,
@@ -160,28 +159,28 @@ mod parse_tests {
 
     #[test]
     fn parse_rel32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rel>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Rel>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_rel32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rel>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Rel>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_rel64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rel>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Rel>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_rel64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rel>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Rel>(BigEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_rela32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             Rela {
                 r_offset: 0x03020100,
@@ -195,7 +194,7 @@ mod parse_tests {
     #[test]
     fn parse_rela32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             Rela {
                 r_offset: 0x00010203,
@@ -209,7 +208,7 @@ mod parse_tests {
     #[test]
     fn parse_rela64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             Rela {
                 r_offset: 0x0706050403020100,
@@ -223,7 +222,7 @@ mod parse_tests {
     #[test]
     fn parse_rela64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             Rela {
                 r_offset: 0x0001020304050607,
@@ -236,21 +235,21 @@ mod parse_tests {
 
     #[test]
     fn parse_rela32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rela>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Rela>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_rela32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rela>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Rela>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_rela64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rela>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Rela>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_rela64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Rela>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Rela>(BigEndian, Class::ELF64);
     }
 }

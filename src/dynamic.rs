@@ -1,9 +1,7 @@
-use crate::parse::{
-    parse_i32_at, parse_i64_at, parse_u32_at, parse_u64_at, Class, Endian, ParseAt, ParseError,
-    ParsingIterator,
-};
+use crate::endian::EndianParse;
+use crate::parse::{Class, ParseAt, ParseError, ParsingIterator};
 
-pub type DynIterator<'data> = ParsingIterator<'data, Dyn>;
+pub type DynIterator<'data, E> = ParsingIterator<'data, E, Dyn>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
@@ -22,20 +20,20 @@ impl Dyn {
 }
 
 impl ParseAt for Dyn {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         match class {
             Class::ELF32 => Ok(Dyn {
-                d_tag: parse_i32_at(endian, offset, data)? as i64,
-                d_un: parse_u32_at(endian, offset, data)? as u64,
+                d_tag: endian.parse_i32_at(offset, data)? as i64,
+                d_un: endian.parse_u32_at(offset, data)? as u64,
             }),
             Class::ELF64 => Ok(Dyn {
-                d_tag: parse_i64_at(endian, offset, data)?,
-                d_un: parse_u64_at(endian, offset, data)?,
+                d_tag: endian.parse_i64_at(offset, data)?,
+                d_un: endian.parse_u64_at(offset, data)?,
             }),
         }
     }
@@ -52,12 +50,13 @@ impl ParseAt for Dyn {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_dyn32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             Dyn {
                 d_tag: 0x03020100,
@@ -69,7 +68,7 @@ mod parse_tests {
     #[test]
     fn parse_dyn32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             Dyn {
                 d_tag: 0x00010203,
@@ -81,7 +80,7 @@ mod parse_tests {
     #[test]
     fn parse_dyn64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             Dyn {
                 d_tag: 0x0706050403020100,
@@ -93,7 +92,7 @@ mod parse_tests {
     #[test]
     fn parse_dyn64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             Dyn {
                 d_tag: 0x0001020304050607,
@@ -104,21 +103,21 @@ mod parse_tests {
 
     #[test]
     fn parse_dyn32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Dyn>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Dyn>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_dyn32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Dyn>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, Dyn>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_dyn64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Dyn>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Dyn>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_dyn64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<Dyn>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, Dyn>(BigEndian, Class::ELF64);
     }
 }

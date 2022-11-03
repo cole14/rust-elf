@@ -8,6 +8,8 @@ use std::collections::HashMap;
 #[cfg(feature = "std")]
 use std::io::{Read, Seek, SeekFrom};
 
+use crate::endian::EndianParse;
+
 #[derive(Debug)]
 pub enum ParseError {
     /// Returned when the ELF File Header's magic bytes weren't ELF's defined
@@ -181,23 +183,6 @@ impl From<std::io::Error> for ParseError {
 
 /// Represents the ELF file data format (little-endian vs big-endian)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Endian {
-    Little,
-    Big,
-}
-
-impl core::fmt::Display for Endian {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self {
-            Endian::Little => "2's complement, little endian",
-            Endian::Big => "2's complement, big endian",
-        };
-        write!(f, "{}", str)
-    }
-}
-
-/// Represents the ELF file data format (little-endian vs big-endian)
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Class {
     ELF32,
     ELF64,
@@ -313,9 +298,18 @@ impl<R: Read + Seek> ReadBytesAt for CachedReadBytes<R> {
     }
 }
 
+/// Trait for safely parsing an ELF structure of a given class (32/64 bit) with
+/// an given endian-awareness at the given offset into the data buffer.
+///
+/// This is the trait that drives our elf parser, where the various ELF
+/// structures implement ParseAt in order to parse their Rust-native representation
+/// from a buffer, all using safe code.
 pub trait ParseAt: Sized {
-    fn parse_at(
-        endian: Endian,
+    /// Parse this type by using the given endian-awareness and ELF class layout.
+    /// This is generic on EndianParse in order to allow users to optimize for
+    /// their expectations of data layout. See EndianParse for more details.
+    fn parse_at<E: EndianParse>(
+        endian: E,
         class: Class,
         offset: &mut usize,
         data: &[u8],
@@ -337,8 +331,8 @@ pub trait ParseAt: Sized {
 }
 
 #[derive(Debug)]
-pub struct ParsingIterator<'data, P: ParseAt> {
-    endianness: Endian,
+pub struct ParsingIterator<'data, E: EndianParse, P: ParseAt> {
+    endian: E,
     class: Class,
     data: &'data [u8],
     offset: usize,
@@ -347,10 +341,10 @@ pub struct ParsingIterator<'data, P: ParseAt> {
     pd: PhantomData<&'data P>,
 }
 
-impl<'data, P: ParseAt> ParsingIterator<'data, P> {
-    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
+impl<'data, E: EndianParse, P: ParseAt> ParsingIterator<'data, E, P> {
+    pub fn new(endian: E, class: Class, data: &'data [u8]) -> Self {
         ParsingIterator {
-            endianness,
+            endian,
             class,
             data,
             offset: 0,
@@ -359,38 +353,38 @@ impl<'data, P: ParseAt> ParsingIterator<'data, P> {
     }
 }
 
-impl<'data, P: ParseAt> Iterator for ParsingIterator<'data, P> {
+impl<'data, E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'data, E, P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 {
             return None;
         }
 
-        Self::Item::parse_at(self.endianness, self.class, &mut self.offset, self.data).ok()
+        Self::Item::parse_at(self.endian, self.class, &mut self.offset, self.data).ok()
     }
 }
 
 #[derive(Debug)]
-pub struct ParsingTable<'data, P: ParseAt> {
-    endianness: Endian,
+pub struct ParsingTable<'data, E: EndianParse, P: ParseAt> {
+    endian: E,
     class: Class,
     data: &'data [u8],
     // This struct doesn't technically own a P, but it yields them
     pd: PhantomData<&'data P>,
 }
 
-impl<'data, P: ParseAt> ParsingTable<'data, P> {
-    pub fn new(endianness: Endian, class: Class, data: &'data [u8]) -> Self {
+impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
+    pub fn new(endian: E, class: Class, data: &'data [u8]) -> Self {
         ParsingTable {
-            endianness,
+            endian,
             class,
             data,
             pd: PhantomData,
         }
     }
 
-    pub fn iter(&self) -> ParsingIterator<'data, P> {
-        ParsingIterator::new(self.endianness, self.class, self.data)
+    pub fn iter(&self) -> ParsingIterator<'data, E, P> {
+        ParsingIterator::new(self.endian, self.class, self.data)
     }
 
     /// Returns the number of elements of type P in the table.
@@ -411,23 +405,27 @@ impl<'data, P: ParseAt> ParsingTable<'data, P> {
             return Err(ParseError::BadOffset(index as u64));
         }
 
-        Ok(P::parse_at(
-            self.endianness,
-            self.class,
-            &mut start,
-            self.data,
-        )?)
+        Ok(P::parse_at(self.endian, self.class, &mut start, self.data)?)
+    }
+}
+
+impl<'data, E: EndianParse, P: ParseAt> IntoIterator for ParsingTable<'data, E, P> {
+    type IntoIter = ParsingIterator<'data, E, P>;
+    type Item = P;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ParsingIterator::new(self.endian, self.class, self.data)
     }
 }
 
 impl ParseAt for u32 {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        Ok(parse_u32_at(endian, offset, data)?)
+        Ok(endian.parse_u32_at(offset, data)?)
     }
 
     #[inline]
@@ -436,106 +434,42 @@ impl ParseAt for u32 {
     }
 }
 
-pub type U32Table<'data> = ParsingTable<'data, u32>;
+pub type U32Table<'data, E> = ParsingTable<'data, E, u32>;
 
-impl<'data, P: ParseAt> IntoIterator for ParsingTable<'data, P> {
-    type IntoIter = ParsingIterator<'data, P>;
-    type Item = P;
-
-    fn into_iter(self) -> Self::IntoIter {
-        ParsingIterator::new(self.endianness, self.class, self.data)
+#[cfg(test)]
+pub fn test_parse_for<E: EndianParse, P: ParseAt + core::fmt::Debug + PartialEq>(
+    endian: E,
+    class: Class,
+    expected: P,
+) {
+    let size = P::size_for(class);
+    let mut data = vec![0u8; size];
+    for n in 0..size {
+        data[n] = n as u8;
     }
+
+    let mut offset = 0;
+    let entry = P::parse_at(endian, class, &mut offset, data.as_ref()).expect("Failed to parse");
+
+    assert_eq!(entry, expected);
+    assert_eq!(offset, size);
 }
 
-pub fn parse_u8_at(offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
-    const SIZE: usize = core::mem::size_of::<u8>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?;
-    *offset = end;
-    Ok(buf[0])
-}
-
-pub fn parse_u16_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u16, ParseError> {
-    const SIZE: usize = core::mem::size_of::<u16>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf: [u8; SIZE] = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?
-        .try_into()?;
-    *offset = end;
-    match endian {
-        Endian::Little => Ok(u16::from_le_bytes(buf)),
-        Endian::Big => Ok(u16::from_be_bytes(buf)),
-    }
-}
-
-pub fn parse_u32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u32, ParseError> {
-    const SIZE: usize = core::mem::size_of::<u32>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf: [u8; SIZE] = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?
-        .try_into()?;
-    *offset = end;
-    match endian {
-        Endian::Little => Ok(u32::from_le_bytes(buf)),
-        Endian::Big => Ok(u32::from_be_bytes(buf)),
-    }
-}
-
-pub fn parse_u64_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<u64, ParseError> {
-    const SIZE: usize = core::mem::size_of::<u64>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf: [u8; SIZE] = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?
-        .try_into()?;
-    *offset = end;
-    match endian {
-        Endian::Little => Ok(u64::from_le_bytes(buf)),
-        Endian::Big => Ok(u64::from_be_bytes(buf)),
-    }
-}
-
-pub fn parse_i32_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<i32, ParseError> {
-    const SIZE: usize = core::mem::size_of::<i32>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf: [u8; SIZE] = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?
-        .try_into()?;
-    *offset = end;
-    match endian {
-        Endian::Little => Ok(i32::from_le_bytes(buf)),
-        Endian::Big => Ok(i32::from_be_bytes(buf)),
-    }
-}
-
-pub fn parse_i64_at(endian: Endian, offset: &mut usize, data: &[u8]) -> Result<i64, ParseError> {
-    const SIZE: usize = core::mem::size_of::<i64>();
-    let end = (*offset)
-        .checked_add(SIZE)
-        .ok_or(ParseError::IntegerOverflow)?;
-    let buf: [u8; SIZE] = data
-        .get(*offset..end)
-        .ok_or(ParseError::BadOffset(*offset as u64))?
-        .try_into()?;
-    *offset = end;
-    match endian {
-        Endian::Little => Ok(i64::from_le_bytes(buf)),
-        Endian::Big => Ok(i64::from_be_bytes(buf)),
+#[cfg(test)]
+pub fn test_parse_fuzz_too_short<E: EndianParse, P: ParseAt + core::fmt::Debug>(
+    endian: E,
+    class: Class,
+) {
+    let size = P::size_for(class);
+    let data = vec![0u8; size];
+    for n in 0..size {
+        let buf = data.split_at(n).0.as_ref();
+        let mut offset: usize = 0;
+        let error = P::parse_at(endian, class, &mut offset, buf).expect_err("Expected an error");
+        assert!(
+            matches!(error, ParseError::BadOffset(_)),
+            "Unexpected Error type found: {error}"
+        );
     }
 }
 
@@ -631,10 +565,12 @@ mod read_bytes_tests {
 
 #[cfg(test)]
 mod parsing_table_tests {
+    use crate::endian::{AnyEndian, BigEndian, LittleEndian};
+
     use super::*;
 
     #[test]
-    fn test_u32_table_validate_entsize() {
+    fn test_u32_validate_entsize() {
         assert!(matches!(u32::validate_entsize(Class::ELF32, 4), Ok(4)));
         assert!(matches!(
             u32::validate_entsize(Class::ELF32, 8),
@@ -643,224 +579,54 @@ mod parsing_table_tests {
     }
 
     #[test]
+    fn test_u32_parse_at() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let mut offset = 2;
+        let result = u32::parse_at(LittleEndian, Class::ELF32, &mut offset, data.as_ref())
+            .expect("Expected to parse but:");
+        assert_eq!(result, 0x05040302);
+    }
+
+    #[test]
     fn test_u32_table_len() {
         let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
-        let table = U32Table::new(Endian::Little, Class::ELF32, data.as_ref());
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
         assert_eq!(table.len(), 2);
     }
 
     #[test]
-    fn test_u32_lsb_table_get() {
+    fn test_lsb_u32_table_get() {
         let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
-        let table = U32Table::new(Endian::Little, Class::ELF32, data.as_ref());
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
         assert!(matches!(table.get(0), Ok(0x03020100)));
         assert!(matches!(table.get(1), Ok(0x07060504)));
         assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
     }
 
     #[test]
-    fn test_u32_msb_table_get() {
+    fn test_any_lsb_u32_table_get() {
         let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
-        let table = U32Table::new(Endian::Big, Class::ELF32, data.as_ref());
+        let table = U32Table::new(AnyEndian::Little, Class::ELF32, data.as_ref());
+        assert!(matches!(table.get(0), Ok(0x03020100)));
+        assert!(matches!(table.get(1), Ok(0x07060504)));
+        assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
+    }
+
+    #[test]
+    fn test_msb_u32_table_get() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(BigEndian, Class::ELF32, data.as_ref());
         assert!(matches!(table.get(0), Ok(0x00010203)));
         assert!(matches!(table.get(1), Ok(0x04050607)));
         assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
     }
-}
-
-#[cfg(test)]
-mod parse_tests {
-    use super::*;
 
     #[test]
-    fn parse_u16_lsb() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_u16_at(Endian::Little, &mut offset, &data).expect("Failed to parse u16");
-        assert_eq!(result, 0x2010u16);
-        assert_eq!(offset, 2);
-    }
-
-    #[test]
-    fn parse_u16_msb() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_u16_at(Endian::Big, &mut offset, &data).expect("Failed to parse u16");
-        assert_eq!(result, 0x1020u16);
-        assert_eq!(offset, 2);
-    }
-
-    #[test]
-    fn parse_u16_too_short() {
-        let data = [0x10u8];
-        let mut offset = 0;
-        let result = parse_u16_at(Endian::Big, &mut offset, &data);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(0))),
-            "Unexpected Error type found: {result:?}"
-        );
-        assert_eq!(offset, 0);
-    }
-
-    #[test]
-    fn parse_u32_lsb() {
-        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut offset = 0;
-        let result = parse_u32_at(Endian::Little, &mut offset, &data).expect("Failed to parse u32");
-        assert_eq!(result, 0x40302010u32);
-        assert_eq!(offset, 4);
-    }
-
-    #[test]
-    fn parse_u32_msb() {
-        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut offset = 0;
-        let result = parse_u32_at(Endian::Big, &mut offset, &data).expect("Failed to parse u32");
-        assert_eq!(result, 0x10203040u32);
-        assert_eq!(offset, 4);
-    }
-
-    #[test]
-    fn parse_u32_too_short() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_u32_at(Endian::Little, &mut offset, &data);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(0))),
-            "Unexpected Error type found: {result:?}"
-        );
-        assert_eq!(offset, 0);
-    }
-
-    #[test]
-    fn parse_i32_lsb() {
-        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut offset = 0;
-        let result = parse_i32_at(Endian::Little, &mut offset, &data).expect("Failed to parse i32");
-        assert_eq!(result, 0x40302010i32);
-        assert_eq!(offset, 4);
-    }
-
-    #[test]
-    fn parse_i32_msb() {
-        let data = [0x10u8, 0x20u8, 0x30u8, 0x40u8];
-        let mut offset = 0;
-        let result = parse_i32_at(Endian::Big, &mut offset, &data).expect("Failed to parse i32");
-        assert_eq!(result, 0x10203040i32);
-        assert_eq!(offset, 4);
-    }
-
-    #[test]
-    fn parse_i32_too_short() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_i32_at(Endian::Little, &mut offset, &data);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(0))),
-            "Unexpected Error type found: {result:?}"
-        );
-        assert_eq!(offset, 0);
-    }
-
-    #[test]
-    fn parse_u64_lsb() {
-        let data = [
-            0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
-        ];
-        let mut offset = 0;
-        let result = parse_u64_at(Endian::Little, &mut offset, &data).expect("Failed to parse u64");
-        assert_eq!(result, 0x8070605040302010u64);
-        assert_eq!(offset, 8);
-    }
-
-    #[test]
-    fn parse_u64_msb() {
-        let data = [
-            0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
-        ];
-        let mut offset = 0;
-        let result = parse_u64_at(Endian::Big, &mut offset, &data).expect("Failed to parse u32");
-        assert_eq!(result, 0x1020304050607080u64);
-        assert_eq!(offset, 8);
-    }
-
-    #[test]
-    fn parse_u64_too_short() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_u64_at(Endian::Little, &mut offset, &data);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(0))),
-            "Unexpected Error type found: {result:?}"
-        );
-        assert_eq!(offset, 0);
-    }
-
-    #[test]
-    fn parse_i64_lsb() {
-        let data = [
-            0x00u8, 0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8,
-        ];
-        let mut offset = 0;
-        let result = parse_i64_at(Endian::Little, &mut offset, &data).expect("Failed to parse i64");
-        assert_eq!(result, 0x7060504030201000i64);
-        assert_eq!(offset, 8);
-    }
-
-    #[test]
-    fn parse_i64_msb() {
-        let data = [
-            0x10u8, 0x20u8, 0x30u8, 0x40u8, 0x50u8, 0x60u8, 0x70u8, 0x80u8,
-        ];
-        let mut offset = 0;
-        let result = parse_i64_at(Endian::Big, &mut offset, &data).expect("Failed to parse u32");
-        assert_eq!(result, 0x1020304050607080i64);
-        assert_eq!(offset, 8);
-    }
-
-    #[test]
-    fn parse_i64_too_short() {
-        let data = [0x10u8, 0x20u8];
-        let mut offset = 0;
-        let result = parse_i64_at(Endian::Little, &mut offset, &data);
-        assert!(
-            matches!(result, Err(ParseError::BadOffset(0))),
-            "Unexpected Error type found: {result:?}"
-        );
-        assert_eq!(offset, 0);
-    }
-}
-
-#[cfg(test)]
-pub fn test_parse_for<P: ParseAt + core::fmt::Debug + PartialEq>(
-    endian: Endian,
-    class: Class,
-    expected: P,
-) {
-    let size = P::size_for(class);
-    let mut data = vec![0u8; size];
-    for n in 0..size {
-        data[n] = n as u8;
-    }
-
-    let mut offset = 0;
-    let entry = P::parse_at(endian, class, &mut offset, data.as_ref()).expect("Failed to parse");
-
-    assert_eq!(entry, expected);
-    assert_eq!(offset, size);
-}
-
-#[cfg(test)]
-pub fn test_parse_fuzz_too_short<P: ParseAt + core::fmt::Debug>(endian: Endian, class: Class) {
-    let size = P::size_for(class);
-    let data = vec![0u8; size];
-    for n in 0..size {
-        let buf = data.split_at(n).0.as_ref();
-        let mut offset: usize = 0;
-        let error = P::parse_at(endian, class, &mut offset, buf).expect_err("Expected an error");
-        assert!(
-            matches!(error, ParseError::BadOffset(_)),
-            "Unexpected Error type found: {error}"
-        );
+    fn test_any_msb_u32_table_get() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(AnyEndian::Big, Class::ELF32, data.as_ref());
+        assert!(matches!(table.get(0), Ok(0x00010203)));
+        assert!(matches!(table.get(1), Ok(0x04050607)));
+        assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
     }
 }

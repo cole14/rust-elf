@@ -1,5 +1,6 @@
+use crate::endian::EndianParse;
 use crate::gabi;
-use crate::parse::{parse_u16_at, parse_u32_at, Class, Endian, ParseAt, ParseError, ParsingTable};
+use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 use crate::string_table::StringTable;
 
 #[derive(Debug, PartialEq)]
@@ -11,26 +12,26 @@ pub struct SymbolRequirement<'data> {
     pub hidden: bool,
 }
 
-pub struct SymbolDefinition<'data> {
+pub struct SymbolDefinition<'data, E: EndianParse> {
     pub hash: u32,
     pub flags: u16,
-    pub names: SymbolNamesIterator<'data>,
+    pub names: SymbolNamesIterator<'data, E>,
     pub hidden: bool,
 }
 
 #[derive(Debug)]
-pub struct SymbolNamesIterator<'data> {
-    vda_iter: VerDefAuxIterator<'data>,
+pub struct SymbolNamesIterator<'data, E: EndianParse> {
+    vda_iter: VerDefAuxIterator<'data, E>,
     strtab: &'data StringTable<'data>,
 }
 
-impl<'data> SymbolNamesIterator<'data> {
-    pub fn new(vda_iter: VerDefAuxIterator<'data>, strtab: &'data StringTable<'data>) -> Self {
+impl<'data, E: EndianParse> SymbolNamesIterator<'data, E> {
+    pub fn new(vda_iter: VerDefAuxIterator<'data, E>, strtab: &'data StringTable<'data>) -> Self {
         SymbolNamesIterator { vda_iter, strtab }
     }
 }
 
-impl<'data> Iterator for SymbolNamesIterator<'data> {
+impl<'data, E: EndianParse> Iterator for SymbolNamesIterator<'data, E> {
     type Item = Result<&'data str, ParseError>;
     fn next(&mut self) -> Option<Self::Item> {
         let vda = self.vda_iter.next();
@@ -41,18 +42,18 @@ impl<'data> Iterator for SymbolNamesIterator<'data> {
     }
 }
 
-pub struct SymbolVersionTable<'data> {
-    version_ids: VersionIndexTable<'data>,
+pub struct SymbolVersionTable<'data, E: EndianParse> {
+    version_ids: VersionIndexTable<'data, E>,
 
-    verneeds: Option<(VerNeedIterator<'data>, StringTable<'data>)>,
-    verdefs: Option<(VerDefIterator<'data>, StringTable<'data>)>,
+    verneeds: Option<(VerNeedIterator<'data, E>, StringTable<'data>)>,
+    verdefs: Option<(VerDefIterator<'data, E>, StringTable<'data>)>,
 }
 
-impl<'data> SymbolVersionTable<'data> {
+impl<'data, E: EndianParse> SymbolVersionTable<'data, E> {
     pub fn new(
-        version_ids: VersionIndexTable<'data>,
-        verneeds: Option<(VerNeedIterator<'data>, StringTable<'data>)>,
-        verdefs: Option<(VerDefIterator<'data>, StringTable<'data>)>,
+        version_ids: VersionIndexTable<'data, E>,
+        verneeds: Option<(VerNeedIterator<'data, E>, StringTable<'data>)>,
+        verdefs: Option<(VerDefIterator<'data, E>, StringTable<'data>)>,
     ) -> Self {
         SymbolVersionTable {
             version_ids,
@@ -98,7 +99,10 @@ impl<'data> SymbolVersionTable<'data> {
         Ok(None)
     }
 
-    pub fn get_definition(&self, sym_idx: usize) -> Result<Option<SymbolDefinition>, ParseError> {
+    pub fn get_definition(
+        &self,
+        sym_idx: usize,
+    ) -> Result<Option<SymbolDefinition<E>>, ParseError> {
         let (ref verdefs, ref verdef_strs) = match self.verdefs {
             Some(ref verdefs) => verdefs,
             None => {
@@ -144,7 +148,7 @@ impl<'data> SymbolVersionTable<'data> {
 //      |___/                                                     //
 ////////////////////////////////////////////////////////////////////
 
-pub type VersionIndexTable<'data> = ParsingTable<'data, VersionIndex>;
+pub type VersionIndexTable<'data, E> = ParsingTable<'data, E, VersionIndex>;
 
 /// The special GNU extension section .gnu.version has a section type of SHT_GNU_VERSYM.
 /// This section shall have the same number of entries as the Dynamic Symbol Table in
@@ -181,14 +185,14 @@ impl VersionIndex {
 }
 
 impl ParseAt for VersionIndex {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VersionIndex {
-            0: parse_u16_at(endian, offset, data)?,
+            0: endian.parse_u16_at(offset, data)?,
         })
     }
 
@@ -233,13 +237,13 @@ pub struct VerDef {
 }
 
 impl ParseAt for VerDef {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        let vd_version = parse_u16_at(endian, offset, data)?;
+        let vd_version = endian.parse_u16_at(offset, data)?;
         if vd_version != gabi::VER_DEF_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 vd_version as u64,
@@ -248,12 +252,12 @@ impl ParseAt for VerDef {
         }
 
         Ok(VerDef {
-            vd_flags: parse_u16_at(endian, offset, data)?,
-            vd_ndx: parse_u16_at(endian, offset, data)?,
-            vd_cnt: parse_u16_at(endian, offset, data)?,
-            vd_hash: parse_u32_at(endian, offset, data)?,
-            vd_aux: parse_u32_at(endian, offset, data)?,
-            vd_next: parse_u32_at(endian, offset, data)?,
+            vd_flags: endian.parse_u16_at(offset, data)?,
+            vd_ndx: endian.parse_u16_at(offset, data)?,
+            vd_cnt: endian.parse_u16_at(offset, data)?,
+            vd_hash: endian.parse_u32_at(offset, data)?,
+            vd_aux: endian.parse_u32_at(offset, data)?,
+            vd_next: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -266,8 +270,8 @@ impl ParseAt for VerDef {
 const ELFVERDEFSIZE: usize = 20;
 
 #[derive(Debug, Clone, Copy)]
-pub struct VerDefIterator<'data> {
-    endianness: Endian,
+pub struct VerDefIterator<'data, E: EndianParse> {
+    endian: E,
     class: Class,
     /// The number of entries in this iterator is given by the .dynamic DT_VERDEFNUM entry
     /// and also in the .gnu.version_d section header's sh_info field.
@@ -276,16 +280,16 @@ pub struct VerDefIterator<'data> {
     offset: usize,
 }
 
-impl<'data> VerDefIterator<'data> {
+impl<'data, E: EndianParse> VerDefIterator<'data, E> {
     pub fn new(
-        endianness: Endian,
+        endian: E,
         class: Class,
         count: u64,
         starting_offset: usize,
         data: &'data [u8],
     ) -> Self {
         VerDefIterator {
-            endianness,
+            endian,
             class,
             count,
             data,
@@ -294,17 +298,17 @@ impl<'data> VerDefIterator<'data> {
     }
 }
 
-impl<'data> Iterator for VerDefIterator<'data> {
-    type Item = (VerDef, VerDefAuxIterator<'data>);
+impl<'data, E: EndianParse> Iterator for VerDefIterator<'data, E> {
+    type Item = (VerDef, VerDefAuxIterator<'data, E>);
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 || self.count == 0 {
             return None;
         }
 
         let mut start = self.offset;
-        let vd = VerDef::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        let vd = VerDef::parse_at(self.endian, self.class, &mut start, self.data).ok()?;
         let vda_iter = VerDefAuxIterator::new(
-            self.endianness,
+            self.endian,
             self.class,
             vd.vd_cnt,
             self.offset + vd.vd_aux as usize,
@@ -337,15 +341,15 @@ pub struct VerDefAux {
 }
 
 impl ParseAt for VerDefAux {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerDefAux {
-            vda_name: parse_u32_at(endian, offset, data)?,
-            vda_next: parse_u32_at(endian, offset, data)?,
+            vda_name: endian.parse_u32_at(offset, data)?,
+            vda_next: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -356,24 +360,24 @@ impl ParseAt for VerDefAux {
 }
 
 #[derive(Debug)]
-pub struct VerDefAuxIterator<'data> {
-    endianness: Endian,
+pub struct VerDefAuxIterator<'data, E: EndianParse> {
+    endian: E,
     class: Class,
     count: u16,
     data: &'data [u8],
     offset: usize,
 }
 
-impl<'data> VerDefAuxIterator<'data> {
+impl<'data, E: EndianParse> VerDefAuxIterator<'data, E> {
     pub fn new(
-        endianness: Endian,
+        endian: E,
         class: Class,
         count: u16,
         starting_offset: usize,
         data: &'data [u8],
     ) -> Self {
         VerDefAuxIterator {
-            endianness,
+            endian,
             class,
             count,
             data,
@@ -382,7 +386,7 @@ impl<'data> VerDefAuxIterator<'data> {
     }
 }
 
-impl<'data> Iterator for VerDefAuxIterator<'data> {
+impl<'data, E: EndianParse> Iterator for VerDefAuxIterator<'data, E> {
     type Item = VerDefAux;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 || self.count == 0 {
@@ -415,7 +419,7 @@ impl<'data> Iterator for VerDefAuxIterator<'data> {
         // So observationally, we could likely get away with using self.offset and count here
         // and ignoring the vda_next field, but that'd break things if they weren't contiguous.
         let mut start = self.offset;
-        let vda = VerDefAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        let vda = VerDefAux::parse_at(self.endian, self.class, &mut start, self.data).ok()?;
 
         // If offset overflows, silently end iteration
         match self.offset.checked_add(vda.vda_next as usize) {
@@ -464,13 +468,13 @@ pub struct VerNeed {
 }
 
 impl ParseAt for VerNeed {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        let vd_version = parse_u16_at(endian, offset, data)?;
+        let vd_version = endian.parse_u16_at(offset, data)?;
         if vd_version != gabi::VER_NEED_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 vd_version as u64,
@@ -478,10 +482,10 @@ impl ParseAt for VerNeed {
             )));
         }
         Ok(VerNeed {
-            vn_cnt: parse_u16_at(endian, offset, data)?,
-            vn_file: parse_u32_at(endian, offset, data)?,
-            vn_aux: parse_u32_at(endian, offset, data)?,
-            vn_next: parse_u32_at(endian, offset, data)?,
+            vn_cnt: endian.parse_u16_at(offset, data)?,
+            vn_file: endian.parse_u32_at(offset, data)?,
+            vn_aux: endian.parse_u32_at(offset, data)?,
+            vn_next: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -494,8 +498,8 @@ impl ParseAt for VerNeed {
 const ELFVERNEEDSIZE: usize = 16;
 
 #[derive(Debug, Copy, Clone)]
-pub struct VerNeedIterator<'data> {
-    endianness: Endian,
+pub struct VerNeedIterator<'data, E: EndianParse> {
+    endian: E,
     class: Class,
     /// The number of entries in this iterator is given by the .dynamic DT_VERNEEDNUM entry
     /// and also in the .gnu.version_r section header's sh_info field.
@@ -504,16 +508,16 @@ pub struct VerNeedIterator<'data> {
     offset: usize,
 }
 
-impl<'data> VerNeedIterator<'data> {
+impl<'data, E: EndianParse> VerNeedIterator<'data, E> {
     pub fn new(
-        endianness: Endian,
+        endian: E,
         class: Class,
         count: u64,
         starting_offset: usize,
         data: &'data [u8],
     ) -> Self {
         VerNeedIterator {
-            endianness,
+            endian,
             class,
             count,
             data,
@@ -522,17 +526,17 @@ impl<'data> VerNeedIterator<'data> {
     }
 }
 
-impl<'data> Iterator for VerNeedIterator<'data> {
-    type Item = (VerNeed, VerNeedAuxIterator<'data>);
+impl<'data, E: EndianParse> Iterator for VerNeedIterator<'data, E> {
+    type Item = (VerNeed, VerNeedAuxIterator<'data, E>);
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 || self.count == 0 {
             return None;
         }
 
         let mut start = self.offset;
-        let vn = VerNeed::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        let vn = VerNeed::parse_at(self.endian, self.class, &mut start, self.data).ok()?;
         let vna_iter = VerNeedAuxIterator::new(
-            self.endianness,
+            self.endian,
             self.class,
             vn.vn_cnt,
             self.offset + vn.vn_aux as usize,
@@ -571,18 +575,18 @@ pub struct VerNeedAux {
 }
 
 impl ParseAt for VerNeedAux {
-    fn parse_at(
-        endian: Endian,
+    fn parse_at<E: EndianParse>(
+        endian: E,
         _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerNeedAux {
-            vna_hash: parse_u32_at(endian, offset, &data)?,
-            vna_flags: parse_u16_at(endian, offset, &data)?,
-            vna_other: parse_u16_at(endian, offset, &data)?,
-            vna_name: parse_u32_at(endian, offset, &data)?,
-            vna_next: parse_u32_at(endian, offset, &data)?,
+            vna_hash: endian.parse_u32_at(offset, &data)?,
+            vna_flags: endian.parse_u16_at(offset, &data)?,
+            vna_other: endian.parse_u16_at(offset, &data)?,
+            vna_name: endian.parse_u32_at(offset, &data)?,
+            vna_next: endian.parse_u32_at(offset, &data)?,
         })
     }
 
@@ -593,24 +597,24 @@ impl ParseAt for VerNeedAux {
 }
 
 #[derive(Debug)]
-pub struct VerNeedAuxIterator<'data> {
-    endianness: Endian,
+pub struct VerNeedAuxIterator<'data, E: EndianParse> {
+    endian: E,
     class: Class,
     count: u16,
     data: &'data [u8],
     offset: usize,
 }
 
-impl<'data> VerNeedAuxIterator<'data> {
+impl<'data, E: EndianParse> VerNeedAuxIterator<'data, E> {
     pub fn new(
-        endianness: Endian,
+        endian: E,
         class: Class,
         count: u16,
         starting_offset: usize,
         data: &'data [u8],
     ) -> Self {
         VerNeedAuxIterator {
-            endianness,
+            endian,
             class,
             count,
             data,
@@ -619,7 +623,7 @@ impl<'data> VerNeedAuxIterator<'data> {
     }
 }
 
-impl<'data> Iterator for VerNeedAuxIterator<'data> {
+impl<'data, E: EndianParse> Iterator for VerNeedAuxIterator<'data, E> {
     type Item = VerNeedAux;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.len() == 0 || self.count == 0 {
@@ -627,7 +631,7 @@ impl<'data> Iterator for VerNeedAuxIterator<'data> {
         }
 
         let mut start = self.offset;
-        let vna = VerNeedAux::parse_at(self.endianness, self.class, &mut start, self.data).ok()?;
+        let vna = VerNeedAux::parse_at(self.endian, self.class, &mut start, self.data).ok()?;
 
         // If offset overflows, silently end iteration
         match self.offset.checked_add(vna.vna_next as usize) {
@@ -657,6 +661,7 @@ impl<'data> Iterator for VerNeedAuxIterator<'data> {
 #[cfg(test)]
 mod iter_tests {
     use super::*;
+    use crate::endian::LittleEndian;
 
     #[rustfmt::skip]
     const GNU_VERNEED_STRINGS: [u8; 65] = [
@@ -692,7 +697,7 @@ mod iter_tests {
 
     #[test]
     fn verneed_iter() {
-        let iter = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
+        let iter = VerNeedIterator::new(LittleEndian, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
         let entries: Vec<(VerNeed, Vec<VerNeedAux>)> =
             iter.map(|(vn, iter)| (vn, iter.collect())).collect();
 
@@ -702,7 +707,7 @@ mod iter_tests {
     #[test]
     fn verneed_iter_early_termination_on_broken_next_link() {
         // set count = 3 even though there's only 2 entries
-        let iter = VerNeedIterator::new(Endian::Little, Class::ELF64, 3, 0, &GNU_VERNEED_DATA);
+        let iter = VerNeedIterator::new(LittleEndian, Class::ELF64, 3, 0, &GNU_VERNEED_DATA);
         let entries: Vec<(VerNeed, Vec<VerNeedAux>)> =
             iter.map(|(vn, iter)| (vn, iter.collect())).collect();
 
@@ -713,7 +718,7 @@ mod iter_tests {
     #[test]
     fn verneedaux_iter_one_entry() {
         let mut iter =
-            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 1, 0x10, &GNU_VERNEED_DATA);
+            VerNeedAuxIterator::new(LittleEndian, Class::ELF64, 1, 0x10, &GNU_VERNEED_DATA);
         let aux1 = iter.next().expect("Failed to parse");
         assert_eq!(
             aux1,
@@ -731,7 +736,7 @@ mod iter_tests {
     #[test]
     fn verneedaux_iter_multiple_entries() {
         let mut iter =
-            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 3, 0x30, &GNU_VERNEED_DATA);
+            VerNeedAuxIterator::new(LittleEndian, Class::ELF64, 3, 0x30, &GNU_VERNEED_DATA);
         let aux1 = iter.next().expect("Failed to parse");
         assert_eq!(
             aux1,
@@ -783,8 +788,8 @@ mod iter_tests {
             0x94, 0x91, 0x96, 0x06, 0x00, 0x00, 0x09, 0x00, 0xec, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
 
-        let mut iter1 = VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 2, 0, &data);
-        let mut iter2 = VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 2, 0x10, &data);
+        let mut iter1 = VerNeedAuxIterator::new(LittleEndian, Class::ELF64, 2, 0, &data);
+        let mut iter2 = VerNeedAuxIterator::new(LittleEndian, Class::ELF64, 2, 0x10, &data);
 
         let aux1_1 = iter1.next().expect("Failed to parse");
         assert_eq!(
@@ -837,8 +842,7 @@ mod iter_tests {
     #[test]
     fn verneedaux_iter_early_termination_on_broken_next_link() {
         // set count = 7 even though there's only 1 entry
-        let iter =
-            VerNeedAuxIterator::new(Endian::Little, Class::ELF64, 7, 0x10, &GNU_VERNEED_DATA);
+        let iter = VerNeedAuxIterator::new(LittleEndian, Class::ELF64, 7, 0x10, &GNU_VERNEED_DATA);
         let entries: Vec<VerNeedAux> = iter.collect();
 
         // TODO: make this a ParseError condition instead of silently returning only the good data.
@@ -894,7 +898,7 @@ mod iter_tests {
 
     #[test]
     fn verdef_iter() {
-        let iter = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
+        let iter = VerDefIterator::new(LittleEndian, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
         let entries: Vec<(VerDef, Vec<VerDefAux>)> =
             iter.map(|(vd, iter)| (vd, iter.collect())).collect();
 
@@ -978,7 +982,7 @@ mod iter_tests {
     #[test]
     fn verdef_iter_early_termination_on_broken_next_link() {
         // set count = 7 even though there's only 4 entries
-        let iter = VerDefIterator::new(Endian::Little, Class::ELF64, 7, 0, &GNU_VERDEF_DATA);
+        let iter = VerDefIterator::new(LittleEndian, Class::ELF64, 7, 0, &GNU_VERDEF_DATA);
         let entries: Vec<(VerDef, Vec<VerDefAux>)> =
             iter.map(|(vn, iter)| (vn, iter.collect())).collect();
 
@@ -989,7 +993,7 @@ mod iter_tests {
     #[test]
     fn verdefaux_iter_one_entry() {
         let mut iter =
-            VerDefAuxIterator::new(Endian::Little, Class::ELF64, 1, 0x14, &GNU_VERDEF_DATA);
+            VerDefAuxIterator::new(LittleEndian, Class::ELF64, 1, 0x14, &GNU_VERDEF_DATA);
         let aux1 = iter.next().expect("Failed to parse");
         assert_eq!(
             aux1,
@@ -1004,7 +1008,7 @@ mod iter_tests {
     #[test]
     fn verdefaux_iter_multiple_entries() {
         let mut iter =
-            VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 0x4C, &GNU_VERDEF_DATA);
+            VerDefAuxIterator::new(LittleEndian, Class::ELF64, 2, 0x4C, &GNU_VERDEF_DATA);
         let aux1 = iter.next().expect("Failed to parse");
         assert_eq!(
             aux1,
@@ -1035,8 +1039,8 @@ mod iter_tests {
             0xA2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // list 2 entry 2
         ];
 
-        let mut iter1 = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 0, &data);
-        let mut iter2 = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 2, 8, &data);
+        let mut iter1 = VerDefAuxIterator::new(LittleEndian, Class::ELF64, 2, 0, &data);
+        let mut iter2 = VerDefAuxIterator::new(LittleEndian, Class::ELF64, 2, 8, &data);
 
         let aux1_1 = iter1.next().expect("Failed to parse");
         assert_eq!(
@@ -1077,7 +1081,7 @@ mod iter_tests {
     #[test]
     fn verdefaux_iter_early_termination_on_broken_next_link() {
         // set count = 7 even though there's only 1 entry
-        let iter = VerDefAuxIterator::new(Endian::Little, Class::ELF64, 7, 0x14, &GNU_VERDEF_DATA);
+        let iter = VerDefAuxIterator::new(LittleEndian, Class::ELF64, 7, 0x14, &GNU_VERDEF_DATA);
         let entries: Vec<VerDefAux> = iter.collect();
 
         // TODO: make this a ParseError condition instead of silently returning only the good data.
@@ -1087,10 +1091,10 @@ mod iter_tests {
     #[test]
     fn version_table() {
         let ver_idx_buf: [u8; 10] = [0x02, 0x00, 0x03, 0x00, 0x09, 0x00, 0x0A, 0x00, 0xff, 0xff];
-        let version_ids = VersionIndexTable::new(Endian::Little, Class::ELF64, &ver_idx_buf);
-        let verdefs = VerDefIterator::new(Endian::Little, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
+        let version_ids = VersionIndexTable::new(LittleEndian, Class::ELF64, &ver_idx_buf);
+        let verdefs = VerDefIterator::new(LittleEndian, Class::ELF64, 4, 0, &GNU_VERDEF_DATA);
         let verneed_strs = StringTable::new(&GNU_VERNEED_STRINGS);
-        let verneeds = VerNeedIterator::new(Endian::Little, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
+        let verneeds = VerNeedIterator::new(LittleEndian, Class::ELF64, 2, 0, &GNU_VERNEED_DATA);
         let verdef_strs = StringTable::new(&GNU_VERDEF_STRINGS);
 
         let table = SymbolVersionTable::new(
@@ -1167,46 +1171,47 @@ mod iter_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
 
     #[test]
     fn parse_verndx32_lsb() {
-        test_parse_for(Endian::Little, Class::ELF32, VersionIndex { 0: 0x0100 });
+        test_parse_for(LittleEndian, Class::ELF32, VersionIndex { 0: 0x0100 });
     }
 
     #[test]
     fn parse_verndx32_msb() {
-        test_parse_for(Endian::Big, Class::ELF32, VersionIndex { 0: 0x0001 });
+        test_parse_for(BigEndian, Class::ELF32, VersionIndex { 0: 0x0001 });
     }
 
     #[test]
     fn parse_verndx64_lsb() {
-        test_parse_for(Endian::Little, Class::ELF64, VersionIndex { 0: 0x0100 });
+        test_parse_for(LittleEndian, Class::ELF64, VersionIndex { 0: 0x0100 });
     }
 
     #[test]
     fn parse_verndx64_msb() {
-        test_parse_for(Endian::Big, Class::ELF64, VersionIndex { 0: 0x0001 });
+        test_parse_for(BigEndian, Class::ELF64, VersionIndex { 0: 0x0001 });
     }
 
     #[test]
     fn parse_verndx32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VersionIndex>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VersionIndex>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verndx32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VersionIndex>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VersionIndex>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verndx64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VersionIndex>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VersionIndex>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_verndx64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VersionIndex>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VersionIndex>(BigEndian, Class::ELF64);
     }
 
     //
@@ -1222,7 +1227,7 @@ mod parse_tests {
         data[1] = 0;
 
         let mut offset = 0;
-        let entry = VerDef::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
+        let entry = VerDef::parse_at(LittleEndian, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerDef");
 
         assert_eq!(
@@ -1246,7 +1251,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDef::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
+            let error = VerDef::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -1264,7 +1269,7 @@ mod parse_tests {
         data[1] = 1;
 
         let mut offset = 0;
-        let entry = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
+        let entry = VerDef::parse_at(BigEndian, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerDef");
 
         assert_eq!(
@@ -1288,7 +1293,7 @@ mod parse_tests {
         for n in 0..ELFVERDEFSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
+            let error = VerDef::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -1303,7 +1308,7 @@ mod parse_tests {
         // version is 0, which is not 1, which is bad :)
 
         let mut offset = 0;
-        let err = VerDef::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
+        let err = VerDef::parse_at(BigEndian, Class::ELF64, &mut offset, data.as_ref())
             .expect_err("Expected an error");
         assert!(
             matches!(err, ParseError::UnsupportedVersion((0, 1))),
@@ -1317,7 +1322,7 @@ mod parse_tests {
     #[test]
     fn parse_verdefaux32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             VerDefAux {
                 vda_name: 0x03020100,
@@ -1329,7 +1334,7 @@ mod parse_tests {
     #[test]
     fn parse_verdefaux32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             VerDefAux {
                 vda_name: 0x00010203,
@@ -1341,7 +1346,7 @@ mod parse_tests {
     #[test]
     fn parse_verdefaux64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             VerDefAux {
                 vda_name: 0x03020100,
@@ -1353,7 +1358,7 @@ mod parse_tests {
     #[test]
     fn parse_verdefaux64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             VerDefAux {
                 vda_name: 0x00010203,
@@ -1364,22 +1369,22 @@ mod parse_tests {
 
     #[test]
     fn parse_verdefaux32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerDefAux>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VerDefAux>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verdefaux32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerDefAux>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VerDefAux>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verdefaux64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerDefAux>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VerDefAux>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_verdefaux64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerDefAux>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VerDefAux>(BigEndian, Class::ELF64);
     }
 
     //
@@ -1395,7 +1400,7 @@ mod parse_tests {
         data[1] = 0;
 
         let mut offset = 0;
-        let entry = VerNeed::parse_at(Endian::Little, Class::ELF32, &mut offset, data.as_ref())
+        let entry = VerNeed::parse_at(LittleEndian, Class::ELF32, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeed");
 
         assert_eq!(
@@ -1417,7 +1422,7 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeed::parse_at(Endian::Big, Class::ELF32, &mut offset, buf)
+            let error = VerNeed::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -1435,7 +1440,7 @@ mod parse_tests {
         data[1] = 1;
 
         let mut offset = 0;
-        let entry = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, data.as_ref())
+        let entry = VerNeed::parse_at(BigEndian, Class::ELF64, &mut offset, data.as_ref())
             .expect("Failed to parse VerNeed");
 
         assert_eq!(
@@ -1457,7 +1462,7 @@ mod parse_tests {
         for n in 0..ELFVERNEEDSIZE {
             let buf = data.split_at(n).0.as_ref();
             let mut offset: usize = 0;
-            let error = VerNeed::parse_at(Endian::Big, Class::ELF64, &mut offset, buf)
+            let error = VerNeed::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
                 matches!(error, ParseError::BadOffset(_)),
@@ -1472,7 +1477,7 @@ mod parse_tests {
     #[test]
     fn parse_verneedaux32_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF32,
             VerNeedAux {
                 vna_hash: 0x03020100,
@@ -1487,7 +1492,7 @@ mod parse_tests {
     #[test]
     fn parse_verneedaux32_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF32,
             VerNeedAux {
                 vna_hash: 0x00010203,
@@ -1502,7 +1507,7 @@ mod parse_tests {
     #[test]
     fn parse_verneedaux64_lsb() {
         test_parse_for(
-            Endian::Little,
+            LittleEndian,
             Class::ELF64,
             VerNeedAux {
                 vna_hash: 0x03020100,
@@ -1517,7 +1522,7 @@ mod parse_tests {
     #[test]
     fn parse_verneedaux64_msb() {
         test_parse_for(
-            Endian::Big,
+            BigEndian,
             Class::ELF64,
             VerNeedAux {
                 vna_hash: 0x00010203,
@@ -1531,22 +1536,22 @@ mod parse_tests {
 
     #[test]
     fn parse_verneedaux32_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Little, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VerNeedAux>(LittleEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verneedaux32_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Big, Class::ELF32);
+        test_parse_fuzz_too_short::<_, VerNeedAux>(BigEndian, Class::ELF32);
     }
 
     #[test]
     fn parse_verneedaux64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Little, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VerNeedAux>(LittleEndian, Class::ELF64);
     }
 
     #[test]
     fn parse_verneedaux64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<VerNeedAux>(Endian::Big, Class::ELF64);
+        test_parse_fuzz_too_short::<_, VerNeedAux>(BigEndian, Class::ELF64);
     }
 }
 
