@@ -422,12 +422,12 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
 }
 
 // Simple convenience extension trait to wrap get() with .ok_or(SliceReadError)
-trait ReadBytesExt {
-    fn get_bytes(&self, range: Range<usize>) -> Result<&[u8], ParseError>;
+trait ReadBytesExt<'data> {
+    fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
 }
 
-impl ReadBytesExt for &[u8] {
-    fn get_bytes(&self, range: Range<usize>) -> Result<&[u8], ParseError> {
+impl<'data> ReadBytesExt<'data> for &'data [u8] {
+    fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
         self.get(range)
             .ok_or(ParseError::SliceReadError((0, gabi::EI_NIDENT)))
     }
