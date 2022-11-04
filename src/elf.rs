@@ -34,6 +34,7 @@
 use core::ops::Range;
 
 use crate::compression::CompressionHeader;
+use crate::dynamic::DynIterator;
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gabi;
@@ -89,6 +90,8 @@ pub trait ElfParser<'data, E: EndianParse> {
         self,
         phdr: &ProgramHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError>;
+
+    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError>;
 }
 
 //  _____ _     _____ ____        _
@@ -312,6 +315,27 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             phdr.p_align as usize,
             buf,
         ))
+    }
+
+    /// Get the .dynamic section or PT_DYNAMIC segment contents.
+    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
+        // If we have section headers, look for the SHT_DYNAMIC section
+        if let Some(shdrs) = self.section_headers()? {
+            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
+                let (start, end) = shdr.get_data_range()?;
+                let buf = self.data.get_bytes(start..end)?;
+                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+            }
+        // Otherwise, look up the PT_DYNAMIC segment (if any)
+        } else if let Some(phdrs) = self.segments()? {
+            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+                let (start, end) = phdr.get_file_data_range()?;
+                let buf = self.data.get_bytes(start..end)?;
+                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+            }
+        }
+
+        Ok(None)
     }
 }
 
@@ -595,6 +619,27 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         let buf = self.segment_data(phdr)?;
         Ok(NoteIterator::new(endian, class, phdr.p_align as usize, buf))
     }
+
+    /// Get the .dynamic section or PT_DYNAMIC segment contents.
+    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
+        // If we have section headers, look for the SHT_DYNAMIC section
+        if let Some(shdrs) = self.section_headers()? {
+            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
+                let (start, end) = shdr.get_data_range()?;
+                let buf = self.reader.read_bytes(start, end)?;
+                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+            }
+        // Otherwise, look up the PT_DYNAMIC segment (if any)
+        } else if let Some(phdrs) = self.segments()? {
+            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+                let (start, end) = phdr.get_file_data_range()?;
+                let buf = self.reader.read_bytes(start, end)?;
+                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -654,6 +699,7 @@ impl<R: Read + Seek> CachingReader<R> {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
     use crate::gabi::{
         SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB,
@@ -1238,5 +1284,58 @@ mod interface_tests {
             }
         );
         assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn stream_test_for_dynamic() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let mut dynamic = file
+            .dynamic()
+            .expect("Failed to parse .dynamic")
+            .expect("Failed to find .dynamic");
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            Dyn {
+                d_tag: gabi::DT_NEEDED,
+                d_un: 1
+            }
+        );
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            Dyn {
+                d_tag: gabi::DT_INIT,
+                d_un: 4195216
+            }
+        );
+    }
+
+    #[test]
+    fn bytes_test_for_dynamic() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let mut dynamic = file
+            .dynamic()
+            .expect("Failed to parse .dynamic")
+            .expect("Failed to find .dynamic");
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            Dyn {
+                d_tag: gabi::DT_NEEDED,
+                d_un: 1
+            }
+        );
+        assert_eq!(
+            dynamic.next().expect("Failed to get dyn entry"),
+            Dyn {
+                d_tag: gabi::DT_INIT,
+                d_un: 4195216
+            }
+        );
     }
 }
