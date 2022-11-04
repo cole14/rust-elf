@@ -34,10 +34,11 @@
 use core::ops::Range;
 
 use crate::compression::CompressionHeader;
-use crate::dynamic::DynIterator;
+use crate::dynamic::{DynIterator, DynamicTable};
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gabi;
+use crate::hash::SysVHashTable;
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
@@ -123,6 +124,26 @@ fn find_phdrs<'data, E: EndianParse>(
     }
 }
 
+/// This struct collects the common sections found in ELF objects
+#[derive(Default)]
+pub struct CommonElfSections<'data, E: EndianParse> {
+    // .symtab section
+    pub symtab: Option<SymbolTable<'data, E>>,
+    // strtab for .symtab
+    pub symtab_strs: Option<StringTable<'data>>,
+
+    // .dynsym section
+    pub dynsyms: Option<SymbolTable<'data, E>>,
+    // strtab for .dynsym
+    pub dynsyms_strs: Option<StringTable<'data>>,
+
+    // .dynamic section or PT_DYNAMIC segment (both point to the same table)
+    pub dynamic: Option<DynamicTable<'data, E>>,
+
+    // .hash section
+    pub sysv_hash: Option<SysVHashTable<'data, E>>,
+}
+
 pub struct ElfBytes<'data, E: EndianParse> {
     ehdr: FileHeader,
     data: &'data [u8],
@@ -198,6 +219,61 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
         let strtab_buf = self.data.get_bytes(strtab_start..strtab_end)?;
         Ok(Some((shdrs, StringTable::new(strtab_buf))))
+    }
+
+    pub fn find_common_sections(&self) -> Result<CommonElfSections<'data, E>, ParseError> {
+        let mut result: CommonElfSections<'data, E> = CommonElfSections::default();
+
+        // Iterate once over the shdrs to collect up any known sections
+        if let Some(shdrs) = self.shdrs {
+            for shdr in shdrs.iter() {
+                match shdr.sh_type {
+                    gabi::SHT_SYMTAB => {
+                        let strtab_shdr = shdrs.get(shdr.sh_link as usize)?;
+                        let (symtab, strtab) =
+                            self.section_data_as_symbol_table(&shdr, &strtab_shdr)?;
+
+                        result.symtab = Some(symtab);
+                        result.symtab_strs = Some(strtab);
+                    }
+                    gabi::SHT_DYNSYM => {
+                        let strtab_shdr = shdrs.get(shdr.sh_link as usize)?;
+                        let (symtab, strtab) =
+                            self.section_data_as_symbol_table(&shdr, &strtab_shdr)?;
+
+                        result.dynsyms = Some(symtab);
+                        result.dynsyms_strs = Some(strtab);
+                    }
+                    gabi::SHT_DYNAMIC => {
+                        let (start, end) = shdr.get_data_range()?;
+                        let buf = self.data.get_bytes(start..end)?;
+                        result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
+                    }
+                    gabi::SHT_HASH => {
+                        let (start, end) = shdr.get_data_range()?;
+                        let buf = self.data.get_bytes(start..end)?;
+                        result.sysv_hash =
+                            Some(SysVHashTable::new(self.endian, self.ehdr.class, buf)?);
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // If we didn't find SHT_DYNAMIC from the section headers, try the program headers
+        if result.dynamic.is_none() {
+            if let Some(phdrs) = self.phdrs {
+                if let Some(dyn_phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+                    let (start, end) = dyn_phdr.get_file_data_range()?;
+                    let buf = self.data.get_bytes(start..end)?;
+                    result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     pub fn section_data(
@@ -339,7 +415,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
         strtab_shdr: &SectionHeader,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+    ) -> Result<(SymbolTable<'data, E>, StringTable<'data>), ParseError> {
         // Validate entsize before trying to read the table so that we can error early for corrupted files
         Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
 
@@ -355,7 +431,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
         let symtab = SymbolTable::new(self.endian, self.ehdr.class, symtab_buf);
         let strtab = StringTable::new(strtab_buf);
-        Ok(Some((symtab, strtab)))
+        Ok((symtab, strtab))
     }
 
     pub fn symbol_table(
@@ -377,7 +453,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         };
 
         let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
-        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
+        Ok(Some(self.section_data_as_symbol_table(
+            &symtab_shdr,
+            &strtab_shdr,
+        )?))
     }
 
     pub fn dynamic_symbol_table(
@@ -399,7 +478,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         };
 
         let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
-        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
+        Ok(Some(self.section_data_as_symbol_table(
+            &symtab_shdr,
+            &strtab_shdr,
+        )?))
     }
 }
 
@@ -435,7 +517,7 @@ mod interface_tests {
     use crate::segment::ProgramHeader;
 
     #[test]
-    fn bytes_test_for_simultaenous_segments_parsing() {
+    fn simultaenous_segments_parsing() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -476,7 +558,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_segments() {
+    fn segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -503,7 +585,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_headers() {
+    fn section_headers() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -519,7 +601,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_headers_with_strtab() {
+    fn section_headers_with_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -548,7 +630,25 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_data() {
+    fn find_common_sections() {
+        let path = std::path::PathBuf::from("tests/samples/hello.so");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let elf_scns = file.find_common_sections().expect("file should parse");
+
+        // hello.so should find everything
+        assert!(elf_scns.symtab.is_some());
+        assert!(elf_scns.symtab_strs.is_some());
+        assert!(elf_scns.dynsyms.is_some());
+        assert!(elf_scns.dynsyms_strs.is_some());
+        assert!(elf_scns.dynamic.is_some());
+        assert!(elf_scns.sysv_hash.is_some());
+    }
+
+    #[test]
+    fn section_data() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -572,7 +672,7 @@ mod interface_tests {
 
     // Test all the different section_data_as* with a section of the wrong type
     #[test]
-    fn bytes_test_for_section_data_as_wrong_type() {
+    fn section_data_as_wrong_type() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -622,7 +722,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_data_as_strtab() {
+    fn section_data_as_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -645,7 +745,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_data_as_relas() {
+    fn section_data_as_relas() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -682,7 +782,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_section_data_as_notes() {
+    fn section_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -709,7 +809,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_segment_data_as_notes() {
+    fn segment_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -747,7 +847,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_dynamic() {
+    fn dynamic() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -774,7 +874,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_symbol_table() {
+    fn symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -805,7 +905,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_for_dynamic_symbol_table() {
+    fn dynamic_symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();

@@ -1,6 +1,7 @@
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingIterator};
+use crate::parse::{Class, ParseAt, ParseError, ParsingIterator, ParsingTable};
 
+pub type DynamicTable<'data, E> = ParsingTable<'data, E, Dyn>;
 pub type DynIterator<'data, E> = ParsingIterator<'data, E, Dyn>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

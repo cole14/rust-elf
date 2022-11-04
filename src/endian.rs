@@ -59,7 +59,7 @@ macro_rules! safe_from {
 ///
 /// These use checked integer math and returns a ParseError on overflow or if $data did
 /// not contain enough bytes at $off to perform the conversion.
-pub trait EndianParse: Clone + Copy + PartialEq + Eq {
+pub trait EndianParse: Clone + Copy + Default + PartialEq + Eq {
     fn parse_u8_at(self, offset: &mut usize, data: &[u8]) -> Result<u8, ParseError> {
         safe_from!(self, u8, offset, data)
     }
@@ -112,18 +112,32 @@ pub enum AnyEndian {
     Big,
 }
 
+impl Default for AnyEndian {
+    #[cfg(target_endian = "little")]
+    #[inline]
+    fn default() -> AnyEndian {
+        AnyEndian::Little
+    }
+
+    #[cfg(target_endian = "big")]
+    #[inline]
+    fn default() -> AnyEndian {
+        AnyEndian::Big
+    }
+}
+
 /// A zero-sized type that always parses integers as if they're in little-endian order.
 /// This is useful for scenarios where a combiled binary knows it only wants to interpret
 /// little-endian ELF files and doesn't want the performance penalty of evaluating a match
 /// each time it parses an integer.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct LittleEndian;
 
 /// A zero-sized type that always parses integers as if they're in big-endian order.
 /// This is useful for scenarios where a combiled binary knows it only wants to interpret
 /// big-endian ELF files and doesn't want the performance penalty of evaluating a match
 /// each time it parses an integer.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct BigEndian;
 
 /// A zero-sized type that always parses integers as if they're in the compilation target's native-endian order.
