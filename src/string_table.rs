@@ -1,3 +1,4 @@
+//! Interpreting string table sections: `.strtab`, [SHT_STRTAB][crate::gabi::SHT_STRTAB]
 use crate::parse::ParseError;
 use core::str::from_utf8;
 

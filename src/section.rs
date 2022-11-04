@@ -1,3 +1,4 @@
+//! Parsing the Section Header table
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 

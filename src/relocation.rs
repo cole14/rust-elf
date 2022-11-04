@@ -1,3 +1,4 @@
+//! Parsing relocation sections: `.rel.*`, `.rela.*`, [SHT_REL](crate::gabi::SHT_REL), [SHT_RELA](crate::gabi::SHT_RELA)
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, ParsingIterator};
 

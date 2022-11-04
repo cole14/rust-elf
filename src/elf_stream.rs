@@ -1,3 +1,5 @@
+//! Provides an interface for parsing ELF files from `std::io::Read + std::io::Seek`
+//! 
 use core::ops::Range;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};

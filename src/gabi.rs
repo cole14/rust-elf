@@ -1,4 +1,4 @@
-/// This file contains constants defined in the ELF GABI
+//! Contains ELF constants defined in the ELF GABI and various extensions
 ///     See <http://www.sco.com/developers/gabi/latest/ch4.eheader.html#elfid>
 /// Note: At least in 2022, it seems like the above site is not being updated. Official communication
 /// occurs on the Generic System V Application Binary Interface mailing list:

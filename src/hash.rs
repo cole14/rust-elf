@@ -1,3 +1,4 @@
+//! Parsing hash table sections for symbol tables: `.hash`, [SHT_HASH](crate::gabi::SHT_HASH)
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, U32Table};
 use crate::string_table::StringTable;

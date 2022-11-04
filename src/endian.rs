@@ -1,9 +1,10 @@
 //! An all-safe-code endian-aware integer parsing implementation via the
-//! [EndianParse] trait. Each trait impl represents a specification that encapsulates
-//! an interface for parsing integers from some set of allowed byte orderings.
-//!
+//! [EndianParse] trait.
+//! 
 //! This module provides four endian parsing implementations optimized to support the different
-//! common use-cases for an ELF parsing library:
+//! common use-cases for an ELF parsing library.  Each trait impl represents a
+//! specification that encapsulates an interface for parsing integers from some
+//! set of allowed byte orderings.
 //!
 //! * [AnyEndian]: Dynamically parsing either byte order at runtime based on the type of ELF object being parsed.
 //! * [BigEndian]/[LittleEndian]: For tools that know they only want to parse a single given byte order known at compile time.

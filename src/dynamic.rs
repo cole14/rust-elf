@@ -1,3 +1,4 @@
+//! Parsing `.dynamic` section or [PT_DYNAMIC](crate::gabi::PT_DYNAMIC) segment contents
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, ParsingIterator, ParsingTable};
 

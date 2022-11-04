@@ -1,3 +1,4 @@
+//! Optional module for getting string representations of ELF constants
 use crate::gabi;
 
 pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {

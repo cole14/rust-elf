@@ -1,3 +1,4 @@
+//! Parsing ELF notes: `.note.*`, [SHT_NOTE](crate::gabi::SHT_NOTE), [PT_NOTE](crate::gabi::PT_NOTE)
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError};
 use core::str::from_utf8;

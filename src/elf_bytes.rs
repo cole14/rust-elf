@@ -1,4 +1,4 @@
-//! This module provides an interface for parsing ELF files
+//! Provides an interface for parsing ELF files from `&[u8]`
 //!
 //! Example usage of the bytes-based interface:
 //!

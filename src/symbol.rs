@@ -1,3 +1,4 @@
+//! Parsing symbol table sections: `.symtab`, `.dynsym`, [SHT_DYNSYM](crate::gabi::SHT_DYNSYM)
 use crate::endian::EndianParse;
 use crate::gabi;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};

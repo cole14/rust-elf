@@ -1,3 +1,4 @@
+//! Parsing the Program Header table aka Segment table aka `Elf_Phdr`
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 

@@ -1,3 +1,4 @@
+//! Parsing GNU extension sections for dynamic symbol versioning
 use crate::endian::EndianParse;
 use crate::gabi;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
