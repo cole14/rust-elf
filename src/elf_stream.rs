@@ -1,4 +1,6 @@
 use core::ops::Range;
+use std::collections::HashMap;
+use std::io::{Read, Seek, SeekFrom};
 
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
@@ -19,7 +21,6 @@ use crate::symbol::{Symbol, SymbolTable};
 // | |___| |___|  _|  ___) | |_| | |  __/ (_| | | | | | |
 // |_____|_____|_|   |____/ \__|_|  \___|\__,_|_| |_| |_|
 
-#[cfg(feature = "std")]
 pub fn from_stream<'data, E: EndianParse, R: std::io::Read + std::io::Seek>(
     reader: R,
 ) -> Result<ElfStream<E, R>, ParseError> {
@@ -45,14 +46,12 @@ pub fn from_stream<'data, E: EndianParse, R: std::io::Read + std::io::Seek>(
     })
 }
 
-#[cfg(feature = "std")]
 pub struct ElfStream<E: EndianParse, R: std::io::Read + std::io::Seek> {
     ehdr: FileHeader,
     reader: CachingReader<R>,
     endian: E,
 }
 
-#[cfg(feature = "std")]
 impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
     pub fn segments(&mut self) -> Result<Option<SegmentTable<E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
@@ -369,18 +368,11 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
     }
 }
 
-#[cfg(feature = "std")]
-use std::collections::HashMap;
-#[cfg(feature = "std")]
-use std::io::{Read, Seek, SeekFrom};
-
-#[cfg(feature = "std")]
 struct CachingReader<R: Read + Seek> {
     reader: R,
     bufs: HashMap<(usize, usize), Box<[u8]>>,
 }
 
-#[cfg(feature = "std")]
 impl<R: Read + Seek> CachingReader<R> {
     pub fn new(reader: R) -> Self {
         CachingReader {
@@ -436,7 +428,7 @@ mod interface_tests {
     use crate::segment::ProgramHeader;
 
     #[test]
-    fn stream_test_for_segments() {
+    fn segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -463,7 +455,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_headers() {
+    fn section_headers() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -479,7 +471,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_headers_with_strtab() {
+    fn section_headers_with_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -507,7 +499,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_data() {
+    fn section_data() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -531,7 +523,7 @@ mod interface_tests {
 
     // Test all the different section_data_as* with a section of the wrong type
     #[test]
-    fn stream_test_for_section_data_as_wrong_type() {
+    fn section_data_as_wrong_type() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -581,7 +573,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_data_as_strtab() {
+    fn section_data_as_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -605,7 +597,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_data_as_relas() {
+    fn section_data_as_relas() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -642,7 +634,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_data_as_notes() {
+    fn section_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -669,7 +661,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_segment_data_as_notes() {
+    fn segment_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -707,7 +699,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_dynamic() {
+    fn dynamic() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -733,7 +725,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_symbol_table() {
+    fn symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -763,7 +755,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_dynamic_symbol_table() {
+    fn dynamic_symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
