@@ -37,9 +37,12 @@ use crate::compression::CompressionHeader;
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gabi;
+use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
+use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::SegmentTable;
+use crate::string_table::StringTable;
 
 //  _____ _     _____ ____
 // | ____| |   |  ___|  _ \ __ _ _ __ ___  ___ _ __
@@ -57,6 +60,24 @@ pub trait ElfParser<'data, E: EndianParse> {
         self,
         shdr: &SectionHeader,
     ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError>;
+
+    fn section_data_as_strtab(self, shdr: &SectionHeader)
+        -> Result<StringTable<'data>, ParseError>;
+
+    fn section_data_as_rels(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelIterator<'data, E>, ParseError>;
+
+    fn section_data_as_relas(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelaIterator<'data, E>, ParseError>;
+
+    fn section_data_as_notes(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError>;
 }
 
 //  _____ _     _____ ____        _
@@ -163,6 +184,71 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             )))?;
             Ok((compressed_buf, Some(chdr)))
         }
+    }
+
+    fn section_data_as_strtab(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<StringTable<'data>, ParseError> {
+        if shdr.sh_type != gabi::SHT_STRTAB {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_STRTAB,
+            )));
+        }
+
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(StringTable::new(buf))
+    }
+
+    fn section_data_as_rels(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_REL {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_REL,
+            )));
+        }
+
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
+    }
+
+    fn section_data_as_relas(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelaIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_RELA {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_RELA,
+            )));
+        }
+
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
+    }
+
+    fn section_data_as_notes(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_NOTE {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_NOTE,
+            )));
+        }
+
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(NoteIterator::new(
+            self.endian,
+            self.ehdr.class,
+            shdr.sh_addralign as usize,
+            buf,
+        ))
     }
 }
 
@@ -290,6 +376,73 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
             Ok((compressed_buf, Some(chdr)))
         }
     }
+
+    fn section_data_as_strtab(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<StringTable<'data>, ParseError> {
+        if shdr.sh_type != gabi::SHT_STRTAB {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_STRTAB,
+            )));
+        }
+
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(StringTable::new(buf))
+    }
+
+    fn section_data_as_rels(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_REL {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_REL,
+            )));
+        }
+
+        let endian = self.endian;
+        let class = self.ehdr.class;
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(RelIterator::new(endian, class, buf))
+    }
+
+    fn section_data_as_relas(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<RelaIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_RELA {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_RELA,
+            )));
+        }
+
+        let endian = self.endian;
+        let class = self.ehdr.class;
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(RelaIterator::new(endian, class, buf))
+    }
+
+    fn section_data_as_notes(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError> {
+        if shdr.sh_type != gabi::SHT_NOTE {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                gabi::SHT_NOTE,
+            )));
+        }
+
+        let endian = self.endian;
+        let class = self.ehdr.class;
+        let align = shdr.sh_addralign.try_into()?;
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(NoteIterator::new(endian, class, align, buf))
+    }
 }
 
 #[cfg(feature = "std")]
@@ -350,6 +503,11 @@ impl<R: Read + Seek> CachingReader<R> {
 mod interface_tests {
     use super::*;
     use crate::endian::AnyEndian;
+    use crate::gabi::{
+        SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB,
+    };
+    use crate::note::Note;
+    use crate::relocation::Rela;
     use crate::segment::ProgramHeader;
 
     #[test]
@@ -446,7 +604,7 @@ mod interface_tests {
 
         let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
 
-        assert_eq!(shdrs_vec[4].sh_type, gabi::SHT_GNU_HASH);
+        assert_eq!(shdrs_vec[4].sh_type, SHT_GNU_HASH);
     }
 
     #[test]
@@ -481,7 +639,7 @@ mod interface_tests {
             .get(26)
             .expect("shdr should be parsable");
 
-        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+        assert_eq!(shdr.sh_type, SHT_NOBITS);
 
         let (data, chdr) = file
             .section_data(&shdr)
@@ -505,7 +663,7 @@ mod interface_tests {
             .get(26)
             .expect("shdr should be parsable");
 
-        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+        assert_eq!(shdr.sh_type, SHT_NOBITS);
 
         let (data, chdr) = file
             .section_data(&shdr)
@@ -513,5 +671,286 @@ mod interface_tests {
 
         assert_eq!(chdr, None);
         assert_eq!(data, &[]);
+    }
+
+    // Test all the different section_data_as* with a section of the wrong type
+    #[test]
+    fn stream_test_section_data_as_wrong_type() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        // Section 0 is SHT_NULL, so all of the section_data_as* should error on it
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(0)
+            .expect("shdr should be parsable");
+
+        let err = file
+            .section_data_as_strtab(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(
+                err,
+                ParseError::UnexpectedSectionType((SHT_NULL, SHT_STRTAB))
+            ),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_rels(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_REL))),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_relas(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_RELA))),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_notes(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_NOTE))),
+            "Unexpected Error type found: {err}"
+        );
+    }
+
+    // Test all the different section_data_as* with a section of the wrong type
+    #[test]
+    fn bytes_test_section_data_as_wrong_type() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        // Section 0 is SHT_NULL, so all of the section_data_as* should error on it
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(0)
+            .expect("shdr should be parsable");
+
+        let err = file
+            .section_data_as_strtab(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(
+                err,
+                ParseError::UnexpectedSectionType((SHT_NULL, SHT_STRTAB))
+            ),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_rels(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_REL))),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_relas(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_RELA))),
+            "Unexpected Error type found: {err}"
+        );
+
+        let err = file
+            .section_data_as_notes(&shdr)
+            .expect_err("shdr0 should be the wrong type");
+        assert!(
+            matches!(err, ParseError::UnexpectedSectionType((SHT_NULL, SHT_NOTE))),
+            "Unexpected Error type found: {err}"
+        );
+    }
+
+    #[test]
+    fn stream_test_section_data_as_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let shstrndx = file.ehdr.e_shstrndx as usize;
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(shstrndx)
+            .expect("shdr should be parsable");
+
+        let strtab = file
+            .section_data_as_strtab(&shdr)
+            .expect("Failed to read strtab");
+
+        assert_eq!(
+            strtab.get(1).expect("Failed to get strtab entry"),
+            ".symtab"
+        );
+    }
+
+    #[test]
+    fn bytes_test_section_data_as_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(file.ehdr.e_shstrndx as usize)
+            .expect("shdr should be parsable");
+
+        let strtab = file
+            .section_data_as_strtab(&shdr)
+            .expect("Failed to read strtab");
+
+        assert_eq!(
+            strtab.get(1).expect("Failed to get strtab entry"),
+            ".symtab"
+        );
+    }
+
+    #[test]
+    fn stream_test_section_data_as_relas() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(10)
+            .expect("Failed to get rela shdr");
+
+        let mut relas = file
+            .section_data_as_relas(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            Rela {
+                r_offset: 6293704,
+                r_sym: 1,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            Rela {
+                r_offset: 6293712,
+                r_sym: 2,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert!(relas.next().is_none());
+    }
+
+    #[test]
+    fn bytes_test_section_data_as_relas() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(10)
+            .expect("Failed to get rela shdr");
+
+        let mut relas = file
+            .section_data_as_relas(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            Rela {
+                r_offset: 6293704,
+                r_sym: 1,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert_eq!(
+            relas.next().expect("Failed to get rela entry"),
+            Rela {
+                r_offset: 6293712,
+                r_sym: 2,
+                r_type: 7,
+                r_addend: 0,
+            }
+        );
+        assert!(relas.next().is_none());
+    }
+
+    #[test]
+    fn stream_test_section_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(2)
+            .expect("Failed to get rela shdr");
+
+        let mut notes = file
+            .section_data_as_notes(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn bytes_test_section_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(2)
+            .expect("Failed to get rela shdr");
+
+        let mut notes = file
+            .section_data_as_notes(&shdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert!(notes.next().is_none());
     }
 }
