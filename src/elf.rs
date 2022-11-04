@@ -4,7 +4,7 @@
 //!
 //! ```
 //! use elf::gabi::PT_LOAD;
-//! use elf::elf::{ElfParser, from_bytes};
+//! use elf::elf::from_bytes;
 //! use elf::endian::AnyEndian;
 //! use elf::segment::ProgramHeader;
 //! use elf::to_str::p_type_to_string;
@@ -46,69 +46,6 @@ use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
 
-//  _____ _     _____ ____
-// | ____| |   |  ___|  _ \ __ _ _ __ ___  ___ _ __
-// |  _| | |   | |_  | |_) / _` | '__/ __|/ _ \ '__|
-// | |___| |___|  _| |  __/ (_| | |  \__ \  __/ |
-// |_____|_____|_|   |_|   \__,_|_|  |___/\___|_|
-//
-
-pub trait ElfParser<'data, E: EndianParse> {
-    fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError>;
-
-    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError>;
-
-    fn section_data(
-        self,
-        shdr: &SectionHeader,
-    ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError>;
-
-    fn section_headers_with_strtab(
-        self,
-    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError>;
-
-    fn section_data_as_strtab(self, shdr: &SectionHeader)
-        -> Result<StringTable<'data>, ParseError>;
-
-    fn section_data_as_rels(
-        self,
-        shdr: &SectionHeader,
-    ) -> Result<RelIterator<'data, E>, ParseError>;
-
-    fn section_data_as_relas(
-        self,
-        shdr: &SectionHeader,
-    ) -> Result<RelaIterator<'data, E>, ParseError>;
-
-    fn section_data_as_notes(
-        self,
-        shdr: &SectionHeader,
-    ) -> Result<NoteIterator<'data, E>, ParseError>;
-
-    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError>;
-
-    fn segment_data_as_notes(
-        self,
-        phdr: &ProgramHeader,
-    ) -> Result<NoteIterator<'data, E>, ParseError>;
-
-    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError>;
-
-    fn section_data_as_symbol_table(
-        self,
-        shdr: &SectionHeader,
-        strtab_shdr: &SectionHeader,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
-
-    fn symbol_table(
-        self,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
-
-    fn dynamic_symbol_table(
-        self,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
-}
-
 //  _____ _     _____ ____        _
 // | ____| |   |  ___| __ ) _   _| |_ ___  ___
 // |  _| | |   | |_  |  _ \| | | | __/ _ \/ __|
@@ -146,8 +83,8 @@ pub struct ElfBytes<'data, E: EndianParse> {
     endian: E,
 }
 
-impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
-    fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
+impl<'data, E: EndianParse> ElfBytes<'data, E> {
+    pub fn segments(&self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
                 let buf = self.data.get_bytes(start..end)?;
@@ -157,7 +94,7 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         }
     }
 
-    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+    pub fn section_headers(&self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
             return Ok(None);
@@ -191,8 +128,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         )))
     }
 
-    fn section_headers_with_strtab(
-        self,
+    pub fn section_headers_with_strtab(
+        &self,
     ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
         // It's Ok to have no section headers
         let shdrs = match self.section_headers()? {
@@ -218,8 +155,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(Some((shdrs, StringTable::new(strtab_buf))))
     }
 
-    fn section_data(
-        self,
+    pub fn section_data(
+        &self,
         shdr: &SectionHeader,
     ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError> {
         if shdr.sh_type == gabi::SHT_NOBITS {
@@ -242,8 +179,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         }
     }
 
-    fn section_data_as_strtab(
-        self,
+    pub fn section_data_as_strtab(
+        &self,
         shdr: &SectionHeader,
     ) -> Result<StringTable<'data>, ParseError> {
         if shdr.sh_type != gabi::SHT_STRTAB {
@@ -257,8 +194,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(StringTable::new(buf))
     }
 
-    fn section_data_as_rels(
-        self,
+    pub fn section_data_as_rels(
+        &self,
         shdr: &SectionHeader,
     ) -> Result<RelIterator<'data, E>, ParseError> {
         if shdr.sh_type != gabi::SHT_REL {
@@ -272,8 +209,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
     }
 
-    fn section_data_as_relas(
-        self,
+    pub fn section_data_as_relas(
+        &self,
         shdr: &SectionHeader,
     ) -> Result<RelaIterator<'data, E>, ParseError> {
         if shdr.sh_type != gabi::SHT_RELA {
@@ -287,8 +224,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
     }
 
-    fn section_data_as_notes(
-        self,
+    pub fn section_data_as_notes(
+        &self,
         shdr: &SectionHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError> {
         if shdr.sh_type != gabi::SHT_NOTE {
@@ -307,13 +244,13 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         ))
     }
 
-    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
+    pub fn segment_data(&self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
         let (start, end) = phdr.get_file_data_range()?;
         Ok(self.data.get_bytes(start..end)?)
     }
 
-    fn segment_data_as_notes(
-        self,
+    pub fn segment_data_as_notes(
+        &self,
         phdr: &ProgramHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError> {
         if phdr.p_type != gabi::PT_NOTE {
@@ -333,7 +270,7 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
     }
 
     /// Get the .dynamic section or PT_DYNAMIC segment contents.
-    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
+    pub fn dynamic(&self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers()? {
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
@@ -353,8 +290,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(None)
     }
 
-    fn section_data_as_symbol_table(
-        self,
+    pub fn section_data_as_symbol_table(
+        &self,
         shdr: &SectionHeader,
         strtab_shdr: &SectionHeader,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
@@ -376,8 +313,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         Ok(Some((symtab, strtab)))
     }
 
-    fn symbol_table(
-        self,
+    pub fn symbol_table(
+        &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
         let shdrs = match self.section_headers()? {
             Some(shdrs) => shdrs,
@@ -398,8 +335,8 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
     }
 
-    fn dynamic_symbol_table(
-        self,
+    pub fn dynamic_symbol_table(
+        &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
         let shdrs = match self.section_headers()? {
             Some(shdrs) => shdrs,
@@ -473,10 +410,8 @@ pub struct ElfStream<E: EndianParse, R: std::io::Read + std::io::Seek> {
 }
 
 #[cfg(feature = "std")]
-impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E>
-    for &'data mut ElfStream<E, R>
-{
-    fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
+impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
+    pub fn segments(&mut self) -> Result<Option<SegmentTable<E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
                 self.reader.load_bytes(start..end)?;
@@ -487,7 +422,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         }
     }
 
-    fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+    pub fn section_headers(&mut self) -> Result<Option<SectionHeaderTable<E>>, ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
             return Ok(None);
@@ -522,9 +457,9 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         )))
     }
 
-    fn section_headers_with_strtab(
-        self,
-    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
+    pub fn section_headers_with_strtab(
+        &mut self,
+    ) -> Result<Option<(SectionHeaderTable<E>, StringTable)>, ParseError> {
         // It's Ok to have no section headers
         if self.ehdr.e_shoff == 0 {
             return Ok(None);
@@ -589,10 +524,10 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         )))
     }
 
-    fn section_data(
-        self,
+    pub fn section_data(
+        &mut self,
         shdr: &SectionHeader,
-    ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError> {
+    ) -> Result<(&[u8], Option<CompressionHeader>), ParseError> {
         if shdr.sh_type == gabi::SHT_NOBITS {
             return Ok((&[], None));
         }
@@ -613,10 +548,10 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         }
     }
 
-    fn section_data_as_strtab(
-        self,
+    pub fn section_data_as_strtab(
+        &mut self,
         shdr: &SectionHeader,
-    ) -> Result<StringTable<'data>, ParseError> {
+    ) -> Result<StringTable, ParseError> {
         if shdr.sh_type != gabi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -628,10 +563,10 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(StringTable::new(buf))
     }
 
-    fn section_data_as_rels(
-        self,
+    pub fn section_data_as_rels(
+        &mut self,
         shdr: &SectionHeader,
-    ) -> Result<RelIterator<'data, E>, ParseError> {
+    ) -> Result<RelIterator<E>, ParseError> {
         if shdr.sh_type != gabi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -645,10 +580,10 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(RelIterator::new(endian, class, buf))
     }
 
-    fn section_data_as_relas(
-        self,
+    pub fn section_data_as_relas(
+        &mut self,
         shdr: &SectionHeader,
-    ) -> Result<RelaIterator<'data, E>, ParseError> {
+    ) -> Result<RelaIterator<E>, ParseError> {
         if shdr.sh_type != gabi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -662,10 +597,10 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(RelaIterator::new(endian, class, buf))
     }
 
-    fn section_data_as_notes(
-        self,
+    pub fn section_data_as_notes(
+        &mut self,
         shdr: &SectionHeader,
-    ) -> Result<NoteIterator<'data, E>, ParseError> {
+    ) -> Result<NoteIterator<E>, ParseError> {
         if shdr.sh_type != gabi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -680,15 +615,15 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(NoteIterator::new(endian, class, align, buf))
     }
 
-    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
+    pub fn segment_data(&mut self, phdr: &ProgramHeader) -> Result<&[u8], ParseError> {
         let (start, end) = phdr.get_file_data_range()?;
         Ok(self.reader.read_bytes(start, end)?)
     }
 
-    fn segment_data_as_notes(
-        self,
+    pub fn segment_data_as_notes(
+        &mut self,
         phdr: &ProgramHeader,
-    ) -> Result<NoteIterator<'data, E>, ParseError> {
+    ) -> Result<NoteIterator<E>, ParseError> {
         if phdr.p_type != gabi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type,
@@ -703,7 +638,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
     }
 
     /// Get the .dynamic section or PT_DYNAMIC segment contents.
-    fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
+    pub fn dynamic(&mut self) -> Result<Option<DynIterator<E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers()? {
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
@@ -723,11 +658,11 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(None)
     }
 
-    fn section_data_as_symbol_table(
-        self,
+    pub fn section_data_as_symbol_table(
+        &mut self,
         shdr: &SectionHeader,
         strtab_shdr: &SectionHeader,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+    ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
         // Validate entsize before trying to read the table so that we can error early for corrupted files
         Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
 
@@ -748,9 +683,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         Ok(Some((symtab, strtab)))
     }
 
-    fn symbol_table(
-        self,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+    pub fn symbol_table(&mut self) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
         let shdrs = match self.section_headers()? {
             Some(shdrs) => shdrs,
             None => {
@@ -770,9 +703,9 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
     }
 
-    fn dynamic_symbol_table(
-        self,
-    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+    pub fn dynamic_symbol_table(
+        &mut self,
+    ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
         let shdrs = match self.section_headers()? {
             Some(shdrs) => shdrs,
             None => {
@@ -904,7 +837,12 @@ mod interface_tests {
         )
     }
 
-    fn test_segments<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
+    #[test]
+    fn stream_test_for_segments() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
         let segments: Vec<ProgramHeader> = file
             .segments()
             .expect("File should have a segment table")
@@ -927,25 +865,39 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_segments() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
-
-        test_segments(&mut file);
-    }
-
-    #[test]
     fn bytes_test_for_segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
 
-        test_segments(&file);
+        let segments: Vec<ProgramHeader> = file
+            .segments()
+            .expect("File should have a segment table")
+            .expect("Segment table should be parsable")
+            .iter()
+            .collect();
+        assert_eq!(
+            segments[0],
+            ProgramHeader {
+                p_type: gabi::PT_PHDR,
+                p_offset: 64,
+                p_vaddr: 4194368,
+                p_paddr: 4194368,
+                p_filesz: 448,
+                p_memsz: 448,
+                p_flags: 5,
+                p_align: 8,
+            }
+        );
     }
 
-    fn test_section_headers<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
+    #[test]
+    fn stream_test_for_section_headers() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
         let shdrs = file
             .section_headers()
             .expect("File should have a section table")
@@ -957,22 +909,20 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_for_section_headers() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
-
-        test_section_headers(&mut file);
-    }
-
-    #[test]
     fn bytes_test_for_section_headers() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
 
-        test_section_headers(&file);
+        let shdrs = file
+            .section_headers()
+            .expect("File should have a section table")
+            .expect("Failed to get shdrs");
+
+        let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
+
+        assert_eq!(shdrs_vec[4].sh_type, SHT_GNU_HASH);
     }
 
     #[test]
