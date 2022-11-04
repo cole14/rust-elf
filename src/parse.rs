@@ -364,7 +364,7 @@ impl<'data, E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'data, E, P
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ParsingTable<'data, E: EndianParse, P: ParseAt> {
     endian: E,
     class: Class,

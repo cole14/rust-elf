@@ -59,31 +59,85 @@ use crate::symbol::{Symbol, SymbolTable};
 /// This provides an interface for zero-alloc lazy parsing of ELF structures from a byte slice containing
 /// the complete ELF file contents. The various ELF structures are parsed on-demand into the native Rust
 /// representation.
+///
+/// The only ELF structure that is fully parsed as part of this method is the FileHeader.
+///
+/// A lazy-parsing SectionHeaderTable is constructed, but the entries are not parsed. Constructing this table
+/// simply reads the FileHeader's shoff/shnum fields and creates a subslice to bound the data for the shdrs but
+/// does not actually parse the contents.
 pub fn from_bytes<'data, E: EndianParse>(
     data: &'data [u8],
 ) -> Result<ElfBytes<'data, E>, ParseError> {
-    let ident_buf = data.get_bytes(0..gabi::EI_NIDENT)?;
-    let ident = FileHeader::parse_ident(ident_buf)?;
-
-    let tail_start = gabi::EI_NIDENT;
-    let tail_end = match ident.1 {
-        Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
-        Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
-    };
-    let tail_buf = data.get_bytes(tail_start..tail_end)?;
-
-    let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
-    let endian = E::from_ei_data(ehdr.ei_data)?;
-    Ok(ElfBytes { ehdr, data, endian })
+    ElfBytes::parse(data)
 }
 
 pub struct ElfBytes<'data, E: EndianParse> {
     ehdr: FileHeader,
     data: &'data [u8],
     endian: E,
+    shdrs: Option<SectionHeaderTable<'data, E>>,
 }
 
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
+    pub fn parse(data: &'data [u8]) -> Result<Self, ParseError> {
+        let ident_buf = data.get_bytes(0..gabi::EI_NIDENT)?;
+        let ident = FileHeader::parse_ident(ident_buf)?;
+
+        let tail_start = gabi::EI_NIDENT;
+        let tail_end = match ident.1 {
+            Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
+            Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
+        };
+        let tail_buf = data.get_bytes(tail_start..tail_end)?;
+
+        let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
+        let endian = E::from_ei_data(ehdr.ei_data)?;
+
+        let shdrs = Self::find_shdrs(endian, &ehdr, data)?;
+        Ok(ElfBytes {
+            ehdr,
+            data,
+            endian,
+            shdrs,
+        })
+    }
+
+    /// Find the location (if any) of the section headers in the given data buffer and take a
+    /// subslice of their data and wrap it in a lazy-parsing SectionHeaderTable.
+    /// If shnum > SHN_LORESERVE (0xff00), then this will additionally parse out shdr[0] to calculate
+    /// the full table size, but all other parsing of SectionHeaders is deferred.
+    fn find_shdrs(
+        endian: E,
+        ehdr: &FileHeader,
+        data: &'data [u8],
+    ) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+        // It's Ok to have no section headers
+        if ehdr.e_shoff == 0 {
+            return Ok(None);
+        }
+
+        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+        // e_shnum is zero and the actual number of section header table entries
+        // is contained in the sh_size field of the section header at index 0.
+        let shoff: usize = ehdr.e_shoff.try_into()?;
+        let mut shnum = ehdr.e_shnum as usize;
+        if shnum == 0 {
+            let mut offset = shoff;
+            let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+            shnum = shdr0.sh_size.try_into()?;
+        }
+
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize = SectionHeader::validate_entsize(ehdr.class, ehdr.e_shentsize as usize)?;
+
+        let size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+        let buf = data.get_bytes(shoff..end)?;
+        Ok(Some(SectionHeaderTable::new(endian, ehdr.class, buf)))
+    }
+
     pub fn segments(&self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
@@ -94,45 +148,22 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         }
     }
 
-    pub fn section_headers(&self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
-        // It's Ok to have no section headers
-        if self.ehdr.e_shoff == 0 {
-            return Ok(None);
+    /// Get this Elf object's zero-alloc lazy-parsing SectionHeaderTable (if any).
+    ///
+    /// This table parses SectionHeaders on demand and does not make any internal heap allocations
+    /// when parsing.
+    pub fn section_headers(&self) -> Option<SectionHeaderTable<'data, E>> {
+        match self.shdrs {
+            Some(table) => Some(table),
+            None => None,
         }
-
-        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
-        // e_shnum is zero and the actual number of section header table entries
-        // is contained in the sh_size field of the section header at index 0.
-        let shoff: usize = self.ehdr.e_shoff.try_into()?;
-        let mut shnum = self.ehdr.e_shnum as usize;
-        if shnum == 0 {
-            let mut offset = shoff;
-            let shdr0 =
-                SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, self.data)?;
-            shnum = shdr0.sh_size.try_into()?;
-        }
-
-        // Validate shentsize before trying to read the table so that we can error early for corrupted files
-        let entsize =
-            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
-
-        let size = entsize
-            .checked_mul(shnum)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.data.get_bytes(shoff..end)?;
-        Ok(Some(SectionHeaderTable::new(
-            self.endian,
-            self.ehdr.class,
-            buf,
-        )))
     }
 
     pub fn section_headers_with_strtab(
         &self,
     ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
         // It's Ok to have no section headers
-        let shdrs = match self.section_headers()? {
+        let shdrs = match self.section_headers() {
             Some(shdrs) => shdrs,
             None => {
                 return Ok(None);
@@ -272,7 +303,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// Get the .dynamic section or PT_DYNAMIC segment contents.
     pub fn dynamic(&self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
-        if let Some(shdrs) = self.section_headers()? {
+        if let Some(shdrs) = self.section_headers() {
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
@@ -316,7 +347,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     pub fn symbol_table(
         &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
-        let shdrs = match self.section_headers()? {
+        let shdrs = match self.section_headers() {
             Some(shdrs) => shdrs,
             None => {
                 return Ok(None);
@@ -338,7 +369,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     pub fn dynamic_symbol_table(
         &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
-        let shdrs = match self.section_headers()? {
+        let shdrs = match self.section_headers() {
             Some(shdrs) => shdrs,
             None => {
                 return Ok(None);
@@ -917,8 +948,7 @@ mod interface_tests {
 
         let shdrs = file
             .section_headers()
-            .expect("File should have a section table")
-            .expect("Failed to get shdrs");
+            .expect("File should have a section table");
 
         let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
 
@@ -1015,7 +1045,6 @@ mod interface_tests {
         let shdr = file
             .section_headers()
             .expect("File should have section table")
-            .expect("shdrs should be readable")
             .get(26)
             .expect("shdr should be parsable");
 
@@ -1092,7 +1121,6 @@ mod interface_tests {
         let shdr = file
             .section_headers()
             .expect("File should have section table")
-            .expect("shdrs should be readable")
             .get(0)
             .expect("shdr should be parsable");
 
@@ -1166,7 +1194,6 @@ mod interface_tests {
         let shdr = file
             .section_headers()
             .expect("File should have section table")
-            .expect("shdrs should be readable")
             .get(file.ehdr.e_shstrndx as usize)
             .expect("shdr should be parsable");
 
@@ -1227,7 +1254,6 @@ mod interface_tests {
         let shdr = file
             .section_headers()
             .expect("File should have section table")
-            .expect("shdrs should be readable")
             .get(10)
             .expect("Failed to get rela shdr");
 
@@ -1292,7 +1318,6 @@ mod interface_tests {
         let shdr = file
             .section_headers()
             .expect("File should have section table")
-            .expect("shdrs should be readable")
             .get(2)
             .expect("Failed to get rela shdr");
 
