@@ -16,7 +16,7 @@
 //! let file = from_bytes::<AnyEndian>(slice).unwrap();
 //!
 //! // Get a lazy-parsing type for the segment table into `phdr_table`
-//! if let Some(phdr_table) = file.segments().unwrap() {
+//! if let Some(phdr_table) = file.segments() {
 //!     // This table lets us parse specific indexes on-demand without parsing the whole table
 //!     let phdr3 = phdr_table.get(3).unwrap();
 //!     println!("Program Header 3 is of type: {}", p_type_to_string(phdr3.p_type));
@@ -76,6 +76,7 @@ pub struct ElfBytes<'data, E: EndianParse> {
     data: &'data [u8],
     endian: E,
     shdrs: Option<SectionHeaderTable<'data, E>>,
+    phdrs: Option<SegmentTable<'data, E>>,
 }
 
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
@@ -94,11 +95,13 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let endian = E::from_ei_data(ehdr.ei_data)?;
 
         let shdrs = Self::find_shdrs(endian, &ehdr, data)?;
+        let phdrs = Self::find_phdrs(endian, &ehdr, data)?;
         Ok(ElfBytes {
             ehdr,
             data,
             endian,
             shdrs,
+            phdrs,
         })
     }
 
@@ -138,14 +141,28 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(Some(SectionHeaderTable::new(endian, ehdr.class, buf)))
     }
 
-    pub fn segments(&self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
-        match self.ehdr.get_phdrs_data_range()? {
+    /// Find the location (if any) of the program headers in the given data buffer and take a
+    /// subslice of their data and wrap it in a lazy-parsing SegmentTable.
+    fn find_phdrs(
+        endian: E,
+        ehdr: &FileHeader,
+        data: &'data [u8],
+    ) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
+        match ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
-                let buf = self.data.get_bytes(start..end)?;
-                Ok(Some(SegmentTable::new(self.endian, self.ehdr.class, buf)))
+                let buf = data.get_bytes(start..end)?;
+                Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
             }
             None => Ok(None),
         }
+    }
+
+    /// Get this Elf object's zero-alloc lazy-parsing SegmentTable (if any).
+    ///
+    /// This table parses ProgramHeaders on demand and does not make any internal heap allocations
+    /// when parsing.
+    pub fn segments(&self) -> Option<SegmentTable<'data, E>> {
+        self.phdrs
     }
 
     /// Get this Elf object's zero-alloc lazy-parsing SectionHeaderTable (if any).
@@ -153,10 +170,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// This table parses SectionHeaders on demand and does not make any internal heap allocations
     /// when parsing.
     pub fn section_headers(&self) -> Option<SectionHeaderTable<'data, E>> {
-        match self.shdrs {
-            Some(table) => Some(table),
-            None => None,
-        }
+        self.shdrs
     }
 
     pub fn section_headers_with_strtab(
@@ -310,7 +324,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
-        } else if let Some(phdrs) = self.segments()? {
+        } else if let Some(phdrs) = self.segments() {
             if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
@@ -834,16 +848,12 @@ mod interface_tests {
         // since the trait is implemented for shared references.
         //
         // Get the segment table
-        let iter = file
-            .segments()
-            .expect("File should have a segment table")
-            .expect("Segment table should be parsable");
+        let iter = file.segments().expect("File should have a segment table");
 
         // Concurrently get the segment table again as an iterator and collect the headers into a vec
         let segments: Vec<ProgramHeader> = file
             .segments()
             .expect("File should have a segment table")
-            .expect("Segment table should be parsable")
             .iter()
             .collect();
 
@@ -905,7 +915,6 @@ mod interface_tests {
         let segments: Vec<ProgramHeader> = file
             .segments()
             .expect("File should have a segment table")
-            .expect("Segment table should be parsable")
             .iter()
             .collect();
         assert_eq!(
@@ -1319,11 +1328,11 @@ mod interface_tests {
             .section_headers()
             .expect("File should have section table")
             .get(2)
-            .expect("Failed to get rela shdr");
+            .expect("Failed to get note shdr");
 
         let mut notes = file
             .section_data_as_notes(&shdr)
-            .expect("Failed to read relas section");
+            .expect("Failed to read note section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
             Note {
@@ -1343,14 +1352,14 @@ mod interface_tests {
 
         let phdr = file
             .segments()
-            .expect("File should have section table")
-            .expect("shdrs should be readable")
+            .expect("File should have segment table")
+            .expect("phdrs should be readable")
             .get(5)
-            .expect("Failed to get rela shdr");
+            .expect("Failed to get note phdr");
 
         let mut notes = file
             .segment_data_as_notes(&phdr)
-            .expect("Failed to read relas section");
+            .expect("Failed to read note section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
             Note {
@@ -1382,14 +1391,13 @@ mod interface_tests {
 
         let phdr = file
             .segments()
-            .expect("File should have section table")
-            .expect("shdrs should be readable")
+            .expect("File should have segmetn table")
             .get(5)
-            .expect("Failed to get rela shdr");
+            .expect("Failed to get notes phdr");
 
         let mut notes = file
             .segment_data_as_notes(&phdr)
-            .expect("Failed to read relas section");
+            .expect("Failed to read notes segment");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
             Note {
