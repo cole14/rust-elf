@@ -53,10 +53,6 @@ pub trait ElfParser<'data, E: EndianParse> {
     fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError>;
 }
 
-pub trait ReadBytes {
-    fn get_bytes(&self, range: Range<usize>) -> Option<&[u8]>;
-}
-
 //  _____ _     _____ ____        _
 // | ____| |   |  ___| __ ) _   _| |_ ___  ___
 // |  _| | |   | |_  |  _ \| | | | __/ _ \/ __|
@@ -73,9 +69,7 @@ pub trait ReadBytes {
 pub fn from_bytes<'data, E: EndianParse>(
     data: &'data [u8],
 ) -> Result<ElfBytes<'data, E>, ParseError> {
-    let ident_buf = data
-        .get_bytes(0..gabi::EI_NIDENT)
-        .ok_or(ParseError::SliceReadError((0, gabi::EI_NIDENT)))?;
+    let ident_buf = data.get_bytes(0..gabi::EI_NIDENT)?;
     let ident = FileHeader::parse_ident(ident_buf)?;
 
     let tail_start = gabi::EI_NIDENT;
@@ -83,9 +77,7 @@ pub fn from_bytes<'data, E: EndianParse>(
         Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
         Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
     };
-    let tail_buf = data
-        .get_bytes(tail_start..tail_end)
-        .ok_or(ParseError::SliceReadError((tail_start, tail_end)))?;
+    let tail_buf = data.get_bytes(tail_start..tail_end)?;
 
     let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
     let endian = E::from_ei_data(ehdr.ei_data)?;
@@ -102,10 +94,7 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
     fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
-                let buf = self
-                    .data
-                    .get_bytes(start..end)
-                    .ok_or(ParseError::SliceReadError((start, end)))?;
+                let buf = self.data.get_bytes(start..end)?;
                 Ok(Some(SegmentTable::new(self.endian, self.ehdr.class, buf)))
             }
             None => Ok(None),
@@ -138,10 +127,7 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             .checked_mul(shnum)
             .ok_or(ParseError::IntegerOverflow)?;
         let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = self
-            .data
-            .get_bytes(shoff..end)
-            .ok_or(ParseError::SliceReadError((shoff, end)))?;
+        let buf = self.data.get_bytes(shoff..end)?;
         Ok(Some(SectionHeaderTable::new(
             self.endian,
             self.ehdr.class,
@@ -150,9 +136,15 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
     }
 }
 
-impl ReadBytes for &[u8] {
-    fn get_bytes(&self, range: Range<usize>) -> Option<&[u8]> {
+// Simple convenience extension trait to wrap get() with .ok_or(SliceReadError)
+trait ReadBytesExt {
+    fn get_bytes(&self, range: Range<usize>) -> Result<&[u8], ParseError>;
+}
+
+impl ReadBytesExt for &[u8] {
+    fn get_bytes(&self, range: Range<usize>) -> Result<&[u8], ParseError> {
         self.get(range)
+            .ok_or(ParseError::SliceReadError((0, gabi::EI_NIDENT)))
     }
 }
 
@@ -168,9 +160,7 @@ pub fn from_stream<'data, E: EndianParse, R: std::io::Read + std::io::Seek>(
 ) -> Result<ElfStream<E, R>, ParseError> {
     let mut cr = CachingReader::new(reader);
     cr.load_bytes(0..gabi::EI_NIDENT)?;
-    let ident_buf = cr
-        .get_bytes(0..gabi::EI_NIDENT)
-        .ok_or(ParseError::SliceReadError((0, gabi::EI_NIDENT)))?;
+    let ident_buf = cr.get_bytes(0..gabi::EI_NIDENT);
     let ident = FileHeader::parse_ident(ident_buf)?;
 
     let tail_start = gabi::EI_NIDENT;
@@ -179,9 +169,7 @@ pub fn from_stream<'data, E: EndianParse, R: std::io::Read + std::io::Seek>(
         Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
     };
     cr.load_bytes(tail_start..tail_end)?;
-    let tail_buf = cr
-        .get_bytes(tail_start..tail_end)
-        .ok_or(ParseError::SliceReadError((tail_start, tail_end)))?;
+    let tail_buf = cr.get_bytes(tail_start..tail_end);
 
     let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
     let endian = E::from_ei_data(ehdr.ei_data)?;
@@ -207,10 +195,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
                 self.reader.load_bytes(start..end)?;
-                let buf = self
-                    .reader
-                    .get_bytes(start..end)
-                    .ok_or(ParseError::SliceReadError((start, end)))?;
+                let buf = self.reader.get_bytes(start..end);
                 Ok(Some(SegmentTable::new(self.endian, self.ehdr.class, buf)))
             }
             None => Ok(None),
@@ -234,11 +219,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         let mut shnum = self.ehdr.e_shnum as usize;
         if shnum == 0 {
             let mut offset = shoff;
-            self.reader.load_bytes(shoff..entsize)?;
-            let shdr0_buf = self
-                .reader
-                .get_bytes(shoff..entsize)
-                .ok_or(ParseError::SliceReadError((shoff, entsize)))?;
+            let shdr0_buf = self.reader.read_bytes(shoff, entsize)?;
             let shdr0 =
                 SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, shdr0_buf)?;
             shnum = shdr0.sh_size.try_into()?;
@@ -248,11 +229,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
             .checked_mul(shnum)
             .ok_or(ParseError::IntegerOverflow)?;
         let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        self.reader.load_bytes(shoff..end)?;
-        let buf = self
-            .reader
-            .get_bytes(shoff..end)
-            .ok_or(ParseError::SliceReadError((shoff, end)))?;
+        let buf = self.reader.read_bytes(shoff, end)?;
         Ok(Some(SectionHeaderTable::new(
             self.endian,
             self.ehdr.class,
@@ -267,7 +244,7 @@ use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 
 #[cfg(feature = "std")]
-pub struct CachingReader<R: Read + Seek> {
+struct CachingReader<R: Read + Seek> {
     reader: R,
     bufs: HashMap<(usize, usize), Box<[u8]>>,
 }
@@ -280,20 +257,20 @@ impl<R: Read + Seek> CachingReader<R> {
             bufs: HashMap::<(usize, usize), Box<[u8]>>::default(),
         }
     }
-}
 
-#[cfg(feature = "std")]
-impl<R: Read + Seek> ReadBytes for CachingReader<R> {
-    fn get_bytes(&self, range: Range<usize>) -> Option<&[u8]> {
-        match self.bufs.get(&(range.start, range.end)) {
-            Some(b) => Some(b),
-            None => None,
-        }
+    pub fn read_bytes(&mut self, start: usize, end: usize) -> Result<&[u8], ParseError> {
+        self.load_bytes(start..end)?;
+        Ok(self.get_bytes(start..end))
     }
-}
 
-#[cfg(feature = "std")]
-impl<R: Read + Seek> CachingReader<R> {
+    pub fn get_bytes(&self, range: Range<usize>) -> &[u8] {
+        // It's a programmer error to call get_bytes without first calling load_bytes, so
+        // we want to panic here.
+        self.bufs
+            .get(&(range.start, range.end))
+            .expect("load_bytes must be called before get_bytes for every range")
+    }
+
     pub fn load_bytes(&mut self, range: Range<usize>) -> Result<(), ParseError> {
         if self.bufs.contains_key(&(range.start, range.end)) {
             return Ok(());
