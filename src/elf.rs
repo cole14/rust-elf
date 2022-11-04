@@ -61,6 +61,10 @@ pub trait ElfParser<'data, E: EndianParse> {
         shdr: &SectionHeader,
     ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError>;
 
+    fn section_headers_with_strtab(
+        self,
+    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError>;
+
     fn section_data_as_strtab(self, shdr: &SectionHeader)
         -> Result<StringTable<'data>, ParseError>;
 
@@ -167,6 +171,33 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             self.ehdr.class,
             buf,
         )))
+    }
+
+    fn section_headers_with_strtab(
+        self,
+    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
+        // It's Ok to have no section headers
+        let shdrs = match self.section_headers()? {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // If the section name string table section index is greater than or
+        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
+        // (0xffff) and the actual index of the section name string table section
+        // is contained in the sh_link field of the section header at index 0.
+        let mut shstrndx = self.ehdr.e_shstrndx as usize;
+        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+            let shdr_0 = shdrs.get(0)?;
+            shstrndx = shdr_0.sh_link as usize;
+        }
+
+        let strtab = shdrs.get(shstrndx)?;
+        let (strtab_start, strtab_end) = strtab.get_data_range()?;
+        let strtab_buf = self.data.get_bytes(strtab_start..strtab_end)?;
+        Ok(Some((shdrs, StringTable::new(strtab_buf))))
     }
 
     fn section_data(
@@ -366,7 +397,7 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         let shoff: usize = self.ehdr.e_shoff.try_into()?;
         let mut shnum = self.ehdr.e_shnum as usize;
         if shnum == 0 {
-            let mut offset = shoff;
+            let mut offset = 0;
             let shdr0_buf = self.reader.read_bytes(shoff, entsize)?;
             let shdr0 =
                 SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, shdr0_buf)?;
@@ -382,6 +413,73 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
             self.endian,
             self.ehdr.class,
             buf,
+        )))
+    }
+
+    fn section_headers_with_strtab(
+        self,
+    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
+        // It's Ok to have no section headers
+        if self.ehdr.e_shoff == 0 {
+            return Ok(None);
+        }
+
+        // Validate shentsize before trying to read the table so that we can error early for corrupted files
+        let entsize =
+            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
+
+        let shoff: usize = self.ehdr.e_shoff.try_into()?;
+
+        // If the number of sections and the section name string table section
+        // index are greater than or equal to SHN_LORESERVE (0xff00), e_shnum and e_shstrndx
+        // can have the value 0 or SHN_XINDEX (0xffff) and their actual values
+        // are contained in the sh_info or sh_link field of the section header at index 0.
+        let mut shstrndx = self.ehdr.e_shstrndx as usize;
+        let mut shnum = self.ehdr.e_shnum as usize;
+        if shnum == 0 || self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+            let shdr0_buf = self.reader.read_bytes(shoff, entsize)?;
+            let mut offset = 0;
+            let shdr_0 =
+                SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, shdr0_buf)?;
+
+            if shnum == 0 {
+                shnum = shdr_0.sh_info as usize;
+            }
+
+            // N.B. just because shnum > SHN_LORESERVE doesn't mean shstrndx is also > SHN_XINDEX
+            if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+                shstrndx = shdr_0.sh_link as usize;
+            }
+        }
+
+        // Load the section header table bytes
+        let shdrs_size = entsize
+            .checked_mul(shnum)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let shdrs_end = shoff
+            .checked_add(shdrs_size)
+            .ok_or(ParseError::IntegerOverflow)?;
+        self.reader.load_bytes(shoff..shdrs_end)?;
+
+        // Temporarily get the section header table bytes we just loaded so we can parse out the shstrndx shdr
+        let strtab_shdr = {
+            let shdrs_buf = self.reader.get_bytes(shoff..shdrs_end);
+            let strtab_shdr_start = entsize
+                .checked_mul(shstrndx)
+                .ok_or(ParseError::IntegerOverflow)?;
+            let mut offset = strtab_shdr_start;
+            SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, shdrs_buf)?
+        };
+
+        // Load the strtab section bytes
+        let (strtab_start, strtab_end) = strtab_shdr.get_data_range()?;
+        self.reader.load_bytes(strtab_start..strtab_end)?;
+
+        let shdrs_buf = self.reader.get_bytes(shoff..shdrs_end);
+        let strtab_buf = self.reader.get_bytes(strtab_start..strtab_end);
+        Ok(Some((
+            SectionHeaderTable::new(self.endian, self.ehdr.class, shdrs_buf),
+            StringTable::new(strtab_buf),
         )))
     }
 
@@ -681,6 +779,63 @@ mod interface_tests {
     }
 
     #[test]
+    fn stream_test_for_section_headers_with_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let (shdrs, strtab) = file
+            .section_headers_with_strtab()
+            .expect("shdrs should be parsable")
+            .expect("File should have shdrs");
+
+        let with_names: Vec<(&str, SectionHeader)> = shdrs
+            .iter()
+            .map(|shdr| {
+                (
+                    strtab
+                        .get(shdr.sh_name as usize)
+                        .expect("Failed to get section name"),
+                    shdr,
+                )
+            })
+            .collect();
+
+        let (name, shdr) = with_names[4];
+        assert_eq!(name, ".gnu.hash");
+        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
+    }
+
+    #[test]
+    fn bytes_test_for_section_headers_with_strtab() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let (shdrs, strtab) = file
+            .section_headers_with_strtab()
+            .expect("shdrs should be parsable")
+            .expect("File should have shdrs");
+
+        let with_names: Vec<(&str, SectionHeader)> = shdrs
+            .iter()
+            .map(|shdr| {
+                (
+                    strtab
+                        .get(shdr.sh_name as usize)
+                        .expect("Failed to get section name"),
+                    shdr,
+                )
+            })
+            .collect();
+
+        let (name, shdr) = with_names[4];
+        assert_eq!(name, ".gnu.hash");
+        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
+    }
+
+    #[test]
     fn stream_test_for_section_data() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
@@ -729,7 +884,7 @@ mod interface_tests {
 
     // Test all the different section_data_as* with a section of the wrong type
     #[test]
-    fn stream_test_section_data_as_wrong_type() {
+    fn stream_test_for_section_data_as_wrong_type() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -780,7 +935,7 @@ mod interface_tests {
 
     // Test all the different section_data_as* with a section of the wrong type
     #[test]
-    fn bytes_test_section_data_as_wrong_type() {
+    fn bytes_test_for_section_data_as_wrong_type() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -831,7 +986,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_section_data_as_strtab() {
+    fn stream_test_for_section_data_as_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -855,7 +1010,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_section_data_as_strtab() {
+    fn bytes_test_for_section_data_as_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -879,7 +1034,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_section_data_as_relas() {
+    fn stream_test_for_section_data_as_relas() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -916,7 +1071,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_section_data_as_relas() {
+    fn bytes_test_for_section_data_as_relas() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -954,7 +1109,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_section_data_as_notes() {
+    fn stream_test_for_section_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -981,7 +1136,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_section_data_as_notes() {
+    fn bytes_test_for_section_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -1009,7 +1164,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn stream_test_segment_data_as_notes() {
+    fn stream_test_for_segment_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::File::open(path).expect("Could not open file.");
         let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
@@ -1047,7 +1202,7 @@ mod interface_tests {
     }
 
     #[test]
-    fn bytes_test_segment_data_as_notes() {
+    fn bytes_test_for_segment_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
