@@ -41,7 +41,7 @@ use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
-use crate::segment::SegmentTable;
+use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
 
 //  _____ _     _____ ____
@@ -77,6 +77,13 @@ pub trait ElfParser<'data, E: EndianParse> {
     fn section_data_as_notes(
         self,
         shdr: &SectionHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError>;
+
+    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError>;
+
+    fn segment_data_as_notes(
+        self,
+        phdr: &ProgramHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError>;
 }
 
@@ -247,6 +254,31 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             self.endian,
             self.ehdr.class,
             shdr.sh_addralign as usize,
+            buf,
+        ))
+    }
+
+    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
+        let (start, end) = phdr.get_file_data_range()?;
+        Ok(self.data.get_bytes(start..end)?)
+    }
+
+    fn segment_data_as_notes(
+        self,
+        phdr: &ProgramHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError> {
+        if phdr.p_type != gabi::PT_NOTE {
+            return Err(ParseError::UnexpectedSegmentType((
+                phdr.p_type,
+                gabi::PT_NOTE,
+            )));
+        }
+
+        let buf = self.segment_data(phdr)?;
+        Ok(NoteIterator::new(
+            self.endian,
+            self.ehdr.class,
+            phdr.p_align as usize,
             buf,
         ))
     }
@@ -442,6 +474,28 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         let align = shdr.sh_addralign.try_into()?;
         let (buf, _) = self.section_data(shdr)?;
         Ok(NoteIterator::new(endian, class, align, buf))
+    }
+
+    fn segment_data(self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
+        let (start, end) = phdr.get_file_data_range()?;
+        Ok(self.reader.read_bytes(start, end)?)
+    }
+
+    fn segment_data_as_notes(
+        self,
+        phdr: &ProgramHeader,
+    ) -> Result<NoteIterator<'data, E>, ParseError> {
+        if phdr.p_type != gabi::PT_NOTE {
+            return Err(ParseError::UnexpectedSegmentType((
+                phdr.p_type,
+                gabi::PT_NOTE,
+            )));
+        }
+
+        let endian = self.endian;
+        let class = self.ehdr.class;
+        let buf = self.segment_data(phdr)?;
+        Ok(NoteIterator::new(endian, class, phdr.p_align as usize, buf))
     }
 }
 
@@ -949,6 +1003,83 @@ mod interface_tests {
                 n_type: 1,
                 name: "GNU",
                 desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn stream_test_segment_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let phdr = file
+            .segments()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(5)
+            .expect("Failed to get rela shdr");
+
+        let mut notes = file
+            .segment_data_as_notes(&phdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert_eq!(
+            notes.next().expect("Failed to get second note"),
+            Note {
+                n_type: 3,
+                name: "GNU",
+                desc: &[
+                    0x77, 0x41, 0x9F, 0x0D, 0xA5, 0x10, 0x83, 0x0C, 0x57, 0xA7, 0xC8, 0xCC, 0xB0,
+                    0xEE, 0x85, 0x5F, 0xEE, 0xD3, 0x76, 0xA3
+                ],
+            }
+        );
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn bytes_test_segment_data_as_notes() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let phdr = file
+            .segments()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(5)
+            .expect("Failed to get rela shdr");
+
+        let mut notes = file
+            .segment_data_as_notes(&phdr)
+            .expect("Failed to read relas section");
+        assert_eq!(
+            notes.next().expect("Failed to get first note"),
+            Note {
+                n_type: 1,
+                name: "GNU",
+                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
+            }
+        );
+        assert_eq!(
+            notes.next().expect("Failed to get second note"),
+            Note {
+                n_type: 3,
+                name: "GNU",
+                desc: &[
+                    0x77, 0x41, 0x9F, 0x0D, 0xA5, 0x10, 0x83, 0x0C, 0x57, 0xA7, 0xC8, 0xCC, 0xB0,
+                    0xEE, 0x85, 0x5F, 0xEE, 0xD3, 0x76, 0xA3
+                ],
             }
         );
         assert!(notes.next().is_none());
