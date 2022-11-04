@@ -44,6 +44,7 @@ use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
+use crate::symbol::{Symbol, SymbolTable};
 
 //  _____ _     _____ ____
 // | ____| |   |  ___|  _ \ __ _ _ __ ___  ___ _ __
@@ -92,6 +93,20 @@ pub trait ElfParser<'data, E: EndianParse> {
     ) -> Result<NoteIterator<'data, E>, ParseError>;
 
     fn dynamic(self) -> Result<Option<DynIterator<'data, E>>, ParseError>;
+
+    fn section_data_as_symbol_table(
+        self,
+        shdr: &SectionHeader,
+        strtab_shdr: &SectionHeader,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
+
+    fn symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
+
+    fn dynamic_symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError>;
 }
 
 //  _____ _     _____ ____        _
@@ -336,6 +351,73 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
         }
 
         Ok(None)
+    }
+
+    fn section_data_as_symbol_table(
+        self,
+        shdr: &SectionHeader,
+        strtab_shdr: &SectionHeader,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        // Validate entsize before trying to read the table so that we can error early for corrupted files
+        Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
+
+        // Load the section bytes for the symtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let (symtab_start, symtab_end) = shdr.get_data_range()?;
+        let symtab_buf = self.data.get_bytes(symtab_start..symtab_end)?;
+
+        // Load the section bytes for the strtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let (strtab_start, strtab_end) = strtab_shdr.get_data_range()?;
+        let strtab_buf = self.data.get_bytes(strtab_start..strtab_end)?;
+
+        let symtab = SymbolTable::new(self.endian, self.ehdr.class, symtab_buf);
+        let strtab = StringTable::new(strtab_buf);
+        Ok(Some((symtab, strtab)))
+    }
+
+    fn symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        let shdrs = match self.section_headers()? {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_SYMTAB) {
+            Some(shdr) => shdr,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
+        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
+    }
+
+    fn dynamic_symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        let shdrs = match self.section_headers()? {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNSYM) {
+            Some(shdr) => shdr,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
+        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
     }
 }
 
@@ -639,6 +721,75 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
         }
 
         Ok(None)
+    }
+
+    fn section_data_as_symbol_table(
+        self,
+        shdr: &SectionHeader,
+        strtab_shdr: &SectionHeader,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        // Validate entsize before trying to read the table so that we can error early for corrupted files
+        Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
+
+        // Load the section bytes for the symtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let (symtab_start, symtab_end) = shdr.get_data_range()?;
+        self.reader.load_bytes(symtab_start..symtab_end)?;
+
+        // Load the section bytes for the strtab
+        // (we want immutable references to both the symtab and its strtab concurrently)
+        let (strtab_start, strtab_end) = strtab_shdr.get_data_range()?;
+        self.reader.load_bytes(strtab_start..strtab_end)?;
+
+        let symtab_buf = self.reader.get_bytes(symtab_start..symtab_end);
+        let strtab_buf = self.reader.get_bytes(strtab_start..strtab_end);
+        let symtab = SymbolTable::new(self.endian, self.ehdr.class, symtab_buf);
+        let strtab = StringTable::new(strtab_buf);
+        Ok(Some((symtab, strtab)))
+    }
+
+    fn symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        let shdrs = match self.section_headers()? {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_SYMTAB) {
+            Some(shdr) => shdr,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
+        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
+    }
+
+    fn dynamic_symbol_table(
+        self,
+    ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
+        let shdrs = match self.section_headers()? {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNSYM) {
+            Some(shdr) => shdr,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let strtab_shdr = shdrs.get(symtab_shdr.sh_link as usize)?;
+        self.section_data_as_symbol_table(&symtab_shdr, &strtab_shdr)
     }
 }
 
@@ -1336,6 +1487,128 @@ mod interface_tests {
                 d_tag: gabi::DT_INIT,
                 d_un: 4195216
             }
+        );
+    }
+
+    #[test]
+    fn stream_test_for_symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let (symtab, strtab) = file
+            .symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(30).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            Symbol {
+                st_name: 19,
+                st_value: 6293200,
+                st_size: 0,
+                st_shndx: 21,
+                st_info: 1,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "__JCR_LIST__"
+        );
+    }
+
+    #[test]
+    fn bytes_test_for_symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let (symtab, strtab) = file
+            .symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(30).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            Symbol {
+                st_name: 19,
+                st_value: 6293200,
+                st_size: 0,
+                st_shndx: 21,
+                st_info: 1,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "__JCR_LIST__"
+        );
+    }
+
+    #[test]
+    fn stream_test_for_dynamic_symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let (symtab, strtab) = file
+            .dynamic_symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(1).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            Symbol {
+                st_name: 11,
+                st_value: 0,
+                st_size: 0,
+                st_shndx: 0,
+                st_info: 18,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "memset"
+        );
+    }
+
+    #[test]
+    fn bytes_test_for_dynamic_symbol_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let (symtab, strtab) = file
+            .dynamic_symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+        let symbol = symtab.get(1).expect("Failed to get symbol");
+        assert_eq!(
+            symbol,
+            Symbol {
+                st_name: 11,
+                st_value: 0,
+                st_size: 0,
+                st_shndx: 0,
+                st_info: 18,
+                st_other: 0,
+            }
+        );
+        assert_eq!(
+            strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab"),
+            "memset"
         );
     }
 }
