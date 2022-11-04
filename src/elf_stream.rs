@@ -1,14 +1,14 @@
 //! Provides an interface for parsing ELF files from `std::io::Read + std::io::Seek`
-//! 
+//!
 use core::ops::Range;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 
+use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
-use crate::gabi;
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
@@ -27,11 +27,11 @@ pub fn from_stream<'data, E: EndianParse, R: std::io::Read + std::io::Seek>(
     reader: R,
 ) -> Result<ElfStream<E, R>, ParseError> {
     let mut cr = CachingReader::new(reader);
-    cr.load_bytes(0..gabi::EI_NIDENT)?;
-    let ident_buf = cr.get_bytes(0..gabi::EI_NIDENT);
+    cr.load_bytes(0..abi::EI_NIDENT)?;
+    let ident_buf = cr.get_bytes(0..abi::EI_NIDENT);
     let ident = FileHeader::parse_ident(ident_buf)?;
 
-    let tail_start = gabi::EI_NIDENT;
+    let tail_start = abi::EI_NIDENT;
     let tail_end = match ident.1 {
         Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
         Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
@@ -121,7 +121,7 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         // are contained in the sh_info or sh_link field of the section header at index 0.
         let mut shstrndx = self.ehdr.e_shstrndx as usize;
         let mut shnum = self.ehdr.e_shnum as usize;
-        if shnum == 0 || self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+        if shnum == 0 || self.ehdr.e_shstrndx == abi::SHN_XINDEX {
             let shdr0_buf = self.reader.read_bytes(shoff, entsize)?;
             let mut offset = 0;
             let shdr_0 =
@@ -132,7 +132,7 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
             }
 
             // N.B. just because shnum > SHN_LORESERVE doesn't mean shstrndx is also > SHN_XINDEX
-            if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+            if self.ehdr.e_shstrndx == abi::SHN_XINDEX {
                 shstrndx = shdr_0.sh_link as usize;
             }
         }
@@ -172,14 +172,14 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<(&[u8], Option<CompressionHeader>), ParseError> {
-        if shdr.sh_type == gabi::SHT_NOBITS {
+        if shdr.sh_type == abi::SHT_NOBITS {
             return Ok((&[], None));
         }
 
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
 
-        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
+        if shdr.sh_flags & abi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
         } else {
             let mut offset = 0;
@@ -196,10 +196,10 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<StringTable, ParseError> {
-        if shdr.sh_type != gabi::SHT_STRTAB {
+        if shdr.sh_type != abi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_STRTAB,
+                abi::SHT_STRTAB,
             )));
         }
 
@@ -211,10 +211,10 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<RelIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_REL {
+        if shdr.sh_type != abi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_REL,
+                abi::SHT_REL,
             )));
         }
 
@@ -228,10 +228,10 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<RelaIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_RELA {
+        if shdr.sh_type != abi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_RELA,
+                abi::SHT_RELA,
             )));
         }
 
@@ -245,10 +245,10 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<NoteIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_NOTE {
+        if shdr.sh_type != abi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_NOTE,
+                abi::SHT_NOTE,
             )));
         }
 
@@ -268,10 +268,10 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         &mut self,
         phdr: &ProgramHeader,
     ) -> Result<NoteIterator<E>, ParseError> {
-        if phdr.p_type != gabi::PT_NOTE {
+        if phdr.p_type != abi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type,
-                gabi::PT_NOTE,
+                abi::PT_NOTE,
             )));
         }
 
@@ -285,14 +285,14 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
     pub fn dynamic(&mut self) -> Result<Option<DynIterator<E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers()? {
-            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
+            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC) {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
         } else if let Some(phdrs) = self.segments()? {
-            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
@@ -336,7 +336,7 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         };
 
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
-        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_SYMTAB) {
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_SYMTAB) {
             Some(shdr) => shdr,
             None => {
                 return Ok(None);
@@ -358,7 +358,7 @@ impl<E: EndianParse, R: std::io::Read + std::io::Seek> ElfStream<E, R> {
         };
 
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
-        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNSYM) {
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_DYNSYM) {
             Some(shdr) => shdr,
             None => {
                 return Ok(None);
@@ -420,11 +420,9 @@ impl<R: Read + Seek> CachingReader<R> {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
-    use crate::gabi::{
-        SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB,
-    };
     use crate::note::Note;
     use crate::relocation::Rela;
     use crate::segment::ProgramHeader;
@@ -444,7 +442,7 @@ mod interface_tests {
         assert_eq!(
             segments[0],
             ProgramHeader {
-                p_type: gabi::PT_PHDR,
+                p_type: abi::PT_PHDR,
                 p_offset: 64,
                 p_vaddr: 4194368,
                 p_paddr: 4194368,
@@ -497,7 +495,7 @@ mod interface_tests {
 
         let (name, shdr) = with_names[4];
         assert_eq!(name, ".gnu.hash");
-        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
+        assert_eq!(shdr.sh_type, abi::SHT_GNU_HASH);
     }
 
     #[test]
@@ -713,14 +711,14 @@ mod interface_tests {
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_NEEDED,
+                d_tag: abi::DT_NEEDED,
                 d_un: 1
             }
         );
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_INIT,
+                d_tag: abi::DT_INIT,
                 d_un: 4195216
             }
         );

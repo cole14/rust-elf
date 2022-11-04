@@ -1,6 +1,6 @@
 //! Parsing GNU extension sections for dynamic symbol versioning
+use crate::abi;
 use crate::endian::EndianParse;
-use crate::gabi;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 use crate::string_table::StringTable;
 
@@ -169,19 +169,19 @@ pub struct VersionIndex(pub u16);
 
 impl VersionIndex {
     pub fn index(&self) -> u16 {
-        self.0 & gabi::VER_NDX_VERSION
+        self.0 & abi::VER_NDX_VERSION
     }
 
     pub fn is_local(&self) -> bool {
-        self.index() == gabi::VER_NDX_LOCAL
+        self.index() == abi::VER_NDX_LOCAL
     }
 
     pub fn is_global(&self) -> bool {
-        self.index() == gabi::VER_NDX_GLOBAL
+        self.index() == abi::VER_NDX_GLOBAL
     }
 
     pub fn is_hidden(&self) -> bool {
-        (self.0 & gabi::VER_NDX_HIDDEN) != 0
+        (self.0 & abi::VER_NDX_HIDDEN) != 0
     }
 }
 
@@ -245,10 +245,10 @@ impl ParseAt for VerDef {
         data: &[u8],
     ) -> Result<Self, ParseError> {
         let vd_version = endian.parse_u16_at(offset, data)?;
-        if vd_version != gabi::VER_DEF_CURRENT {
+        if vd_version != abi::VER_DEF_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 vd_version as u64,
-                gabi::VER_DEF_CURRENT as u64,
+                abi::VER_DEF_CURRENT as u64,
             )));
         }
 
@@ -476,10 +476,10 @@ impl ParseAt for VerNeed {
         data: &[u8],
     ) -> Result<Self, ParseError> {
         let vd_version = endian.parse_u16_at(offset, data)?;
-        if vd_version != gabi::VER_NEED_CURRENT {
+        if vd_version != abi::VER_NEED_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 vd_version as u64,
-                gabi::VER_DEF_CURRENT as u64,
+                abi::VER_DEF_CURRENT as u64,
             )));
         }
         Ok(VerNeed {
@@ -1581,7 +1581,7 @@ mod version_index_tests {
 
     #[test]
     fn index_hidden() {
-        let idx = VersionIndex(42 | gabi::VER_NDX_HIDDEN);
+        let idx = VersionIndex(42 | abi::VER_NDX_HIDDEN);
         assert_eq!(idx.index(), 42);
         assert!(idx.is_hidden());
     }

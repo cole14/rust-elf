@@ -55,10 +55,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod abi;
 pub mod compression;
 pub mod dynamic;
 pub mod file;
-pub mod gabi;
 pub mod gnu_symver;
 pub mod hash;
 pub mod note;

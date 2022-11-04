@@ -1,6 +1,6 @@
 //! An all-safe-code endian-aware integer parsing implementation via the
 //! [EndianParse] trait.
-//! 
+//!
 //! This module provides four endian parsing implementations optimized to support the different
 //! common use-cases for an ELF parsing library.  Each trait impl represents a
 //! specification that encapsulates an interface for parsing integers from some
@@ -18,7 +18,7 @@
 // That method is slick, and also - do we need really it? I want to see how far we can get
 // using only safe code.
 
-use crate::gabi;
+use crate::abi;
 use crate::parse::ParseError;
 
 /// This macro writes out safe code to get a subslice from the the byte slice $data
@@ -168,7 +168,7 @@ pub const NativeEndian: BigEndian = BigEndian;
 impl EndianParse for LittleEndian {
     fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
         match ei_data {
-            gabi::ELFDATA2LSB => Ok(LittleEndian),
+            abi::ELFDATA2LSB => Ok(LittleEndian),
             _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
         }
     }
@@ -182,7 +182,7 @@ impl EndianParse for LittleEndian {
 impl EndianParse for BigEndian {
     fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
         match ei_data {
-            gabi::ELFDATA2MSB => Ok(BigEndian),
+            abi::ELFDATA2MSB => Ok(BigEndian),
             _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
         }
     }
@@ -196,8 +196,8 @@ impl EndianParse for BigEndian {
 impl EndianParse for AnyEndian {
     fn from_ei_data(ei_data: u8) -> Result<Self, ParseError> {
         match ei_data {
-            gabi::ELFDATA2LSB => Ok(AnyEndian::Little),
-            gabi::ELFDATA2MSB => Ok(AnyEndian::Big),
+            abi::ELFDATA2LSB => Ok(AnyEndian::Little),
+            abi::ELFDATA2MSB => Ok(AnyEndian::Big),
             _ => Err(ParseError::UnsupportedElfEndianness(ei_data)),
         }
     }

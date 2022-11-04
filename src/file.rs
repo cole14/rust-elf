@@ -1,7 +1,7 @@
+use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::endian::{AnyEndian, EndianParse};
-use crate::gabi;
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
@@ -78,7 +78,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         // (0xffff) and the actual index of the section name string table section
         // is contained in the sh_link field of the section header at index 0.
         let mut shstrndx = self.ehdr.e_shstrndx as u32;
-        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+        if self.ehdr.e_shstrndx == abi::SHN_XINDEX {
             let shdr_0 = self.section_header_by_index(0)?;
             shstrndx = shdr_0.sh_link;
         }
@@ -222,14 +222,14 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<(&[u8], Option<CompressionHeader>), ParseError> {
-        if shdr.sh_type == gabi::SHT_NOBITS {
+        if shdr.sh_type == abi::SHT_NOBITS {
             return Ok((&[], None));
         }
 
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes_at(start..end)?;
 
-        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
+        if shdr.sh_flags & abi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
         } else {
             let mut offset = 0;
@@ -248,15 +248,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](SectionHeader#structfield.sh_type) is not
-    /// [SHT_STRTAB](gabi::SHT_STRTAB).
+    /// [SHT_STRTAB](abi::SHT_STRTAB).
     pub fn section_data_as_strtab(
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<StringTable, ParseError> {
-        if shdr.sh_type != gabi::SHT_STRTAB {
+        if shdr.sh_type != abi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_STRTAB,
+                abi::SHT_STRTAB,
             )));
         }
 
@@ -269,7 +269,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         &mut self,
         symtab_type: u32,
     ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
-        // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
+        // Get the symtab header for the symtab. The gABI states there can be zero or one per ELF file.
         let symtab_shdr = match self
             .section_headers()?
             .iter()
@@ -303,18 +303,18 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
 
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
-    /// The GABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
+    /// The gABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
     pub fn symbol_table(&mut self) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(gabi::SHT_SYMTAB)
+        self.get_symbol_table_of_type(abi::SHT_SYMTAB)
     }
 
     /// Get the dynamic symbol table (section of type SHT_DYNSYM) and its associated string table.
     ///
-    /// The GABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
+    /// The gABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table(
         &mut self,
     ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
-        self.get_symbol_table_of_type(gabi::SHT_DYNSYM)
+        self.get_symbol_table_of_type(abi::SHT_DYNSYM)
     }
 
     /// Get the .dynamic section/segment contents.
@@ -324,7 +324,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
             if let Some(shdr) = self
                 .section_headers()?
                 .iter()
-                .find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC)
+                .find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC)
             {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.read_bytes_at(start..end)?;
@@ -334,7 +334,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
             if let Some(phdr) = self
                 .segments()?
                 .iter()
-                .find(|phdr| phdr.p_type == gabi::PT_DYNAMIC)
+                .find(|phdr| phdr.p_type == abi::PT_DYNAMIC)
             {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes_at(start..end)?;
@@ -357,11 +357,11 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let mut defs_opt: Option<SectionHeader> = None;
         // Find the GNU Symbol versioning sections (if any)
         for shdr in self.section_headers()? {
-            if shdr.sh_type == gabi::SHT_GNU_VERSYM {
+            if shdr.sh_type == abi::SHT_GNU_VERSYM {
                 versym_opt = Some(shdr);
-            } else if shdr.sh_type == gabi::SHT_GNU_VERNEED {
+            } else if shdr.sh_type == abi::SHT_GNU_VERNEED {
                 needs_opt = Some(shdr);
-            } else if shdr.sh_type == gabi::SHT_GNU_VERDEF {
+            } else if shdr.sh_type == abi::SHT_GNU_VERDEF {
                 defs_opt = Some(shdr);
             }
 
@@ -472,15 +472,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](SectionHeader#structfield.sh_type) is not
-    /// [SHT_REL](gabi::SHT_REL).
+    /// [SHT_REL](abi::SHT_REL).
     pub fn section_data_as_rels(
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<RelIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_REL {
+        if shdr.sh_type != abi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_REL,
+                abi::SHT_REL,
             )));
         }
 
@@ -495,15 +495,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](SectionHeader#structfield.sh_type) is not
-    /// [SHT_RELA](gabi::SHT_RELA).
+    /// [SHT_RELA](abi::SHT_RELA).
     pub fn section_data_as_relas(
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<RelaIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_RELA {
+        if shdr.sh_type != abi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_RELA,
+                abi::SHT_RELA,
             )));
         }
 
@@ -518,15 +518,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](SectionHeader#structfield.sh_type) is not
-    /// [SHT_RELA](gabi::SHT_NOTE).
+    /// [SHT_RELA](abi::SHT_NOTE).
     pub fn section_data_as_notes(
         &mut self,
         shdr: &SectionHeader,
     ) -> Result<NoteIterator<E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_NOTE {
+        if shdr.sh_type != abi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_NOTE,
+                abi::SHT_NOTE,
             )));
         }
 
@@ -546,15 +546,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     ///
     /// Returns a [ParseError] if the
     /// [p_type](ProgramHeader#structfield.p_type) is not
-    /// [PT_RELA](gabi::PT_NOTE).
+    /// [PT_RELA](abi::PT_NOTE).
     pub fn segment_data_as_notes(
         &mut self,
         phdr: &ProgramHeader,
     ) -> Result<NoteIterator<E>, ParseError> {
-        if phdr.p_type != gabi::PT_NOTE {
+        if phdr.p_type != abi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type,
-                gabi::PT_NOTE,
+                abi::PT_NOTE,
             )));
         }
 
@@ -640,19 +640,19 @@ pub const ELF64_EHDR_TAILSIZE: usize = 48;
 impl FileHeader {
     fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
         // Verify the magic number
-        let magic = buf.split_at(gabi::EI_CLASS).0;
-        if magic != gabi::ELFMAGIC {
+        let magic = buf.split_at(abi::EI_CLASS).0;
+        if magic != abi::ELFMAGIC {
             return Err(ParseError::BadMagic([
                 magic[0], magic[1], magic[2], magic[3],
             ]));
         }
 
         // Verify ELF Version
-        let version = buf[gabi::EI_VERSION];
-        if version != gabi::EV_CURRENT {
+        let version = buf[abi::EI_VERSION];
+        if version != abi::EV_CURRENT {
             return Err(ParseError::UnsupportedVersion((
                 version as u64,
-                gabi::EV_CURRENT as u64,
+                abi::EV_CURRENT as u64,
             )));
         }
 
@@ -668,27 +668,27 @@ impl FileHeader {
         let file_endian: AnyEndian;
 
         {
-            let ident = reader.read_bytes_at(0..gabi::EI_NIDENT)?;
+            let ident = reader.read_bytes_at(0..abi::EI_NIDENT)?;
             Self::verify_ident(ident)?;
 
             // Verify endianness is something we know how to parse
-            ei_data = ident[gabi::EI_DATA];
+            ei_data = ident[abi::EI_DATA];
             file_endian = AnyEndian::from_ei_data(ei_data)?;
 
-            let e_class = ident[gabi::EI_CLASS];
+            let e_class = ident[abi::EI_CLASS];
             class = match e_class {
-                gabi::ELFCLASS32 => Class::ELF32,
-                gabi::ELFCLASS64 => Class::ELF64,
+                abi::ELFCLASS32 => Class::ELF32,
+                abi::ELFCLASS64 => Class::ELF64,
                 _ => {
                     return Err(ParseError::UnsupportedElfClass(e_class));
                 }
             };
 
-            osabi = ident[gabi::EI_OSABI];
-            abiversion = ident[gabi::EI_ABIVERSION];
+            osabi = ident[abi::EI_OSABI];
+            abiversion = ident[abi::EI_ABIVERSION];
         }
 
-        let start = gabi::EI_NIDENT;
+        let start = abi::EI_NIDENT;
         let size = match class {
             Class::ELF32 => ELF32_EHDR_TAILSIZE,
             Class::ELF64 => ELF64_EHDR_TAILSIZE,
@@ -746,20 +746,20 @@ impl FileHeader {
     pub fn parse_ident(data: &[u8]) -> Result<(u8, Class, u8, u8), ParseError> {
         Self::verify_ident(data)?;
 
-        let e_class = data[gabi::EI_CLASS];
+        let e_class = data[abi::EI_CLASS];
         let class = match e_class {
-            gabi::ELFCLASS32 => Class::ELF32,
-            gabi::ELFCLASS64 => Class::ELF64,
+            abi::ELFCLASS32 => Class::ELF32,
+            abi::ELFCLASS64 => Class::ELF64,
             _ => {
                 return Err(ParseError::UnsupportedElfClass(e_class));
             }
         };
 
         Ok((
-            data[gabi::EI_DATA],
+            data[abi::EI_DATA],
             class,
-            data[gabi::EI_OSABI],
-            data[gabi::EI_ABIVERSION],
+            data[abi::EI_OSABI],
+            data[abi::EI_ABIVERSION],
         ))
     }
 
@@ -857,7 +857,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let c_io = CachedReadBytes::new(io);
         let file = File::open_stream(c_io).expect("Open test1");
-        assert_eq!(file.ehdr.e_type, gabi::ET_EXEC);
+        assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
     }
 
     #[test]
@@ -866,7 +866,7 @@ mod interface_tests {
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = File::open_stream(slice).expect("Open test1");
-        assert_eq!(file.ehdr.e_type, gabi::ET_EXEC);
+        assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
     }
 
     #[test]
@@ -919,7 +919,7 @@ mod interface_tests {
 
         let (name, shdr) = with_names[4];
         assert_eq!(name, ".gnu.hash");
-        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
+        assert_eq!(shdr.sh_type, abi::SHT_GNU_HASH);
     }
 
     #[test]
@@ -931,7 +931,7 @@ mod interface_tests {
         let shdr = file
             .section_header_by_index(26)
             .expect("Failed to get .gnu.version section");
-        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+        assert_eq!(shdr.sh_type, abi::SHT_NOBITS);
         let (data, chdr) = file
             .section_data(&shdr)
             .expect("Failed to get section data");
@@ -948,7 +948,7 @@ mod interface_tests {
         let shdr = file
             .section_header_by_index(7)
             .expect("Failed to get .gnu.version section");
-        assert_eq!(shdr.sh_type, gabi::SHT_GNU_VERSYM);
+        assert_eq!(shdr.sh_type, abi::SHT_GNU_VERSYM);
         let (data, chdr) = file
             .section_data(&shdr)
             .expect("Failed to get section data");
@@ -988,7 +988,7 @@ mod interface_tests {
         assert_eq!(
             segments[0],
             ProgramHeader {
-                p_type: gabi::PT_PHDR,
+                p_type: abi::PT_PHDR,
                 p_offset: 64,
                 p_vaddr: 4194368,
                 p_paddr: 4194368,
@@ -1073,14 +1073,14 @@ mod interface_tests {
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_NEEDED,
+                d_tag: abi::DT_NEEDED,
                 d_un: 1
             }
         );
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_INIT,
+                d_tag: abi::DT_INIT,
                 d_un: 4195216
             }
         );
@@ -1233,7 +1233,7 @@ mod interface_tests {
             .section_headers()
             .expect("Failed to parse shdrs")
             .iter()
-            .find(|shdr| shdr.sh_type == gabi::SHT_HASH)
+            .find(|shdr| shdr.sh_type == abi::SHT_HASH)
             .expect("Failed to find sysv hash section");
 
         // We don't have a file interface for getting the SysV hash section yet, so clone the section bytes
@@ -1281,15 +1281,15 @@ mod parse_tests {
 
     #[test]
     fn test_verify_ident_valid() {
-        let data: [u8; gabi::EI_NIDENT] = [
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+        let data: [u8; abi::EI_NIDENT] = [
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1304,15 +1304,15 @@ mod parse_tests {
 
     #[test]
     fn test_verify_ident_invalid_mag0() {
-        let data: [u8; gabi::EI_NIDENT] = [
+        let data: [u8; abi::EI_NIDENT] = [
             0xFF,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1331,15 +1331,15 @@ mod parse_tests {
 
     #[test]
     fn test_verify_ident_invalid_mag1() {
-        let data: [u8; gabi::EI_NIDENT] = [
-            gabi::ELFMAG0,
+        let data: [u8; abi::EI_NIDENT] = [
+            abi::ELFMAG0,
             0xFF,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1358,15 +1358,15 @@ mod parse_tests {
 
     #[test]
     fn test_verify_ident_invalid_mag2() {
-        let data: [u8; gabi::EI_NIDENT] = [
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
+        let data: [u8; abi::EI_NIDENT] = [
+            abi::ELFMAG0,
+            abi::ELFMAG1,
             0xFF,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1385,15 +1385,15 @@ mod parse_tests {
 
     #[test]
     fn test_verify_ident_invalid_mag3() {
-        let data: [u8; gabi::EI_NIDENT] = [
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
+        let data: [u8; abi::EI_NIDENT] = [
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
             0xFF,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1413,15 +1413,15 @@ mod parse_tests {
     #[allow(deprecated)]
     #[test]
     fn test_verify_ident_invalid_version() {
-        let data: [u8; gabi::EI_NIDENT] = [
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
+        let data: [u8; abi::EI_NIDENT] = [
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
             42,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFOSABI_LINUX,
             0,
             0,
             0,
@@ -1440,27 +1440,27 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr32_works() {
-        let mut data = [0u8; gabi::EI_NIDENT + ELF32_EHDR_TAILSIZE]; // Vec<u8> = vec![
-        data[0] = gabi::ELFMAG0;
-        data[1] = gabi::ELFMAG1;
-        data[2] = gabi::ELFMAG2;
-        data[3] = gabi::ELFMAG3;
-        data[4] = gabi::ELFCLASS32;
-        data[5] = gabi::ELFDATA2LSB;
-        data[6] = gabi::EV_CURRENT;
-        data[7] = gabi::ELFOSABI_LINUX;
+        let mut data = [0u8; abi::EI_NIDENT + ELF32_EHDR_TAILSIZE]; // Vec<u8> = vec![
+        data[0] = abi::ELFMAG0;
+        data[1] = abi::ELFMAG1;
+        data[2] = abi::ELFMAG2;
+        data[3] = abi::ELFMAG3;
+        data[4] = abi::ELFCLASS32;
+        data[5] = abi::ELFDATA2LSB;
+        data[6] = abi::EV_CURRENT;
+        data[7] = abi::ELFOSABI_LINUX;
         data[8] = 7;
         for n in 0..ELF32_EHDR_TAILSIZE {
-            data[gabi::EI_NIDENT + n] = n as u8;
+            data[abi::EI_NIDENT + n] = n as u8;
         }
 
         assert_eq!(
             FileHeader::parse(&mut data.as_ref()).unwrap(),
             FileHeader {
                 class: Class::ELF32,
-                ei_data: gabi::ELFDATA2LSB,
+                ei_data: abi::ELFDATA2LSB,
                 version: 0x7060504,
-                osabi: gabi::ELFOSABI_LINUX,
+                osabi: abi::ELFOSABI_LINUX,
                 abiversion: 7,
                 e_type: 0x100,
                 e_machine: 0x302,
@@ -1481,14 +1481,14 @@ mod parse_tests {
     #[test]
     fn test_parse_ehdr32_fuzz_too_short() {
         let mut data: Vec<u8> = vec![
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS32,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS32,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             7,
             0,
             0,
@@ -1498,10 +1498,10 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + ELF32_EHDR_TAILSIZE, 0u8);
+        data.resize(abi::EI_NIDENT + ELF32_EHDR_TAILSIZE, 0u8);
 
         for n in 0..ELF32_EHDR_TAILSIZE {
-            let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0.as_ref();
+            let mut buf = data.as_mut_slice().split_at(abi::EI_NIDENT + n).0.as_ref();
             let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
             assert!(
                 matches!(result, ParseError::SliceReadError(_)),
@@ -1513,14 +1513,14 @@ mod parse_tests {
     #[test]
     fn test_parse_ehdr64_works() {
         let mut data: Vec<u8> = vec![
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS64,
-            gabi::ELFDATA2MSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS64,
+            abi::ELFDATA2MSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             7,
             0,
             0,
@@ -1530,9 +1530,9 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
+        data.resize(abi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
         for n in 0u8..ELF64_EHDR_TAILSIZE as u8 {
-            data[gabi::EI_NIDENT + n as usize] = n;
+            data[abi::EI_NIDENT + n as usize] = n;
         }
 
         let slice = &mut data.as_slice();
@@ -1540,9 +1540,9 @@ mod parse_tests {
             FileHeader::parse(slice).unwrap(),
             FileHeader {
                 class: Class::ELF64,
-                ei_data: gabi::ELFDATA2MSB,
+                ei_data: abi::ELFDATA2MSB,
                 version: 0x04050607,
-                osabi: gabi::ELFOSABI_LINUX,
+                osabi: abi::ELFOSABI_LINUX,
                 abiversion: 7,
                 e_type: 0x0001,
                 e_machine: 0x0203,
@@ -1563,14 +1563,14 @@ mod parse_tests {
     #[test]
     fn test_parse_ehdr64_fuzz_too_short() {
         let mut data: Vec<u8> = vec![
-            gabi::ELFMAG0,
-            gabi::ELFMAG1,
-            gabi::ELFMAG2,
-            gabi::ELFMAG3,
-            gabi::ELFCLASS64,
-            gabi::ELFDATA2LSB,
-            gabi::EV_CURRENT,
-            gabi::ELFOSABI_LINUX,
+            abi::ELFMAG0,
+            abi::ELFMAG1,
+            abi::ELFMAG2,
+            abi::ELFMAG3,
+            abi::ELFCLASS64,
+            abi::ELFDATA2LSB,
+            abi::EV_CURRENT,
+            abi::ELFOSABI_LINUX,
             7,
             0,
             0,
@@ -1580,10 +1580,10 @@ mod parse_tests {
             0,
             0,
         ];
-        data.resize(gabi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
+        data.resize(abi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
 
         for n in 0..ELF64_EHDR_TAILSIZE {
-            let mut buf = data.as_mut_slice().split_at(gabi::EI_NIDENT + n).0;
+            let mut buf = data.as_mut_slice().split_at(abi::EI_NIDENT + n).0;
             let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
             assert!(
                 matches!(result, ParseError::SliceReadError(_)),

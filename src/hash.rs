@@ -1,10 +1,10 @@
-//! Parsing hash table sections for symbol tables: `.hash`, [SHT_HASH](crate::gabi::SHT_HASH)
+//! Parsing hash table sections for symbol tables: `.hash`, [SHT_HASH](crate::abi::SHT_HASH)
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError, U32Table};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
 
-/// Header at the start of SysV Hash Table sections of type [SHT_HASH](crate::gabi::SHT_HASH).
+/// Header at the start of SysV Hash Table sections of type [SHT_HASH](crate::abi::SHT_HASH).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SysVHashHeader {
     pub nbucket: u32,

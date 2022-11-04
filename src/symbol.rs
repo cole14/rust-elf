@@ -1,6 +1,6 @@
-//! Parsing symbol table sections: `.symtab`, `.dynsym`, [SHT_DYNSYM](crate::gabi::SHT_DYNSYM)
+//! Parsing symbol table sections: `.symtab`, `.dynsym`, [SHT_DYNSYM](crate::abi::SHT_DYNSYM)
+use crate::abi;
 use crate::endian::EndianParse;
-use crate::gabi;
 use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
 
 pub type SymbolTable<'data, E> = ParsingTable<'data, E, Symbol>;
@@ -57,7 +57,7 @@ impl Symbol {
     /// When linking and loading, undefined symbols in this object get linked to
     /// a defined symbol in another object.
     pub fn is_undefined(&self) -> bool {
-        self.st_shndx == gabi::SHN_UNDEF
+        self.st_shndx == abi::SHN_UNDEF
     }
 
     pub fn st_symtype(&self) -> u8 {

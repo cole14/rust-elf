@@ -1,8 +1,8 @@
 //! Parsing [CompressionHeader] from compressed ELF sections
-//! 
+//!
 //! Note: This library does not provide any decompression functionality, but
 //! does expose parsed ELF compression headers alongside the raw compressed data.
-//! 
+//!
 //! It is up to users of the library to choose the decompression library of
 //! their choice when dealing with compressed section contents.
 use crate::endian::EndianParse;

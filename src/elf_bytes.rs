@@ -3,7 +3,7 @@
 //! Example usage of the bytes-based interface:
 //!
 //! ```
-//! use elf::gabi::PT_LOAD;
+//! use elf::abi::PT_LOAD;
 //! use elf::elf_bytes::from_bytes;
 //! use elf::endian::AnyEndian;
 //! use elf::segment::ProgramHeader;
@@ -33,11 +33,11 @@
 //! ```
 use core::ops::Range;
 
+use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::{DynIterator, DynamicTable};
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
-use crate::gabi;
 use crate::hash::SysVHashTable;
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
@@ -154,10 +154,10 @@ pub struct ElfBytes<'data, E: EndianParse> {
 
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
     pub fn parse(data: &'data [u8]) -> Result<Self, ParseError> {
-        let ident_buf = data.get_bytes(0..gabi::EI_NIDENT)?;
+        let ident_buf = data.get_bytes(0..abi::EI_NIDENT)?;
         let ident = FileHeader::parse_ident(ident_buf)?;
 
-        let tail_start = gabi::EI_NIDENT;
+        let tail_start = abi::EI_NIDENT;
         let tail_end = match ident.1 {
             Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
             Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
@@ -210,7 +210,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         // (0xffff) and the actual index of the section name string table section
         // is contained in the sh_link field of the section header at index 0.
         let mut shstrndx = self.ehdr.e_shstrndx as usize;
-        if self.ehdr.e_shstrndx == gabi::SHN_XINDEX {
+        if self.ehdr.e_shstrndx == abi::SHN_XINDEX {
             let shdr_0 = shdrs.get(0)?;
             shstrndx = shdr_0.sh_link as usize;
         }
@@ -228,7 +228,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         if let Some(shdrs) = self.shdrs {
             for shdr in shdrs.iter() {
                 match shdr.sh_type {
-                    gabi::SHT_SYMTAB => {
+                    abi::SHT_SYMTAB => {
                         let strtab_shdr = shdrs.get(shdr.sh_link as usize)?;
                         let (symtab, strtab) =
                             self.section_data_as_symbol_table(&shdr, &strtab_shdr)?;
@@ -236,7 +236,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                         result.symtab = Some(symtab);
                         result.symtab_strs = Some(strtab);
                     }
-                    gabi::SHT_DYNSYM => {
+                    abi::SHT_DYNSYM => {
                         let strtab_shdr = shdrs.get(shdr.sh_link as usize)?;
                         let (symtab, strtab) =
                             self.section_data_as_symbol_table(&shdr, &strtab_shdr)?;
@@ -244,12 +244,12 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                         result.dynsyms = Some(symtab);
                         result.dynsyms_strs = Some(strtab);
                     }
-                    gabi::SHT_DYNAMIC => {
+                    abi::SHT_DYNAMIC => {
                         let (start, end) = shdr.get_data_range()?;
                         let buf = self.data.get_bytes(start..end)?;
                         result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
                     }
-                    gabi::SHT_HASH => {
+                    abi::SHT_HASH => {
                         let (start, end) = shdr.get_data_range()?;
                         let buf = self.data.get_bytes(start..end)?;
                         result.sysv_hash =
@@ -265,7 +265,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         // If we didn't find SHT_DYNAMIC from the section headers, try the program headers
         if result.dynamic.is_none() {
             if let Some(phdrs) = self.phdrs {
-                if let Some(dyn_phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+                if let Some(dyn_phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                     let (start, end) = dyn_phdr.get_file_data_range()?;
                     let buf = self.data.get_bytes(start..end)?;
                     result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
@@ -280,14 +280,14 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
     ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError> {
-        if shdr.sh_type == gabi::SHT_NOBITS {
+        if shdr.sh_type == abi::SHT_NOBITS {
             return Ok((&[], None));
         }
 
         let (start, end) = shdr.get_data_range()?;
         let buf = self.data.get_bytes(start..end)?;
 
-        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
+        if shdr.sh_flags & abi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
         } else {
             let mut offset = 0;
@@ -304,10 +304,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
     ) -> Result<StringTable<'data>, ParseError> {
-        if shdr.sh_type != gabi::SHT_STRTAB {
+        if shdr.sh_type != abi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_STRTAB,
+                abi::SHT_STRTAB,
             )));
         }
 
@@ -319,10 +319,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
     ) -> Result<RelIterator<'data, E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_REL {
+        if shdr.sh_type != abi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_REL,
+                abi::SHT_REL,
             )));
         }
 
@@ -334,10 +334,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
     ) -> Result<RelaIterator<'data, E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_RELA {
+        if shdr.sh_type != abi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_RELA,
+                abi::SHT_RELA,
             )));
         }
 
@@ -349,10 +349,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         shdr: &SectionHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError> {
-        if shdr.sh_type != gabi::SHT_NOTE {
+        if shdr.sh_type != abi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
-                gabi::SHT_NOTE,
+                abi::SHT_NOTE,
             )));
         }
 
@@ -374,10 +374,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         &self,
         phdr: &ProgramHeader,
     ) -> Result<NoteIterator<'data, E>, ParseError> {
-        if phdr.p_type != gabi::PT_NOTE {
+        if phdr.p_type != abi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type,
-                gabi::PT_NOTE,
+                abi::PT_NOTE,
             )));
         }
 
@@ -394,14 +394,14 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     pub fn dynamic(&self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers() {
-            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNAMIC) {
+            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC) {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
         } else if let Some(phdrs) = self.segments() {
-            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == gabi::PT_DYNAMIC) {
+            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
@@ -445,7 +445,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         };
 
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
-        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_SYMTAB) {
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_SYMTAB) {
             Some(shdr) => shdr,
             None => {
                 return Ok(None);
@@ -470,7 +470,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         };
 
         // Get the symtab header for the symtab. The GABI states there can be zero or one per ELF file.
-        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == gabi::SHT_DYNSYM) {
+        let symtab_shdr = match shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_DYNSYM) {
             Some(shdr) => shdr,
             None => {
                 return Ok(None);
@@ -493,7 +493,7 @@ trait ReadBytesExt<'data> {
 impl<'data> ReadBytesExt<'data> for &'data [u8] {
     fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
         self.get(range)
-            .ok_or(ParseError::SliceReadError((0, gabi::EI_NIDENT)))
+            .ok_or(ParseError::SliceReadError((0, abi::EI_NIDENT)))
     }
 }
 
@@ -507,11 +507,9 @@ impl<'data> ReadBytesExt<'data> for &'data [u8] {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
-    use crate::gabi::{
-        SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB,
-    };
     use crate::note::Note;
     use crate::relocation::Rela;
     use crate::segment::ProgramHeader;
@@ -537,7 +535,7 @@ mod interface_tests {
             .collect();
 
         let expected_phdr = ProgramHeader {
-            p_type: gabi::PT_PHDR,
+            p_type: abi::PT_PHDR,
             p_offset: 64,
             p_vaddr: 4194368,
             p_paddr: 4194368,
@@ -572,7 +570,7 @@ mod interface_tests {
         assert_eq!(
             segments[0],
             ProgramHeader {
-                p_type: gabi::PT_PHDR,
+                p_type: abi::PT_PHDR,
                 p_offset: 64,
                 p_vaddr: 4194368,
                 p_paddr: 4194368,
@@ -626,7 +624,7 @@ mod interface_tests {
 
         let (name, shdr) = with_names[4];
         assert_eq!(name, ".gnu.hash");
-        assert_eq!(shdr.sh_type, gabi::SHT_GNU_HASH);
+        assert_eq!(shdr.sh_type, abi::SHT_GNU_HASH);
     }
 
     #[test]
@@ -860,14 +858,14 @@ mod interface_tests {
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_NEEDED,
+                d_tag: abi::DT_NEEDED,
                 d_un: 1
             }
         );
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
-                d_tag: gabi::DT_INIT,
+                d_tag: abi::DT_INIT,
                 d_un: 4195216
             }
         );

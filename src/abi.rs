@@ -1,11 +1,11 @@
-//! Contains ELF constants defined in the ELF GABI and various extensions
-///     See <http://www.sco.com/developers/gabi/latest/ch4.eheader.html#elfid>
-/// Note: At least in 2022, it seems like the above site is not being updated. Official communication
-/// occurs on the Generic System V Application Binary Interface mailing list:
-///     <https://groups.google.com/g/generic-abi>
+//! Contains ELF constants defined in the ELF gABI and various extensions
+//     See <http://www.sco.com/developers/gabi/latest/ch4.eheader.html#elfid>
+// Note: At least in 2022, it seems like the above site is not being updated. Official communication
+// occurs on the Generic System V Application Binary Interface mailing list:
+//     <https://groups.google.com/g/generic-abi>
 
-/// EI_* define indexes into the ELF File Header's e_ident[] byte array.
-/// We define them as usize in order to use them to easily index into [u8].
+// EI_* define indexes into the ELF File Header's e_ident[] byte array.
+// We define them as usize in order to use them to easily index into [u8].
 
 /// Location of first ELF magic number byte
 pub const EI_MAG0: usize = 0;

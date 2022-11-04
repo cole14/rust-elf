@@ -1,4 +1,4 @@
-//! Parsing ELF notes: `.note.*`, [SHT_NOTE](crate::gabi::SHT_NOTE), [PT_NOTE](crate::gabi::PT_NOTE)
+//! Parsing ELF notes: `.note.*`, [SHT_NOTE](crate::abi::SHT_NOTE), [PT_NOTE](crate::abi::PT_NOTE)
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError};
 use core::str::from_utf8;
@@ -179,7 +179,7 @@ mod parse_tests {
         ];
 
         // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
-        // even though the GABI states that ELF64 files should contain 64-bit notes. Sometimes those notes are generated
+        // even though the gABI states that ELF64 files should contain 64-bit notes. Sometimes those notes are generated
         // in sections with 4-byte alignment, and other times with 8-byte alignment, as specified by shdr.sh_addralign.
         //
         // See https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf
@@ -214,7 +214,7 @@ mod parse_tests {
 
         let mut offset = 0;
         // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
-        // even though the GABI states that ELF64 files should contain 64-bit notes.
+        // even though the gABI states that ELF64 files should contain 64-bit notes.
         let note = Note::parse_at(LittleEndian, Class::ELF64, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
