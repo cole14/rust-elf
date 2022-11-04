@@ -74,8 +74,8 @@ pub mod to_str;
 pub mod endian;
 mod parse;
 
-pub mod elf;
 pub mod elf_bytes;
+pub mod elf_stream;
 
 pub use file::File;
 #[cfg(feature = "std")]
