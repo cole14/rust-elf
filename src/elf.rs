@@ -33,6 +33,7 @@
 //! ```
 use core::ops::Range;
 
+use crate::compression::CompressionHeader;
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gabi;
@@ -51,6 +52,11 @@ pub trait ElfParser<'data, E: EndianParse> {
     fn segments(self) -> Result<Option<SegmentTable<'data, E>>, ParseError>;
 
     fn section_headers(self) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError>;
+
+    fn section_data(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError>;
 }
 
 //  _____ _     _____ ____        _
@@ -133,6 +139,30 @@ impl<'data, E: EndianParse> ElfParser<'data, E> for &'data ElfBytes<'data, E> {
             self.ehdr.class,
             buf,
         )))
+    }
+
+    fn section_data(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError> {
+        if shdr.sh_type == gabi::SHT_NOBITS {
+            return Ok((&[], None));
+        }
+
+        let (start, end) = shdr.get_data_range()?;
+        let buf = self.data.get_bytes(start..end)?;
+
+        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
+            Ok((buf, None))
+        } else {
+            let mut offset = 0;
+            let chdr = CompressionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)?;
+            let compressed_buf = buf.get(offset..).ok_or(ParseError::SliceReadError((
+                offset,
+                shdr.sh_size.try_into()?,
+            )))?;
+            Ok((compressed_buf, Some(chdr)))
+        }
     }
 }
 
@@ -236,6 +266,30 @@ impl<'data, E: EndianParse, R: std::io::Read + std::io::Seek> ElfParser<'data, E
             buf,
         )))
     }
+
+    fn section_data(
+        self,
+        shdr: &SectionHeader,
+    ) -> Result<(&'data [u8], Option<CompressionHeader>), ParseError> {
+        if shdr.sh_type == gabi::SHT_NOBITS {
+            return Ok((&[], None));
+        }
+
+        let (start, end) = shdr.get_data_range()?;
+        let buf = self.reader.read_bytes(start, end)?;
+
+        if shdr.sh_flags & gabi::SHF_COMPRESSED as u64 == 0 {
+            Ok((buf, None))
+        } else {
+            let mut offset = 0;
+            let chdr = CompressionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)?;
+            let compressed_buf = buf.get(offset..).ok_or(ParseError::SliceReadError((
+                offset,
+                shdr.sh_size.try_into()?,
+            )))?;
+            Ok((compressed_buf, Some(chdr)))
+        }
+    }
 }
 
 #[cfg(feature = "std")]
@@ -298,39 +352,6 @@ mod interface_tests {
     use crate::endian::AnyEndian;
     use crate::segment::ProgramHeader;
 
-    fn test_segments<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
-        let segments: Vec<ProgramHeader> = file
-            .segments()
-            .expect("File should have a segment table")
-            .expect("Segment table should be parsable")
-            .iter()
-            .collect();
-        assert_eq!(
-            segments[0],
-            ProgramHeader {
-                p_type: gabi::PT_PHDR,
-                p_offset: 64,
-                p_vaddr: 4194368,
-                p_paddr: 4194368,
-                p_filesz: 448,
-                p_memsz: 448,
-                p_flags: 5,
-                p_align: 8,
-            }
-        );
-    }
-
-    fn test_section_headers<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
-        let shdrs = file
-            .section_headers()
-            .expect("File should have a section table")
-            .expect("Failed to get shdrs");
-
-        let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
-
-        assert_eq!(shdrs_vec[4].sh_type, gabi::SHT_GNU_HASH);
-    }
-
     #[test]
     fn bytes_test_for_simultaenous_segments_parsing() {
         let path = std::path::PathBuf::from("tests/samples/test1");
@@ -376,6 +397,28 @@ mod interface_tests {
         )
     }
 
+    fn test_segments<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
+        let segments: Vec<ProgramHeader> = file
+            .segments()
+            .expect("File should have a segment table")
+            .expect("Segment table should be parsable")
+            .iter()
+            .collect();
+        assert_eq!(
+            segments[0],
+            ProgramHeader {
+                p_type: gabi::PT_PHDR,
+                p_offset: 64,
+                p_vaddr: 4194368,
+                p_paddr: 4194368,
+                p_filesz: 448,
+                p_memsz: 448,
+                p_flags: 5,
+                p_align: 8,
+            }
+        );
+    }
+
     #[test]
     fn stream_test_for_segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
@@ -395,6 +438,17 @@ mod interface_tests {
         test_segments(&file);
     }
 
+    fn test_section_headers<'data, E: EndianParse, Elf: ElfParser<'data, E>>(file: Elf) {
+        let shdrs = file
+            .section_headers()
+            .expect("File should have a section table")
+            .expect("Failed to get shdrs");
+
+        let shdrs_vec: Vec<SectionHeader> = shdrs.iter().collect();
+
+        assert_eq!(shdrs_vec[4].sh_type, gabi::SHT_GNU_HASH);
+    }
+
     #[test]
     fn stream_test_for_section_headers() {
         let path = std::path::PathBuf::from("tests/samples/test1");
@@ -412,5 +466,52 @@ mod interface_tests {
         let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
 
         test_section_headers(&file);
+    }
+
+    #[test]
+    fn stream_test_for_section_data() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = from_stream::<AnyEndian, _>(file_data).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(26)
+            .expect("shdr should be parsable");
+
+        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+
+        let (data, chdr) = file
+            .section_data(&shdr)
+            .expect("Failed to get section data");
+
+        assert_eq!(chdr, None);
+        assert_eq!(data, &[]);
+    }
+
+    #[test]
+    fn bytes_test_for_section_data() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+
+        let shdr = file
+            .section_headers()
+            .expect("File should have section table")
+            .expect("shdrs should be readable")
+            .get(26)
+            .expect("shdr should be parsable");
+
+        assert_eq!(shdr.sh_type, gabi::SHT_NOBITS);
+
+        let (data, chdr) = file
+            .section_data(&shdr)
+            .expect("Failed to get section data");
+
+        assert_eq!(chdr, None);
+        assert_eq!(data, &[]);
     }
 }
