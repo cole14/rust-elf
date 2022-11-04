@@ -71,6 +71,58 @@ pub fn from_bytes<'data, E: EndianParse>(
     ElfBytes::parse(data)
 }
 
+/// Find the location (if any) of the section headers in the given data buffer and take a
+/// subslice of their data and wrap it in a lazy-parsing SectionHeaderTable.
+/// If shnum > SHN_LORESERVE (0xff00), then this will additionally parse out shdr[0] to calculate
+/// the full table size, but all other parsing of SectionHeaders is deferred.
+fn find_shdrs<'data, E: EndianParse>(
+    endian: E,
+    ehdr: &FileHeader,
+    data: &'data [u8],
+) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
+    // It's Ok to have no section headers
+    if ehdr.e_shoff == 0 {
+        return Ok(None);
+    }
+
+    // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+    // e_shnum is zero and the actual number of section header table entries
+    // is contained in the sh_size field of the section header at index 0.
+    let shoff: usize = ehdr.e_shoff.try_into()?;
+    let mut shnum = ehdr.e_shnum as usize;
+    if shnum == 0 {
+        let mut offset = shoff;
+        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        shnum = shdr0.sh_size.try_into()?;
+    }
+
+    // Validate shentsize before trying to read the table so that we can error early for corrupted files
+    let entsize = SectionHeader::validate_entsize(ehdr.class, ehdr.e_shentsize as usize)?;
+
+    let size = entsize
+        .checked_mul(shnum)
+        .ok_or(ParseError::IntegerOverflow)?;
+    let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+    let buf = data.get_bytes(shoff..end)?;
+    Ok(Some(SectionHeaderTable::new(endian, ehdr.class, buf)))
+}
+
+/// Find the location (if any) of the program headers in the given data buffer and take a
+/// subslice of their data and wrap it in a lazy-parsing SegmentTable.
+fn find_phdrs<'data, E: EndianParse>(
+    endian: E,
+    ehdr: &FileHeader,
+    data: &'data [u8],
+) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
+    match ehdr.get_phdrs_data_range()? {
+        Some((start, end)) => {
+            let buf = data.get_bytes(start..end)?;
+            Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
+        }
+        None => Ok(None),
+    }
+}
+
 pub struct ElfBytes<'data, E: EndianParse> {
     ehdr: FileHeader,
     data: &'data [u8],
@@ -94,8 +146,8 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
         let endian = E::from_ei_data(ehdr.ei_data)?;
 
-        let shdrs = Self::find_shdrs(endian, &ehdr, data)?;
-        let phdrs = Self::find_phdrs(endian, &ehdr, data)?;
+        let shdrs = find_shdrs(endian, &ehdr, data)?;
+        let phdrs = find_phdrs(endian, &ehdr, data)?;
         Ok(ElfBytes {
             ehdr,
             data,
@@ -103,58 +155,6 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
             shdrs,
             phdrs,
         })
-    }
-
-    /// Find the location (if any) of the section headers in the given data buffer and take a
-    /// subslice of their data and wrap it in a lazy-parsing SectionHeaderTable.
-    /// If shnum > SHN_LORESERVE (0xff00), then this will additionally parse out shdr[0] to calculate
-    /// the full table size, but all other parsing of SectionHeaders is deferred.
-    fn find_shdrs(
-        endian: E,
-        ehdr: &FileHeader,
-        data: &'data [u8],
-    ) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
-        // It's Ok to have no section headers
-        if ehdr.e_shoff == 0 {
-            return Ok(None);
-        }
-
-        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
-        // e_shnum is zero and the actual number of section header table entries
-        // is contained in the sh_size field of the section header at index 0.
-        let shoff: usize = ehdr.e_shoff.try_into()?;
-        let mut shnum = ehdr.e_shnum as usize;
-        if shnum == 0 {
-            let mut offset = shoff;
-            let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
-            shnum = shdr0.sh_size.try_into()?;
-        }
-
-        // Validate shentsize before trying to read the table so that we can error early for corrupted files
-        let entsize = SectionHeader::validate_entsize(ehdr.class, ehdr.e_shentsize as usize)?;
-
-        let size = entsize
-            .checked_mul(shnum)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = data.get_bytes(shoff..end)?;
-        Ok(Some(SectionHeaderTable::new(endian, ehdr.class, buf)))
-    }
-
-    /// Find the location (if any) of the program headers in the given data buffer and take a
-    /// subslice of their data and wrap it in a lazy-parsing SegmentTable.
-    fn find_phdrs(
-        endian: E,
-        ehdr: &FileHeader,
-        data: &'data [u8],
-    ) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
-        match ehdr.get_phdrs_data_range()? {
-            Some((start, end)) => {
-                let buf = data.get_bytes(start..end)?;
-                Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
-            }
-            None => Ok(None),
-        }
     }
 
     /// Get this Elf object's zero-alloc lazy-parsing SegmentTable (if any).
