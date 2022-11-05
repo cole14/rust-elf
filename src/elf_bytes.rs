@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use crate::abi;
 use crate::compression::CompressionHeader;
-use crate::dynamic::{DynIterator, DynamicTable};
+use crate::dynamic::{Dyn, DynamicTable};
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
 use crate::gnu_symver::{
@@ -282,9 +282,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                         result.dynsyms_strs = Some(strtab);
                     }
                     abi::SHT_DYNAMIC => {
-                        let (start, end) = shdr.get_data_range()?;
-                        let buf = self.data.get_bytes(start..end)?;
-                        result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
+                        result.dynamic = Some(self.section_data_as_dynamic(&shdr)?);
                     }
                     abi::SHT_HASH => {
                         let (start, end) = shdr.get_data_range()?;
@@ -426,6 +424,25 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         ))
     }
 
+    /// Internal helper to get the section data for an SHT_DYNAMIC section as a .dynamic section table.
+    /// See [ElfBytes::dynamic] or [ElfBytes::find_common_sections] for the public interface
+    fn section_data_as_dynamic(
+        &self,
+        shdr: &SectionHeader,
+    ) -> Result<DynamicTable<'data, E>, ParseError> {
+        if shdr.sh_type != abi::SHT_DYNAMIC {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                abi::SHT_DYNAMIC,
+            )));
+        }
+
+        // Validate entsize before trying to read the table so that we can error early for corrupted files
+        Dyn::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(DynamicTable::new(self.endian, self.ehdr.class, buf))
+    }
+
     /// Get the segment's file data for a given segment/[ProgramHeader].
     ///
     /// This is the segment's data as found in the file.
@@ -459,20 +476,18 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     }
 
     /// Get the .dynamic section or [abi::PT_DYNAMIC] segment contents.
-    pub fn dynamic(&self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
+    pub fn dynamic(&self) -> Result<Option<DynamicTable<'data, E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers() {
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC) {
-                let (start, end) = shdr.get_data_range()?;
-                let buf = self.data.get_bytes(start..end)?;
-                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(self.section_data_as_dynamic(&shdr)?));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
         } else if let Some(phdrs) = self.segments() {
             if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
-                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
             }
         }
 
@@ -1067,7 +1082,8 @@ mod interface_tests {
         let mut dynamic = file
             .dynamic()
             .expect("Failed to parse .dynamic")
-            .expect("Failed to find .dynamic");
+            .expect("Failed to find .dynamic")
+            .iter();
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
