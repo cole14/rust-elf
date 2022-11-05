@@ -3,8 +3,8 @@ use core::ops::Range;
 use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::{DynIterator, DynamicTable};
-use crate::elf_stream::FileHeader;
 use crate::endian::EndianParse;
+use crate::file::FileHeader;
 use crate::hash::SysVHashTable;
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
@@ -153,8 +153,8 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
         let tail_start = abi::EI_NIDENT;
         let tail_end = match ident.1 {
-            Class::ELF32 => tail_start + crate::elf_stream::ELF32_EHDR_TAILSIZE,
-            Class::ELF64 => tail_start + crate::elf_stream::ELF64_EHDR_TAILSIZE,
+            Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
+            Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
         };
         let tail_buf = data.get_bytes(tail_start..tail_end)?;
 

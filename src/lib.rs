@@ -58,7 +58,7 @@
 pub mod abi;
 pub mod compression;
 pub mod dynamic;
-pub mod elf_stream;
+pub mod file;
 pub mod gnu_symver;
 pub mod hash;
 pub mod note;
@@ -78,6 +78,8 @@ mod elf_bytes;
 pub use elf_bytes::CommonElfSections;
 pub use elf_bytes::ElfBytes;
 
+#[cfg(feature = "std")]
+mod elf_stream;
 #[cfg(feature = "std")]
 pub use elf_stream::ElfStream;
 
