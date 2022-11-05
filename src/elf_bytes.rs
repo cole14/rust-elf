@@ -596,8 +596,10 @@ trait ReadBytesExt<'data> {
 
 impl<'data> ReadBytesExt<'data> for &'data [u8] {
     fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
+        let start = range.start;
+        let end = range.end;
         self.get(range)
-            .ok_or(ParseError::SliceReadError((0, abi::EI_NIDENT)))
+            .ok_or(ParseError::SliceReadError((start, end)))
     }
 }
 
@@ -607,6 +609,29 @@ impl<'data> ReadBytesExt<'data> for &'data [u8] {
 // | ||  __/\__ \ |_\__ \
 //  \__\___||___/\__|___/
 //
+
+#[cfg(test)]
+mod read_bytes_tests {
+    use super::ParseError;
+    use super::ReadBytesExt;
+
+    #[test]
+    fn get_bytes_works() {
+        let data = &[0u8, 1, 2, 3];
+        let subslice = data.get_bytes(1..3).expect("should be within range");
+        assert_eq!(subslice, [1, 2]);
+    }
+
+    #[test]
+    fn get_bytes_out_of_range_errors() {
+        let data = &[0u8, 1, 2, 3];
+        let err = data.get_bytes(3..9).expect_err("should be out of range");
+        assert!(
+            matches!(err, ParseError::SliceReadError((3, 9))),
+            "Unexpected Error type found: {err}"
+        );
+    }
+}
 
 #[cfg(test)]
 mod interface_tests {
