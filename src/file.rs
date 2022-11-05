@@ -1,37 +1,63 @@
+#[cfg(feature = "std")]
+use core::ops::Range;
+
 use crate::abi;
+#[cfg(feature = "std")]
 use crate::compression::CompressionHeader;
+#[cfg(feature = "std")]
 use crate::dynamic::DynIterator;
 use crate::endian::{AnyEndian, EndianParse};
+#[cfg(feature = "std")]
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
+#[cfg(feature = "std")]
 use crate::note::NoteIterator;
-use crate::parse::{Class, ParseAt, ParseError, ReadBytesAt};
+use crate::parse::{Class, ParseAt, ParseError};
+#[cfg(feature = "std")]
 use crate::relocation::{RelIterator, RelaIterator};
+#[cfg(feature = "std")]
 use crate::section::{SectionHeader, SectionHeaderTable};
-use crate::segment::{ProgramHeader, SegmentTable};
+use crate::segment::ProgramHeader;
+#[cfg(feature = "std")]
+use crate::segment::SegmentTable;
+#[cfg(feature = "std")]
 use crate::string_table::StringTable;
+#[cfg(feature = "std")]
 use crate::symbol::{Symbol, SymbolTable};
 
-pub struct File<R: ReadBytesAt, E: EndianParse> {
-    reader: R,
-    endian: E,
+#[cfg(feature = "std")]
+pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
     pub ehdr: FileHeader,
+    reader: CachingReader<S>,
+    endian: E,
 }
 
-impl<R: ReadBytesAt> File<R, AnyEndian> {
-    pub fn open_stream(mut reader: R) -> Result<File<R, AnyEndian>, ParseError> {
-        let ehdr = FileHeader::parse(&mut reader)?;
-        let endian = AnyEndian::from_ei_data(ehdr.ei_data)?;
-        Ok(File {
-            reader,
-            endian,
+#[cfg(feature = "std")]
+impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
+    pub fn open_stream(reader: S) -> Result<ElfStream<E, S>, ParseError> {
+        let mut cr = CachingReader::new(reader);
+        cr.load_bytes(0..abi::EI_NIDENT)?;
+        let ident_buf = cr.get_bytes(0..abi::EI_NIDENT);
+        let ident = FileHeader::parse_ident(ident_buf)?;
+
+        let tail_start = abi::EI_NIDENT;
+        let tail_end = match ident.1 {
+            Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
+            Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
+        };
+        cr.load_bytes(tail_start..tail_end)?;
+        let tail_buf = cr.get_bytes(tail_start..tail_end);
+
+        let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
+        let endian = E::from_ei_data(ehdr.ei_data)?;
+        Ok(ElfStream {
+            reader: cr,
             ehdr,
+            endian,
         })
     }
-}
 
-impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     /// Get an lazy-parsing table for the Segments (ELF Program Headers) in the file.
     ///
     /// The underlying ELF bytes backing the program headers table are read all at once
@@ -44,19 +70,14 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
     /// [e_phoff](FileHeader#structfield.e_phoff),
     /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
     /// to a range in the file data that does not actually exist.
-    pub fn segments(&mut self) -> Result<SegmentTable<E>, ParseError> {
+    pub fn segments(&mut self) -> Result<Option<SegmentTable<E>>, ParseError> {
         match self.ehdr.get_phdrs_data_range()? {
             Some((start, end)) => {
-                let buf = self.reader.read_bytes_at(start..end)?;
-                Ok(SegmentTable::new(self.endian, self.ehdr.class, buf))
+                self.reader.load_bytes(start..end)?;
+                let buf = self.reader.get_bytes(start..end);
+                Ok(Some(SegmentTable::new(self.endian, self.ehdr.class, buf)))
             }
-            // If the file doesn't have a program header table, return an empty table
-            //
-            // Note: It'd be more intuitive if this interface returned a
-            // Result<Option<SegmentTable>, ParseError> instead so that users could match on None
-            // instead of getting a real but empty table. I'm going to defer that change for
-            // a release where I can bundle other such breaking interface changes together.
-            None => Ok(SegmentTable::new(self.endian, self.ehdr.class, &[])),
+            None => Ok(None),
         }
     }
 
@@ -106,7 +127,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let end = start
             .checked_add(entsize)
             .ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         let mut offset = 0;
         SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)
     }
@@ -141,7 +162,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
             .checked_mul(shnum)
             .ok_or(ParseError::IntegerOverflow)?;
         let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(SectionHeaderTable::new(self.endian, self.ehdr.class, buf))
     }
 
@@ -183,7 +204,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let shdrs_end = shdrs_start
             .checked_add(shdrs_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        self.reader.load_bytes_at(shdrs_start..shdrs_end)?;
+        self.reader.load_bytes(shdrs_start..shdrs_end)?;
 
         // Load the section bytes for the strtab
         // (we want immutable references to both the symtab and its strtab concurrently)
@@ -192,15 +213,15 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
 
         let strtab = self.section_header_by_index(shstrndx)?;
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
-        self.reader.load_bytes_at(strtab_start..strtab_end)?;
+        self.reader.load_bytes(strtab_start..strtab_end)?;
 
         // Return the (symtab, strtab)
         let shdrs = SectionHeaderTable::new(
             self.endian,
             self.ehdr.class,
-            self.reader.get_loaded_bytes_at(shdrs_start..shdrs_end),
+            self.reader.get_bytes(shdrs_start..shdrs_end),
         );
-        let strtab = StringTable::new(self.reader.get_loaded_bytes_at(strtab_start..strtab_end));
+        let strtab = StringTable::new(self.reader.get_bytes(strtab_start..strtab_end));
         Ok((shdrs, strtab))
     }
 
@@ -227,7 +248,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = shdr.get_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
 
         if shdr.sh_flags & abi::SHF_COMPRESSED as u64 == 0 {
             Ok((buf, None))
@@ -261,7 +282,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = shdr.get_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(StringTable::new(buf))
     }
 
@@ -282,22 +303,22 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         // Load the section bytes for the symtab
         // (we want immutable references to both the symtab and its strtab concurrently)
         let (symtab_start, symtab_end) = symtab_shdr.get_data_range()?;
-        self.reader.load_bytes_at(symtab_start..symtab_end)?;
+        self.reader.load_bytes(symtab_start..symtab_end)?;
 
         // Load the section bytes for the strtab
         // (we want immutable references to both the symtab and its strtab concurrently)
         let strtab = self.section_header_by_index(symtab_shdr.sh_link as usize)?;
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
-        self.reader.load_bytes_at(strtab_start..strtab_end)?;
+        self.reader.load_bytes(strtab_start..strtab_end)?;
 
         // Validate entsize before trying to read the table so that we can error early for corrupted files
         Symbol::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize.try_into()?)?;
         let symtab = SymbolTable::new(
             self.endian,
             self.ehdr.class,
-            self.reader.get_loaded_bytes_at(symtab_start..symtab_end),
+            self.reader.get_bytes(symtab_start..symtab_end),
         );
-        let strtab = StringTable::new(self.reader.get_loaded_bytes_at(strtab_start..strtab_end));
+        let strtab = StringTable::new(self.reader.get_bytes(strtab_start..strtab_end));
         Ok(Some((symtab, strtab)))
     }
 
@@ -327,17 +348,14 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
                 .find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC)
             {
                 let (start, end) = shdr.get_data_range()?;
-                let buf = self.reader.read_bytes_at(start..end)?;
+                let buf = self.reader.read_bytes(start, end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
-        } else {
-            if let Some(phdr) = self
-                .segments()?
-                .iter()
-                .find(|phdr| phdr.p_type == abi::PT_DYNAMIC)
-            {
+        // Otherwise, look up the PT_DYNAMIC segment (if any)
+        } else if let Some(phdrs) = self.segments()? {
+            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
-                let buf = self.reader.read_bytes_at(start..end)?;
+                let buf = self.reader.read_bytes(start, end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
         }
@@ -381,17 +399,17 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         // Validate VERSYM entsize before trying to read the table so that we can error early for corrupted files
         VersionIndex::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
         let (versym_start, versym_end) = versym_shdr.get_data_range()?;
-        self.reader.load_bytes_at(versym_start..versym_end)?;
+        self.reader.load_bytes(versym_start..versym_end)?;
 
         // Get the VERNEED string shdr and load the VERNEED section data (if any)
         let needs_shdrs = match needs_opt {
             Some(shdr) => {
                 let (start, end) = shdr.get_data_range()?;
-                self.reader.load_bytes_at(start..end)?;
+                self.reader.load_bytes(start..end)?;
 
                 let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
-                self.reader.load_bytes_at(strs_start..strs_end)?;
+                self.reader.load_bytes(strs_start..strs_end)?;
 
                 Some((shdr, strs_shdr))
             }
@@ -404,11 +422,11 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let defs_shdrs = match defs_opt {
             Some(shdr) => {
                 let (start, end) = shdr.get_data_range()?;
-                self.reader.load_bytes_at(start..end)?;
+                self.reader.load_bytes(start..end)?;
 
                 let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
-                self.reader.load_bytes_at(strs_start..strs_end)?;
+                self.reader.load_bytes(strs_start..strs_end)?;
 
                 Some((shdr, strs_shdr))
             }
@@ -421,10 +439,10 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let verneeds = match needs_shdrs {
             Some((shdr, strs_shdr)) => {
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
-                let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
+                let strs_buf = self.reader.get_bytes(strs_start..strs_end);
 
                 let (start, end) = shdr.get_data_range()?;
-                let buf = self.reader.get_loaded_bytes_at(start..end);
+                let buf = self.reader.get_bytes(start..end);
                 Some((
                     VerNeedIterator::new(self.endian, self.ehdr.class, shdr.sh_info as u64, 0, buf),
                     StringTable::new(strs_buf),
@@ -438,10 +456,10 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let verdefs = match defs_shdrs {
             Some((shdr, strs_shdr)) => {
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
-                let strs_buf = self.reader.get_loaded_bytes_at(strs_start..strs_end);
+                let strs_buf = self.reader.get_bytes(strs_start..strs_end);
 
                 let (start, end) = shdr.get_data_range()?;
-                let buf = self.reader.get_loaded_bytes_at(start..end);
+                let buf = self.reader.get_bytes(start..end);
                 Some((
                     VerDefIterator::new(self.endian, self.ehdr.class, shdr.sh_info as u64, 0, buf),
                     StringTable::new(strs_buf),
@@ -455,7 +473,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         let version_ids = VersionIndexTable::new(
             self.endian,
             self.ehdr.class,
-            self.reader.get_loaded_bytes_at(versym_start..versym_end),
+            self.reader.get_bytes(versym_start..versym_end),
         );
 
         // whew, we're done here!
@@ -485,7 +503,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = shdr.get_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
     }
 
@@ -508,7 +526,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = shdr.get_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
     }
 
@@ -531,7 +549,7 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = shdr.get_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(NoteIterator::new(
             self.endian,
             self.ehdr.class,
@@ -559,13 +577,60 @@ impl<R: ReadBytesAt, E: EndianParse> File<R, E> {
         }
 
         let (start, end) = phdr.get_file_data_range()?;
-        let buf = self.reader.read_bytes_at(start..end)?;
+        let buf = self.reader.read_bytes(start, end)?;
         Ok(NoteIterator::new(
             self.endian,
             self.ehdr.class,
             phdr.p_align as usize,
             buf,
         ))
+    }
+}
+
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+#[cfg(feature = "std")]
+use std::io::{Read, Seek, SeekFrom};
+
+#[cfg(feature = "std")]
+struct CachingReader<R: Read + Seek> {
+    reader: R,
+    bufs: HashMap<(usize, usize), Box<[u8]>>,
+}
+
+#[cfg(feature = "std")]
+impl<R: Read + Seek> CachingReader<R> {
+    pub fn new(reader: R) -> Self {
+        CachingReader {
+            reader,
+            bufs: HashMap::<(usize, usize), Box<[u8]>>::default(),
+        }
+    }
+
+    pub fn read_bytes(&mut self, start: usize, end: usize) -> Result<&[u8], ParseError> {
+        self.load_bytes(start..end)?;
+        Ok(self.get_bytes(start..end))
+    }
+
+    pub fn get_bytes(&self, range: Range<usize>) -> &[u8] {
+        // It's a programmer error to call get_bytes without first calling load_bytes, so
+        // we want to panic here.
+        self.bufs
+            .get(&(range.start, range.end))
+            .expect("load_bytes must be called before get_bytes for every range")
+    }
+
+    pub fn load_bytes(&mut self, range: Range<usize>) -> Result<(), ParseError> {
+        if self.bufs.contains_key(&(range.start, range.end)) {
+            return Ok(());
+        }
+
+        // Seek before allocating so we error early on bad read requests.
+        self.reader.seek(SeekFrom::Start(range.start as u64))?;
+        let mut bytes = vec![0; range.len()].into_boxed_slice();
+        self.reader.read_exact(&mut bytes)?;
+        self.bufs.insert((range.start, range.end), bytes);
+        Ok(())
     }
 }
 
@@ -657,90 +722,6 @@ impl FileHeader {
         }
 
         return Ok(());
-    }
-
-    // deprecated, will go away with adoption of new bytes/stream interface
-    pub fn parse<R: ReadBytesAt>(reader: &mut R) -> Result<Self, ParseError> {
-        let class: Class;
-        let osabi: u8;
-        let abiversion: u8;
-        let ei_data: u8;
-        let file_endian: AnyEndian;
-
-        {
-            let ident = reader.read_bytes_at(0..abi::EI_NIDENT)?;
-            Self::verify_ident(ident)?;
-
-            // Verify endianness is something we know how to parse
-            ei_data = ident[abi::EI_DATA];
-            file_endian = AnyEndian::from_ei_data(ei_data)?;
-
-            let e_class = ident[abi::EI_CLASS];
-            class = match e_class {
-                abi::ELFCLASS32 => Class::ELF32,
-                abi::ELFCLASS64 => Class::ELF64,
-                _ => {
-                    return Err(ParseError::UnsupportedElfClass(e_class));
-                }
-            };
-
-            osabi = ident[abi::EI_OSABI];
-            abiversion = ident[abi::EI_ABIVERSION];
-        }
-
-        let start = abi::EI_NIDENT;
-        let size = match class {
-            Class::ELF32 => ELF32_EHDR_TAILSIZE,
-            Class::ELF64 => ELF64_EHDR_TAILSIZE,
-        };
-        let data = reader.read_bytes_at(start..start + size)?;
-
-        let mut offset = 0;
-        let e_type = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_machine = file_endian.parse_u16_at(&mut offset, data)?;
-        let version = file_endian.parse_u32_at(&mut offset, data)?;
-
-        let e_entry: u64;
-        let e_phoff: u64;
-        let e_shoff: u64;
-
-        if class == Class::ELF32 {
-            e_entry = file_endian.parse_u32_at(&mut offset, data)? as u64;
-            e_phoff = file_endian.parse_u32_at(&mut offset, data)? as u64;
-            e_shoff = file_endian.parse_u32_at(&mut offset, data)? as u64;
-        } else {
-            e_entry = file_endian.parse_u64_at(&mut offset, data)?;
-            e_phoff = file_endian.parse_u64_at(&mut offset, data)?;
-            e_shoff = file_endian.parse_u64_at(&mut offset, data)?;
-        }
-
-        let e_flags = file_endian.parse_u32_at(&mut offset, data)?;
-        let e_ehsize = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_phentsize = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_phnum = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_shentsize = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_shnum = file_endian.parse_u16_at(&mut offset, data)?;
-        let e_shstrndx = file_endian.parse_u16_at(&mut offset, data)?;
-
-        Ok(FileHeader {
-            class,
-            ei_data,
-            version,
-            e_type,
-            e_machine,
-            osabi,
-            abiversion,
-            e_entry,
-            e_phoff,
-            e_shoff,
-            e_flags,
-            e_ehsize,
-            e_phentsize,
-            e_phnum,
-            e_shentsize,
-            e_shnum,
-            e_shstrndx,
-        })
     }
 
     pub fn parse_ident(data: &[u8]) -> Result<(u8, Class, u8, u8), ParseError> {
@@ -847,7 +828,6 @@ mod interface_tests {
     use crate::dynamic::Dyn;
     use crate::hash::SysVHashTable;
     use crate::note::Note;
-    use crate::parse::CachedReadBytes;
     use crate::relocation::Rela;
     use crate::symbol::Symbol;
 
@@ -855,26 +835,16 @@ mod interface_tests {
     fn test_open_stream_with_cachedreadbytes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let io = std::fs::File::open(path).expect("Could not open file.");
-        let c_io = CachedReadBytes::new(io);
-        let file = File::open_stream(c_io).expect("Open test1");
-        assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
-    }
-
-    #[test]
-    fn test_open_stream_with_byte_slice() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let file = File::open_stream(slice).expect("Open test1");
+        let file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
         assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
     }
 
     #[test]
     fn section_header_by_index() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(file.ehdr.e_shstrndx as usize)
             .expect("Failed to parse shdr");
@@ -898,9 +868,9 @@ mod interface_tests {
     #[test]
     fn section_headers_with_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
             .expect("Failed to get shdrs");
@@ -925,9 +895,9 @@ mod interface_tests {
     #[test]
     fn section_data_for_nobits() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(26)
             .expect("Failed to get .gnu.version section");
@@ -942,9 +912,9 @@ mod interface_tests {
     #[test]
     fn section_data() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(7)
             .expect("Failed to get .gnu.version section");
@@ -959,9 +929,9 @@ mod interface_tests {
     #[test]
     fn section_data_as_strtab() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(file.ehdr.e_shstrndx as usize)
             .expect("Failed to parse shdr");
@@ -977,12 +947,13 @@ mod interface_tests {
     #[test]
     fn segments() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let segments: Vec<ProgramHeader> = file
             .segments()
             .expect("Failed to read segments")
+            .expect("file should have segments")
             .iter()
             .collect();
         assert_eq!(
@@ -1003,9 +974,9 @@ mod interface_tests {
     #[test]
     fn symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let (symtab, strtab) = file
             .symbol_table()
             .expect("Failed to read symbol table")
@@ -1033,9 +1004,9 @@ mod interface_tests {
     #[test]
     fn dynamic_symbol_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let (symtab, strtab) = file
             .dynamic_symbol_table()
             .expect("Failed to read symbol table")
@@ -1063,9 +1034,9 @@ mod interface_tests {
     #[test]
     fn dynamic_section() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let mut dynamic = file
             .dynamic_section()
             .expect("Failed to parse .dynamic")
@@ -1089,9 +1060,9 @@ mod interface_tests {
     #[test]
     fn section_data_as_rels() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(10)
             .expect("Failed to get rela shdr");
@@ -1102,9 +1073,9 @@ mod interface_tests {
     #[test]
     fn section_data_as_relas() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(10)
             .expect("Failed to get rela shdr");
@@ -1135,9 +1106,9 @@ mod interface_tests {
     #[test]
     fn section_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let shdr = file
             .section_header_by_index(2)
             .expect("Failed to get .note.ABI-tag shdr");
@@ -1158,12 +1129,13 @@ mod interface_tests {
     #[test]
     fn segment_data_as_notes() {
         let path = std::path::PathBuf::from("tests/samples/test1");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let phdrs: Vec<ProgramHeader> = file
             .segments()
             .expect("Failed to get .note.ABI-tag shdr")
+            .expect("File should have headers")
             .iter()
             .collect();
         let mut notes = file
@@ -1195,7 +1167,7 @@ mod interface_tests {
     fn symbol_version_table() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let io = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = File::open_stream(CachedReadBytes::new(io)).expect("Open test1");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
         let vst = file
             .symbol_version_table()
             .expect("Failed to parse GNU symbol versions")
@@ -1224,9 +1196,8 @@ mod interface_tests {
     #[test]
     fn sysv_hash_table() {
         let path = std::path::PathBuf::from("tests/samples/hello.so");
-        let file_data = std::fs::read(path).expect("Could not read file.");
-        let slice = file_data.as_slice();
-        let mut file = File::open_stream(slice).expect("Open test1");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
         // Look up the SysV hash section header
         let hash_shdr = file
@@ -1440,22 +1411,14 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr32_works() {
-        let mut data = [0u8; abi::EI_NIDENT + ELF32_EHDR_TAILSIZE]; // Vec<u8> = vec![
-        data[0] = abi::ELFMAG0;
-        data[1] = abi::ELFMAG1;
-        data[2] = abi::ELFMAG2;
-        data[3] = abi::ELFMAG3;
-        data[4] = abi::ELFCLASS32;
-        data[5] = abi::ELFDATA2LSB;
-        data[6] = abi::EV_CURRENT;
-        data[7] = abi::ELFOSABI_LINUX;
-        data[8] = 7;
-        for n in 0..ELF32_EHDR_TAILSIZE {
-            data[abi::EI_NIDENT + n] = n as u8;
+        let ident = (abi::ELFDATA2LSB, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
+        let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
+        for n in 0..ELF64_EHDR_TAILSIZE {
+            tail[n] = n as u8;
         }
 
         assert_eq!(
-            FileHeader::parse(&mut data.as_ref()).unwrap(),
+            FileHeader::parse_tail(ident, &tail).unwrap(),
             FileHeader {
                 class: Class::ELF32,
                 ei_data: abi::ELFDATA2LSB,
@@ -1480,31 +1443,14 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr32_fuzz_too_short() {
-        let mut data: Vec<u8> = vec![
-            abi::ELFMAG0,
-            abi::ELFMAG1,
-            abi::ELFMAG2,
-            abi::ELFMAG3,
-            abi::ELFCLASS32,
-            abi::ELFDATA2LSB,
-            abi::EV_CURRENT,
-            abi::ELFOSABI_LINUX,
-            7,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        data.resize(abi::EI_NIDENT + ELF32_EHDR_TAILSIZE, 0u8);
+        let ident = (abi::ELFDATA2LSB, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
+        let tail = [0u8; ELF32_EHDR_TAILSIZE];
 
         for n in 0..ELF32_EHDR_TAILSIZE {
-            let mut buf = data.as_mut_slice().split_at(abi::EI_NIDENT + n).0.as_ref();
-            let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
+            let buf = tail.split_at(n).0.as_ref();
+            let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
             assert!(
-                matches!(result, ParseError::SliceReadError(_)),
+                matches!(result, ParseError::BadOffset(_)),
                 "Unexpected Error type found: {result:?}"
             );
         }
@@ -1512,32 +1458,14 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr64_works() {
-        let mut data: Vec<u8> = vec![
-            abi::ELFMAG0,
-            abi::ELFMAG1,
-            abi::ELFMAG2,
-            abi::ELFMAG3,
-            abi::ELFCLASS64,
-            abi::ELFDATA2MSB,
-            abi::EV_CURRENT,
-            abi::ELFOSABI_LINUX,
-            7,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        data.resize(abi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
-        for n in 0u8..ELF64_EHDR_TAILSIZE as u8 {
-            data[abi::EI_NIDENT + n as usize] = n;
+        let ident = (abi::ELFDATA2MSB, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
+        let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
+        for n in 0..ELF64_EHDR_TAILSIZE {
+            tail[n] = n as u8;
         }
 
-        let slice = &mut data.as_slice();
         assert_eq!(
-            FileHeader::parse(slice).unwrap(),
+            FileHeader::parse_tail(ident, &tail).unwrap(),
             FileHeader {
                 class: Class::ELF64,
                 ei_data: abi::ELFDATA2MSB,
@@ -1562,31 +1490,14 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr64_fuzz_too_short() {
-        let mut data: Vec<u8> = vec![
-            abi::ELFMAG0,
-            abi::ELFMAG1,
-            abi::ELFMAG2,
-            abi::ELFMAG3,
-            abi::ELFCLASS64,
-            abi::ELFDATA2LSB,
-            abi::EV_CURRENT,
-            abi::ELFOSABI_LINUX,
-            7,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        data.resize(abi::EI_NIDENT + ELF64_EHDR_TAILSIZE, 0u8);
+        let ident = (abi::ELFDATA2LSB, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
+        let tail = [0u8; ELF64_EHDR_TAILSIZE];
 
         for n in 0..ELF64_EHDR_TAILSIZE {
-            let mut buf = data.as_mut_slice().split_at(abi::EI_NIDENT + n).0;
-            let result = FileHeader::parse(&mut buf).expect_err("Expected an error");
+            let buf = tail.split_at(n).0;
+            let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
             assert!(
-                matches!(result, ParseError::SliceReadError(_)),
+                matches!(result, ParseError::BadOffset(_)),
                 "Unexpected Error type found: {result:?}"
             );
         }

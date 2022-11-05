@@ -16,10 +16,10 @@
 //!
 //! ### Lazy parsing:
 //! This crate strives for lazy evaluation and parsing when possible.
-//! [File::open_stream()][File::open_stream] reads, parses and validates the ELF
+//! [ElfStream::open_stream()][ElfStream::open_stream] reads, parses and validates the ELF
 //! File Header, then stops there. All other i/o and parsing is deferred to
-//! being performed on-demand by other methods on [File]. For example,
-//! [File::symbol_table()](File::symbol_table) reads the data for the symbol
+//! being performed on-demand by other methods on [ElfStream]. For example,
+//! [ElfStream::symbol_table()](ElfStream::symbol_table) reads the data for the symbol
 //! table and associated string table then returns them with types like
 //! [SymbolTable](symbol::SymbolTable) and
 //! [StringTable](string_table::StringTable) which simply act as an
@@ -79,9 +79,6 @@ pub use elf_bytes::CommonElfSections;
 pub use elf_bytes::ElfBytes;
 
 #[cfg(feature = "std")]
-pub mod elf_stream;
+pub use file::ElfStream;
 
-pub use file::File;
-#[cfg(feature = "std")]
-pub use parse::CachedReadBytes;
 pub use parse::ParseError;
