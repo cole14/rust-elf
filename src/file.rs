@@ -1,7 +1,11 @@
 use crate::abi;
 use crate::endian::{AnyEndian, EndianParse};
-use crate::parse::{Class, ParseAt, ParseError};
+use crate::parse::{ParseAt, ParseError};
 use crate::segment::ProgramHeader;
+
+// Re-export Class here for the public interface alongside FileHeader where it's exposed
+// in the public interface.
+pub use crate::parse::Class;
 
 /// Encapsulates the contents of the ELF File Header
 ///
