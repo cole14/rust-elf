@@ -37,7 +37,7 @@ macro_rules! safe_from {
 
         let buf: [u8; SIZE] = $data
             .get(*$off..end)
-            .ok_or(ParseError::BadOffset(*$off as u64))?
+            .ok_or(ParseError::SliceReadError((*$off, end)))?
             .try_into()?;
 
         *$off = end;
@@ -240,7 +240,7 @@ mod tests {
                     .$method(&mut offset, buf)
                     .expect_err("Expected an error, but parsed: ");
                 assert!(
-                    matches!(error, ParseError::BadOffset(_)),
+                    matches!(error, ParseError::SliceReadError(_)),
                     "Unexpected Error type found: {error}"
                 );
             }

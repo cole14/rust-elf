@@ -359,7 +359,7 @@ pub fn test_parse_fuzz_too_short<E: EndianParse, P: ParseAt + core::fmt::Debug>(
         let mut offset: usize = 0;
         let error = P::parse_at(endian, class, &mut offset, buf).expect_err("Expected an error");
         assert!(
-            matches!(error, ParseError::BadOffset(_)),
+            matches!(error, ParseError::SliceReadError(_)),
             "Unexpected Error type found: {error}"
         );
     }

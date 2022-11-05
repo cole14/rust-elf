@@ -395,7 +395,7 @@ mod parse_tests {
             let buf = tail.split_at(n).0.as_ref();
             let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
             assert!(
-                matches!(result, ParseError::BadOffset(_)),
+                matches!(result, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {result:?}"
             );
         }
@@ -442,7 +442,7 @@ mod parse_tests {
             let buf = tail.split_at(n).0;
             let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
             assert!(
-                matches!(result, ParseError::BadOffset(_)),
+                matches!(result, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {result:?}"
             );
         }

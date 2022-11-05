@@ -1255,7 +1255,7 @@ mod parse_tests {
             let error = VerDef::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
-                matches!(error, ParseError::BadOffset(_)),
+                matches!(error, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {error}"
             );
         }
@@ -1297,7 +1297,7 @@ mod parse_tests {
             let error = VerDef::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
-                matches!(error, ParseError::BadOffset(_)),
+                matches!(error, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {error}"
             );
         }
@@ -1426,7 +1426,7 @@ mod parse_tests {
             let error = VerNeed::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
-                matches!(error, ParseError::BadOffset(_)),
+                matches!(error, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {error}"
             );
         }
@@ -1466,7 +1466,7 @@ mod parse_tests {
             let error = VerNeed::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
             assert!(
-                matches!(error, ParseError::BadOffset(_)),
+                matches!(error, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {error}"
             );
         }
