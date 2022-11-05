@@ -61,7 +61,7 @@ use crate::symbol::{Symbol, SymbolTable};
 /// println!("There are {} PT_LOAD segments", all_load_phdrs.len());
 /// ```
 pub struct ElfBytes<'data, E: EndianParse> {
-    ehdr: FileHeader,
+    pub ehdr: FileHeader,
     data: &'data [u8],
     endian: E,
     shdrs: Option<SectionHeaderTable<'data, E>>,
