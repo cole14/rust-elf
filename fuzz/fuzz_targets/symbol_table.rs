@@ -1,11 +1,12 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use elf::File;
+use elf::endian::AnyEndian;
+use elf::ElfBytes;
 use elf::symbol::Symbol;
 
 fuzz_target!(|data: &[u8]| {
-    if let Ok(mut file) = File::open_stream(data) {
+    if let Ok(file) = ElfBytes::<AnyEndian>::minimal_parse(data) {
         if let Ok(Some((symtab, strtab))) = file.symbol_table() {
             let _: Vec<(&str, Symbol)> = symtab
                 .iter()
