@@ -1,10 +1,14 @@
 //! Provides an interface for parsing ELF files from `&[u8]`
 //!
+//! This interface is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
+//! subslices of the provided ELF bytes `&[u8]`. The various ELF structures are
+//! parsed on-demand into a native Rust representation.
+//!
 //! Example usage of the bytes-based interface:
 //!
 //! ```
 //! use elf::abi::PT_LOAD;
-//! use elf::elf_bytes::from_bytes;
+//! use elf::elf_bytes::ElfBytes;
 //! use elf::endian::AnyEndian;
 //! use elf::segment::ProgramHeader;
 //! use elf::to_str::p_type_to_string;
@@ -13,7 +17,7 @@
 //! let file_data = std::fs::read(path).unwrap();
 //!
 //! let slice = file_data.as_slice();
-//! let file = from_bytes::<AnyEndian>(slice).unwrap();
+//! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
 //!
 //! // Get a lazy-parsing type for the segment table
 //! if let Some(phdr_table) = file.segments() {
@@ -54,23 +58,6 @@ use crate::symbol::{Symbol, SymbolTable};
 // |_____|_____|_|   |____/ \__, |\__\___||___/
 //                          |___/
 //
-
-/// Parse the ELF [FileHeader] and construct a lazy-parsing [ElfBytes] from the given bytes.
-///
-/// This provides an interface for zero-alloc lazy parsing of ELF structures from a byte slice containing
-/// the complete ELF file contents. The various ELF structures are parsed on-demand into the native Rust
-/// representation.
-///
-/// The only ELF structure that is fully parsed as part of this method is the FileHeader.
-///
-/// A lazy-parsing SectionHeaderTable is constructed, but the entries are not parsed. Constructing this table
-/// simply reads the FileHeader's shoff/shnum fields and creates a subslice to bound the data for the shdrs but
-/// does not actually parse the contents.
-pub fn from_bytes<'data, E: EndianParse>(
-    data: &'data [u8],
-) -> Result<ElfBytes<'data, E>, ParseError> {
-    ElfBytes::minimal_parse(data)
-}
 
 /// Find the location (if any) of the section headers in the given data buffer and take a
 /// subslice of their data and wrap it in a lazy-parsing SectionHeaderTable.
@@ -147,7 +134,8 @@ pub struct CommonElfSections<'data, E: EndianParse> {
 /// This type encapsulates the bytes-oriented interface for parsing ELF objects from `&[u8]`.
 ///
 /// This parser is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
-/// subslices of the provided ELF bytes `&[u8]`.
+/// subslices of the provided ELF bytes `&[u8]`. The various ELF structures are
+/// parsed on-demand into a native Rust representation.
 ///
 /// Example usage:
 /// ```
@@ -648,7 +636,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         // With the bytes interface, we should be able to get multiple lazy-parsing types concurrently,
         // since the trait is implemented for shared references.
@@ -689,7 +677,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let segments: Vec<ProgramHeader> = file
             .segments()
@@ -716,7 +704,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let shdrs = file
             .section_headers()
@@ -732,7 +720,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
@@ -761,7 +749,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/hello.so");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let elf_scns = file.find_common_sections().expect("file should parse");
 
@@ -779,7 +767,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let shdr = file
             .section_headers()
@@ -803,7 +791,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         // Section 0 is SHT_NULL, so all of the section_data_as* should error on it
         let shdr = file
@@ -853,7 +841,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let shdr = file
             .section_headers()
@@ -876,7 +864,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let shdr = file
             .section_headers()
@@ -913,7 +901,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let shdr = file
             .section_headers()
@@ -940,7 +928,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let phdr = file
             .segments()
@@ -978,7 +966,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let mut dynamic = file
             .dynamic()
@@ -1005,7 +993,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let (symtab, strtab) = file
             .symbol_table()
@@ -1036,7 +1024,7 @@ mod interface_tests {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
-        let file = from_bytes::<AnyEndian>(slice).expect("Open test1");
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         let (symtab, strtab) = file
             .dynamic_symbol_table()
