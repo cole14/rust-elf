@@ -5,6 +5,9 @@ use crate::compression::CompressionHeader;
 use crate::dynamic::{DynIterator, DynamicTable};
 use crate::endian::EndianParse;
 use crate::file::FileHeader;
+use crate::gnu_symver::{
+    SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
+};
 use crate::hash::SysVHashTable;
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
@@ -555,6 +558,119 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
             &strtab_shdr,
         )?))
     }
+
+    /// Locate the section data for the various GNU Symbol Versioning sections (if any)
+    /// and return them in a [SymbolVersionTable] that which can interpret them in-place to
+    /// yield [SymbolRequirement](crate::gnu_symver::SymbolRequirement)s
+    /// and [SymbolDefinition](crate::gnu_symver::SymbolDefinition)s
+    ///
+    /// This is a GNU extension and not all objects use symbol versioning.
+    /// Returns an empty Option if the object does not use symbol versioning.
+    pub fn symbol_version_table(&self) -> Result<Option<SymbolVersionTable<'data, E>>, ParseError> {
+        // No sections means no GNU symbol versioning sections, which is ok
+        let shdrs = match self.section_headers() {
+            Some(shdrs) => shdrs,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let mut versym_opt: Option<SectionHeader> = None;
+        let mut needs_opt: Option<SectionHeader> = None;
+        let mut defs_opt: Option<SectionHeader> = None;
+        // Find the GNU Symbol versioning sections (if any)
+        for shdr in shdrs.iter() {
+            if shdr.sh_type == abi::SHT_GNU_VERSYM {
+                versym_opt = Some(shdr);
+            } else if shdr.sh_type == abi::SHT_GNU_VERNEED {
+                needs_opt = Some(shdr);
+            } else if shdr.sh_type == abi::SHT_GNU_VERDEF {
+                defs_opt = Some(shdr);
+            }
+
+            // If we've found all three sections, then we're done
+            if versym_opt.is_some() && needs_opt.is_some() && defs_opt.is_some() {
+                break;
+            }
+        }
+
+        let versym_shdr = match versym_opt {
+            Some(shdr) => shdr,
+            // No VERSYM section means the object doesn't use symbol versioning, which is ok.
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // Load the versym table
+        // Validate VERSYM entsize before trying to read the table so that we can error early for corrupted files
+        VersionIndex::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
+        let (versym_start, versym_end) = versym_shdr.get_data_range()?;
+        let version_ids = VersionIndexTable::new(
+            self.endian,
+            self.ehdr.class,
+            self.data.get_bytes(versym_start..versym_end)?,
+        );
+
+        // Wrap the VERNEED section and strings data in an iterator and string table (if any)
+        let verneeds = match needs_opt {
+            Some(shdr) => {
+                let (start, end) = shdr.get_data_range()?;
+                let needs_buf = self.data.get_bytes(start..end)?;
+
+                let strs_shdr = shdrs.get(shdr.sh_link as usize)?;
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                let strs_buf = self.data.get_bytes(strs_start..strs_end)?;
+
+                Some((
+                    VerNeedIterator::new(
+                        self.endian,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        needs_buf,
+                    ),
+                    StringTable::new(strs_buf),
+                ))
+            }
+            // It's possible to have symbol versioning with no NEEDs if we're an object that only
+            // exports defined symbols.
+            None => None,
+        };
+
+        // Wrap the VERDEF section and strings data in an iterator and string table (if any)
+        let verdefs = match defs_opt {
+            Some(shdr) => {
+                let (start, end) = shdr.get_data_range()?;
+                let defs_buf = self.data.get_bytes(start..end)?;
+
+                let strs_shdr = shdrs.get(shdr.sh_link as usize)?;
+                let (strs_start, strs_end) = strs_shdr.get_data_range()?;
+                let strs_buf = self.data.get_bytes(strs_start..strs_end)?;
+
+                Some((
+                    VerDefIterator::new(
+                        self.endian,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        defs_buf,
+                    ),
+                    StringTable::new(strs_buf),
+                ))
+            }
+            // It's possible to have symbol versioning with no NEEDs if we're an object that only
+            // exports defined symbols.
+            None => None,
+        };
+
+        // whew, we're done here!
+        Ok(Some(SymbolVersionTable::new(
+            version_ids,
+            verneeds,
+            verdefs,
+        )))
+    }
 }
 
 // Simple convenience extension trait to wrap get() with .ok_or(SliceReadError)
@@ -1028,5 +1144,37 @@ mod interface_tests {
                 .expect("Failed to get name from strtab"),
             "memset"
         );
+    }
+
+    #[test]
+    fn symbol_version_table() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+
+        let vst = file
+            .symbol_version_table()
+            .expect("Failed to parse GNU symbol versions")
+            .expect("Failed to find GNU symbol versions");
+
+        let req1 = vst
+            .get_requirement(1)
+            .expect("Failed to parse NEED")
+            .expect("Failed to find NEED");
+        assert_eq!(req1.file, "libc.so.6");
+        assert_eq!(req1.name, "GLIBC_2.2.5");
+        assert_eq!(req1.hash, 0x9691A75);
+
+        let req2 = vst
+            .get_requirement(2)
+            .expect("Failed to parse NEED")
+            .expect("Failed to find NEED");
+        assert_eq!(req2.file, "libc.so.6");
+        assert_eq!(req2.name, "GLIBC_2.2.5");
+        assert_eq!(req2.hash, 0x9691A75);
+
+        let req3 = vst.get_requirement(3).expect("Failed to parse NEED");
+        assert!(req3.is_none());
     }
 }
