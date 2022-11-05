@@ -196,7 +196,7 @@ impl core::fmt::Display for Endian {
     }
 }
 
-/// Represents the ELF file data format (little-endian vs big-endian)
+/// Represents the ELF file word size (32-bit vs 64-bit)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Class {
     ELF32,

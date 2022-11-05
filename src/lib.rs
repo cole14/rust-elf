@@ -76,4 +76,6 @@ mod parse;
 pub use file::File;
 #[cfg(feature = "std")]
 pub use parse::CachedReadBytes;
+pub use parse::Class;
+pub use parse::Endian;
 pub use parse::ParseError;
