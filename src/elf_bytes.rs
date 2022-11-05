@@ -1,40 +1,3 @@
-//! Provides an interface for parsing ELF files from `&[u8]`
-//!
-//! This interface is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
-//! subslices of the provided ELF bytes `&[u8]`. The various ELF structures are
-//! parsed on-demand into a native Rust representation.
-//!
-//! Example usage of the bytes-based interface:
-//!
-//! ```
-//! use elf::abi::PT_LOAD;
-//! use elf::elf_bytes::ElfBytes;
-//! use elf::endian::AnyEndian;
-//! use elf::segment::ProgramHeader;
-//! use elf::to_str::p_type_to_string;
-//!
-//! let path = std::path::PathBuf::from("tests/samples/test1");
-//! let file_data = std::fs::read(path).unwrap();
-//!
-//! let slice = file_data.as_slice();
-//! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
-//!
-//! // Get a lazy-parsing type for the segment table
-//! if let Some(phdr_table) = file.segments() {
-//!     // This table lets us parse specific indexes on-demand without parsing the whole table
-//!     let phdr3 = phdr_table.get(3).unwrap();
-//!     println!("Program Header 3 is of type: {}", p_type_to_string(phdr3.p_type));
-//!
-//!     // It can also yield an iterator on which we can do normal iterator things, like filtering
-//!     // for all the segments of a specific type. Parsing is done on each iter.next() call, so
-//!     // if you end iteration early, it won't parse the rest of the table.
-//!     let load_phdrs: Vec<ProgramHeader> = phdr_table
-//!         .iter()
-//!         .filter(|phdr|{phdr.p_type == PT_LOAD})
-//!         .collect();
-//!     println!("First load segment is at: {}", load_phdrs[0].p_vaddr);
-//! }
-//! ```
 use core::ops::Range;
 
 use crate::abi;
@@ -58,6 +21,52 @@ use crate::symbol::{Symbol, SymbolTable};
 // |_____|_____|_|   |____/ \__, |\__\___||___/
 //                          |___/
 //
+
+/// This type encapsulates the bytes-oriented interface for parsing ELF objects from `&[u8]`.
+///
+/// This parser is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
+/// subslices of the provided ELF bytes `&[u8]`. The various ELF structures are
+/// parsed on-demand into a native Rust representation.
+///
+/// Example usage:
+/// ```
+/// use elf::abi::PT_LOAD;
+/// use elf::endian::AnyEndian;
+/// use elf::ElfBytes;
+/// use elf::segment::ProgramHeader;
+///
+/// let path = std::path::PathBuf::from("tests/samples/hello.so");
+/// let file_data = std::fs::read(path).unwrap();
+///
+/// let slice = file_data.as_slice();
+/// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
+///
+/// // Get all the common ELF sections (if any). We have a lot of ELF work to do!
+/// let common_sections = file.find_common_sections().unwrap();
+/// // ... do some stuff with the symtab, dynsyms etc
+///
+/// // It can also yield iterators on which we can do normal iterator things, like filtering
+/// // for all the segments of a specific type. Parsing is done on each iter.next() call, so
+/// // if you end iteration early, it won't parse the rest of the table.
+/// let first_load_phdr: Option<ProgramHeader> = file.segments().unwrap()
+///     .iter()
+///     .find(|phdr|{phdr.p_type == PT_LOAD});
+/// println!("First load segment is at: {}", first_load_phdr.unwrap().p_vaddr);
+///
+/// // Or if you do things like this to get a vec of only the PT_LOAD segments.
+/// let all_load_phdrs: Vec<ProgramHeader> = file.segments().unwrap()
+///     .iter()
+///     .filter(|phdr|{phdr.p_type == PT_LOAD})
+///     .collect();
+/// println!("There are {} PT_LOAD segments", all_load_phdrs.len());
+/// ```
+pub struct ElfBytes<'data, E: EndianParse> {
+    ehdr: FileHeader,
+    data: &'data [u8],
+    endian: E,
+    shdrs: Option<SectionHeaderTable<'data, E>>,
+    phdrs: Option<SegmentTable<'data, E>>,
+}
 
 /// Find the location (if any) of the section headers in the given data buffer and take a
 /// subslice of their data and wrap it in a lazy-parsing SectionHeaderTable.
@@ -131,35 +140,6 @@ pub struct CommonElfSections<'data, E: EndianParse> {
     pub sysv_hash: Option<SysVHashTable<'data, E>>,
 }
 
-/// This type encapsulates the bytes-oriented interface for parsing ELF objects from `&[u8]`.
-///
-/// This parser is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
-/// subslices of the provided ELF bytes `&[u8]`. The various ELF structures are
-/// parsed on-demand into a native Rust representation.
-///
-/// Example usage:
-/// ```
-/// use elf::endian::AnyEndian;
-/// use elf::elf_bytes::ElfBytes;
-///
-/// let path = std::path::PathBuf::from("tests/samples/hello.so");
-/// let file_data = std::fs::read(path).unwrap();
-///
-/// let slice = file_data.as_slice();
-/// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
-///
-/// // Get all the common ELF sections (if any). We have a lot of ELF work to do!
-/// let common_sections = file.find_common_sections().unwrap();
-/// // ... do some stuff with the symtab, dynsyms etc
-/// ```
-pub struct ElfBytes<'data, E: EndianParse> {
-    ehdr: FileHeader,
-    data: &'data [u8],
-    endian: E,
-    shdrs: Option<SectionHeaderTable<'data, E>>,
-    phdrs: Option<SegmentTable<'data, E>>,
-}
-
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// Do the minimal parsing work to get an [ElfBytes] handle from a byte slice containing an ELF object.
     ///
@@ -215,7 +195,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// Example usage:
     /// ```
     /// use elf::endian::AnyEndian;
-    /// use elf::elf_bytes::ElfBytes;
+    /// use elf::ElfBytes;
     /// use elf::section::SectionHeader;
     ///
     /// let path = std::path::PathBuf::from("tests/samples/hello.so");

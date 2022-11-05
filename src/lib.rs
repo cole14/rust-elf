@@ -74,7 +74,10 @@ pub mod to_str;
 pub mod endian;
 mod parse;
 
-pub mod elf_bytes;
+mod elf_bytes;
+pub use elf_bytes::CommonElfSections;
+pub use elf_bytes::ElfBytes;
+
 #[cfg(feature = "std")]
 pub mod elf_stream;
 
