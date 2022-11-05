@@ -123,20 +123,20 @@ fn find_phdrs<'data, E: EndianParse>(
 /// This struct collects the common sections found in ELF objects
 #[derive(Default)]
 pub struct CommonElfSections<'data, E: EndianParse> {
-    // .symtab section
+    /// .symtab section
     pub symtab: Option<SymbolTable<'data, E>>,
-    // strtab for .symtab
+    /// strtab for .symtab
     pub symtab_strs: Option<StringTable<'data>>,
 
-    // .dynsym section
+    /// .dynsym section
     pub dynsyms: Option<SymbolTable<'data, E>>,
-    // strtab for .dynsym
+    /// strtab for .dynsym
     pub dynsyms_strs: Option<StringTable<'data>>,
 
-    // .dynamic section or PT_DYNAMIC segment (both point to the same table)
+    /// .dynamic section or PT_DYNAMIC segment (both point to the same table)
     pub dynamic: Option<DynamicTable<'data, E>>,
 
-    // .hash section
+    /// .hash section
     pub sysv_hash: Option<SysVHashTable<'data, E>>,
 }
 

@@ -20,6 +20,8 @@ use crate::symbol::{Symbol, SymbolTable};
 
 use crate::file::FileHeader;
 
+/// This type encapsulates the stream-oriented interface for parsing ELF objects from
+/// a `Read + Seek`.
 pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
     pub ehdr: FileHeader,
     reader: CachingReader<S>,
