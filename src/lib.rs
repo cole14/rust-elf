@@ -58,7 +58,7 @@
 pub mod abi;
 pub mod compression;
 pub mod dynamic;
-pub mod file;
+pub mod elf_stream;
 pub mod gnu_symver;
 pub mod hash;
 pub mod note;
@@ -79,6 +79,6 @@ pub use elf_bytes::CommonElfSections;
 pub use elf_bytes::ElfBytes;
 
 #[cfg(feature = "std")]
-pub use file::ElfStream;
+pub use elf_stream::ElfStream;
 
 pub use parse::ParseError;

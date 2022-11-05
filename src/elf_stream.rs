@@ -43,8 +43,8 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
         let tail_start = abi::EI_NIDENT;
         let tail_end = match ident.1 {
-            Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
-            Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
+            Class::ELF32 => tail_start + crate::elf_stream::ELF32_EHDR_TAILSIZE,
+            Class::ELF64 => tail_start + crate::elf_stream::ELF64_EHDR_TAILSIZE,
         };
         cr.load_bytes(tail_start..tail_end)?;
         let tail_buf = cr.get_bytes(tail_start..tail_end);
