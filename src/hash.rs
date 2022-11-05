@@ -88,6 +88,11 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
         symtab: &SymbolTable<'data, E>,
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
+        // empty hash tables don't have any entries. This avoids a divde by zero in the modulus calculation
+        if self.buckets.len() == 0 {
+            return Ok(None);
+        }
+
         let start = (hash as usize) % self.buckets.len();
         let mut index = self.buckets.get(start)? as usize;
 

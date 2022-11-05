@@ -21,8 +21,8 @@ members = ["."]
 debug = 1
 
 [[bin]]
-name = "section_headers"
-path = "fuzz_targets/section_headers.rs"
+name = "common"
+path = "fuzz_targets/common.rs"
 test = false
 doc = false
 
