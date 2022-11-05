@@ -280,6 +280,13 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(Some((shdrs, StringTable::new(strtab_buf))))
     }
 
+    /// Efficiently locate the set of common sections found in ELF files by doing a single iteration
+    /// over the SectionHeaders table.
+    ///
+    /// This is useful for those who know they're going to be accessing multiple common sections, like
+    /// symbol tables, string tables. Many of these can also be accessed by the more targeted
+    /// helpers like [ElfBytes::symbol_table] or [ElfBytes::dynamic], though those each do their own
+    /// internal searches through the shdrs to find the section.
     pub fn find_common_sections(&self) -> Result<CommonElfSections<'data, E>, ParseError> {
         let mut result: CommonElfSections<'data, E> = CommonElfSections::default();
 
@@ -335,6 +342,15 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(result)
     }
 
+    /// Get the section data for a given [SectionHeader], alongside an optional compression context.
+    ///
+    /// This library does not do any decompression for the user, but merely returns the raw compressed
+    /// section data if the section is compressed alongside its ELF compression structure describing the
+    /// compression algorithm used.
+    ///
+    /// Users who wish to work with compressed sections must pick their compression library of choice
+    /// and do the decompression themselves. The only two options supported by the ELF spec for section
+    /// compression are: [abi::ELFCOMPRESS_ZLIB] and [abi::ELFCOMPRESS_ZSTD].
     pub fn section_data(
         &self,
         shdr: &SectionHeader,
@@ -359,6 +375,9 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         }
     }
 
+    /// Get the section data for a given [SectionHeader], and interpret it as a [StringTable]
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_STRTAB]
     pub fn section_data_as_strtab(
         &self,
         shdr: &SectionHeader,
@@ -374,6 +393,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(StringTable::new(buf))
     }
 
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over no-addend relocations [Rel](crate::relocation::Rel)
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_REL]
     pub fn section_data_as_rels(
         &self,
         shdr: &SectionHeader,
@@ -389,6 +412,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
     }
 
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over relocations with addends [Rela](crate::relocation::Rela)
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_RELA]
     pub fn section_data_as_relas(
         &self,
         shdr: &SectionHeader,
@@ -404,6 +431,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
     }
 
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over [Note](crate::note::Note)s
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_NOTE]
     pub fn section_data_as_notes(
         &self,
         shdr: &SectionHeader,
@@ -424,11 +455,18 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         ))
     }
 
+    /// Get the segment's file data for a given segment/[ProgramHeader].
+    ///
+    /// This is the segment's data as found in the file.
     pub fn segment_data(&self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
         let (start, end) = phdr.get_file_data_range()?;
         Ok(self.data.get_bytes(start..end)?)
     }
 
+    /// Get the segment's file data for a given [ProgramHeader], and interpret it as an
+    /// iterator over [Note](crate::note::Note)s
+    ///
+    /// Returns a ParseError if the section is not of type [abi::PT_NOTE]
     pub fn segment_data_as_notes(
         &self,
         phdr: &ProgramHeader,
@@ -449,7 +487,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         ))
     }
 
-    /// Get the .dynamic section or PT_DYNAMIC segment contents.
+    /// Get the .dynamic section or [abi::PT_DYNAMIC] segment contents.
     pub fn dynamic(&self) -> Result<Option<DynIterator<'data, E>>, ParseError> {
         // If we have section headers, look for the SHT_DYNAMIC section
         if let Some(shdrs) = self.section_headers() {
@@ -470,6 +508,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(None)
     }
 
+    /// Get the section data for a given pair of [SectionHeader] for the symbol table and its linked strtab,
+    /// and interpret them as [SymbolTable] and [StringTable].
+    ///
+    /// This mostly a helper method and its probably easier to use [ElfBytes::symbol_table] or
+    /// [ElfBytes::dynamic_symbol_table] or [ElfBytes::find_common_sections]
     pub fn section_data_as_symbol_table(
         &self,
         shdr: &SectionHeader,
@@ -493,6 +536,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok((symtab, strtab))
     }
 
+    /// Get the ELF file's `.symtab` and associated strtab (if any)
     pub fn symbol_table(
         &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
@@ -518,6 +562,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         )?))
     }
 
+    /// Get the ELF file's `.dynsym` and associated strtab (if any)
     pub fn dynamic_symbol_table(
         &self,
     ) -> Result<Option<(SymbolTable<'data, E>, StringTable<'data>)>, ParseError> {
