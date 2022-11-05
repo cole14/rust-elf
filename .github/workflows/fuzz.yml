@@ -27,7 +27,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: run fuzz targets
-      run: cargo fuzz run section_headers -- -max_total_time=60
+      run: cargo fuzz run common -- -max_total_time=60
     - name: run fuzz targets
       run: cargo fuzz run notes -- -max_total_time=60
     - name: run fuzz targets
