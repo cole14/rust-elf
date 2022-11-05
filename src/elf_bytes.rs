@@ -15,7 +15,7 @@
 //! let slice = file_data.as_slice();
 //! let file = from_bytes::<AnyEndian>(slice).unwrap();
 //!
-//! // Get a lazy-parsing type for the segment table into `phdr_table`
+//! // Get a lazy-parsing type for the segment table
 //! if let Some(phdr_table) = file.segments() {
 //!     // This table lets us parse specific indexes on-demand without parsing the whole table
 //!     let phdr3 = phdr_table.get(3).unwrap();
@@ -69,7 +69,7 @@ use crate::symbol::{Symbol, SymbolTable};
 pub fn from_bytes<'data, E: EndianParse>(
     data: &'data [u8],
 ) -> Result<ElfBytes<'data, E>, ParseError> {
-    ElfBytes::parse(data)
+    ElfBytes::minimal_parse(data)
 }
 
 /// Find the location (if any) of the section headers in the given data buffer and take a
@@ -144,6 +144,26 @@ pub struct CommonElfSections<'data, E: EndianParse> {
     pub sysv_hash: Option<SysVHashTable<'data, E>>,
 }
 
+/// This type encapsulates the bytes-oriented interface for parsing ELF objects from `&[u8]`.
+///
+/// This parser is no_std and zero-alloc, returning lazy-parsing interfaces wrapped around
+/// subslices of the provided ELF bytes `&[u8]`.
+///
+/// Example usage:
+/// ```
+/// use elf::endian::AnyEndian;
+/// use elf::elf_bytes::ElfBytes;
+///
+/// let path = std::path::PathBuf::from("tests/samples/hello.so");
+/// let file_data = std::fs::read(path).unwrap();
+///
+/// let slice = file_data.as_slice();
+/// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
+///
+/// // Get all the common ELF sections (if any). We have a lot of ELF work to do!
+/// let common_sections = file.find_common_sections().unwrap();
+/// // ... do some stuff with the symtab, dynsyms etc
+/// ```
 pub struct ElfBytes<'data, E: EndianParse> {
     ehdr: FileHeader,
     data: &'data [u8],
@@ -153,7 +173,13 @@ pub struct ElfBytes<'data, E: EndianParse> {
 }
 
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
-    pub fn parse(data: &'data [u8]) -> Result<Self, ParseError> {
+    /// Do the minimal parsing work to get an [ElfBytes] handle from a byte slice containing an ELF object.
+    ///
+    /// This parses the ELF [FileHeader], and locates (but does not parse) the
+    /// Section Header Table and Segment Table.
+    ///
+    // N.B. I thought about calling this "sparse_parse", but it felt too silly for a serious lib like this
+    pub fn minimal_parse(data: &'data [u8]) -> Result<Self, ParseError> {
         let ident_buf = data.get_bytes(0..abi::EI_NIDENT)?;
         let ident = FileHeader::parse_ident(ident_buf)?;
 
@@ -178,22 +204,55 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         })
     }
 
-    /// Get this Elf object's zero-alloc lazy-parsing SegmentTable (if any).
+    /// Get this Elf object's zero-alloc lazy-parsing [SegmentTable] (if any).
     ///
-    /// This table parses ProgramHeaders on demand and does not make any internal heap allocations
+    /// This table parses [ProgramHeader]s on demand and does not make any internal heap allocations
     /// when parsing.
     pub fn segments(&self) -> Option<SegmentTable<'data, E>> {
         self.phdrs
     }
 
-    /// Get this Elf object's zero-alloc lazy-parsing SectionHeaderTable (if any).
+    /// Get this Elf object's zero-alloc lazy-parsing [SectionHeaderTable] (if any).
     ///
-    /// This table parses SectionHeaders on demand and does not make any internal heap allocations
+    /// This table parses [SectionHeader]s on demand and does not make any internal heap allocations
     /// when parsing.
     pub fn section_headers(&self) -> Option<SectionHeaderTable<'data, E>> {
         self.shdrs
     }
 
+    /// Get this ELF object's [SectionHeaderTable] alongside its corresponding [StringTable].
+    ///
+    /// This is useful if you want to know the string name of sections.
+    ///
+    /// Example usage:
+    /// ```
+    /// use elf::endian::AnyEndian;
+    /// use elf::elf_bytes::ElfBytes;
+    /// use elf::section::SectionHeader;
+    ///
+    /// let path = std::path::PathBuf::from("tests/samples/hello.so");
+    /// let file_data = std::fs::read(path).unwrap();
+    ///
+    /// let slice = file_data.as_slice();
+    /// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
+    ///
+    /// // Get the section header table alongside its string table
+    /// let (shdrs, strtab) = file
+    ///     .section_headers_with_strtab()
+    ///     .expect("shdrs offsets should be valid")
+    ///     .expect("File should have shdrs");
+    ///
+    /// // Parse the shdrs and collect them alongside their names
+    /// let with_names: Vec<(&str, SectionHeader)> = shdrs
+    ///     .iter()
+    ///     .map(|shdr| {
+    ///         (
+    ///             strtab.get(shdr.sh_name as usize).expect("Failed to get section name"),
+    ///             shdr,
+    ///         )
+    ///     })
+    ///     .collect();
+    /// ```
     pub fn section_headers_with_strtab(
         &self,
     ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
