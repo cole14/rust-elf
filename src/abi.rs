@@ -988,3 +988,9 @@ pub const NT_GNU_BUILD_ID: u64 = 3;
 pub const NT_GNU_GOLD_VERSION: u64 = 4;
 /// Program property note which describes special handling requirements for linker and run-time loader.
 pub const NT_GNU_PROPERTY_TYPE_0: u64 = 5;
+
+// These values can appear in word 0 of an NT_GNU_ABI_TAG note section entry.
+pub const ELF_NOTE_GNU_ABI_TAG_OS_LINUX: u32 = 0;
+pub const ELF_NOTE_GNU_ABI_TAG_OS_GNU: u32 = 1;
+pub const ELF_NOTE_GNU_ABI_TAG_OS_SOLARIS2: u32 = 2;
+pub const ELF_NOTE_GNU_ABI_TAG_OS_FREEBSD: u32 = 3;

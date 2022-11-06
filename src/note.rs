@@ -41,17 +41,17 @@ impl<'data> NoteDesc<'data> {
 
 /// A [abi::NT_GNU_ABI_TAG]'s desc data contains:
 /// Four 4-byte integers in the format of the target processor.
-/// The first 4-byte integer should 0. The second, third, and fourth
+/// The first 4-byte integer specifies the os. The second, third, and fourth
 /// 4-byte integers contain the earliest compatible kernel version.
 /// For example, if the 3 integers are 6, 0, and 7, this signifies a 6.0.7 kernel.
 ///
 /// (see: <https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf>)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GnuAbiTagDesc {
-    // <- we omit the first zeroed integer from the parsed type
+    os: u32,
     major: u32,
     minor: u32,
-    patch: u32,
+    subminor: u32,
 }
 
 impl ParseAt for GnuAbiTagDesc {
@@ -61,15 +61,11 @@ impl ParseAt for GnuAbiTagDesc {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        let zero = endian.parse_u32_at(offset, data)?;
-        if zero != 0 {
-            return Err(ParseError::UnsupportedVersion((zero as u64, 0)));
-        }
-
         Ok(GnuAbiTagDesc {
+            os: endian.parse_u32_at(offset, data)?,
             major: endian.parse_u32_at(offset, data)?,
             minor: endian.parse_u32_at(offset, data)?,
-            patch: endian.parse_u32_at(offset, data)?,
+            subminor: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -255,9 +251,10 @@ mod parse_tests {
                 assert_eq!(
                     abi,
                     GnuAbiTagDesc {
+                        os: abi::ELF_NOTE_GNU_ABI_TAG_OS_LINUX,
                         major: 2,
                         minor: 6,
-                        patch: 32
+                        subminor: 32
                     }
                 );
             }
