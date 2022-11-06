@@ -1,7 +1,79 @@
 //! Parsing ELF notes: `.note.*`, [SHT_NOTE](crate::abi::SHT_NOTE), [PT_NOTE](crate::abi::PT_NOTE)
+use crate::abi;
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError};
+use core::mem::size_of;
 use core::str::from_utf8;
+
+/// This enum contains the Note variants of which know how to parse the desc field
+pub enum NoteDesc<'data> {
+    /// (name: [abi::ELF_NOTE_GNU], n_type: [abi::NT_GNU_ABI_TAG])
+    GnuAbiTag(GnuAbiTagDesc),
+    /// All other notes that we don't know how to parse
+    Unknown(&'data [u8]),
+}
+
+impl<'data> NoteDesc<'data> {
+    /// Parses the Note.desc field into a known structure based on the type/name
+    pub fn parse_from<E: EndianParse>(
+        endian: E,
+        _class: Class,
+        note: Note<'data>,
+    ) -> Result<Self, ParseError> {
+        let mut offset = 0;
+        match note.name {
+            abi::ELF_NOTE_GNU => match note.n_type {
+                abi::NT_GNU_ABI_TAG => Ok(NoteDesc::GnuAbiTag(GnuAbiTagDesc::parse_at(
+                    endian,
+                    _class,
+                    &mut offset,
+                    note.desc,
+                )?)),
+                _ => Ok(NoteDesc::Unknown(note.desc)),
+            },
+            _ => Ok(NoteDesc::Unknown(note.desc)),
+        }
+    }
+}
+
+/// A [abi::NT_GNU_ABI_TAG]'s desc data contains:
+/// Four 4-byte integers in the format of the target processor.
+/// The first 4-byte integer should 0. The second, third, and fourth
+/// 4-byte integers contain the earliest compatible kernel version.
+/// For example, if the 3 integers are 6, 0, and 7, this signifies a 6.0.7 kernel.
+///
+/// (see: <https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf>)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GnuAbiTagDesc {
+    // <- we omit the first zeroed integer from the parsed type
+    major: u32,
+    minor: u32,
+    patch: u32,
+}
+
+impl ParseAt for GnuAbiTagDesc {
+    fn parse_at<E: EndianParse>(
+        endian: E,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        let zero = endian.parse_u32_at(offset, data)?;
+        if zero != 0 {
+            return Err(ParseError::UnsupportedVersion((zero as u64, 0)));
+        }
+
+        Ok(GnuAbiTagDesc {
+            major: endian.parse_u32_at(offset, data)?,
+            minor: endian.parse_u32_at(offset, data)?,
+            patch: endian.parse_u32_at(offset, data)?,
+        })
+    }
+
+    fn size_for(_class: Class) -> usize {
+        size_of::<u32>() * 4
+    }
+}
 
 #[derive(Debug)]
 pub struct NoteIterator<'data, E: EndianParse> {
@@ -152,6 +224,37 @@ mod parse_tests {
     use super::*;
     use crate::abi;
     use crate::endian::{BigEndian, LittleEndian};
+
+    #[test]
+    fn parse_desc_gnu_abi_tag() {
+        #[rustfmt::skip]
+        let data = [
+            0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+            0x06, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+        ];
+
+        let mut offset = 0;
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
+            .expect("Failed to parse");
+
+        match NoteDesc::parse_from(LittleEndian, Class::ELF32, note).expect("should parse") {
+            NoteDesc::GnuAbiTag(abi) => {
+                assert_eq!(
+                    abi,
+                    GnuAbiTagDesc {
+                        major: 2,
+                        minor: 6,
+                        patch: 32
+                    }
+                );
+            }
+            NoteDesc::Unknown(desc) => {
+                panic!("Failed to match ABI note: {:?}", desc);
+            }
+        }
+    }
 
     #[test]
     fn parse_note_errors_with_zero_alignment() {
