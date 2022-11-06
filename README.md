@@ -92,27 +92,50 @@ crate strives to serve as an alternate implementation with zero unsafe blocks.
 ### Tiny library with no dependencies and fast compilation times
 ✨ Release-target compilation times on this developer's 2021 m1 macbook are sub-second. ✨
 
-## Example:
+## Example using `ElfBytes`:
+
 ```rust
-extern crate elf;
+use elf::ElfBytes;
+use elf::endian::AnyEndian;
+use elf::hash::sysv_hash;
+use elf::note::Note;
+use elf::note::NoteGnuBuildId;
+use elf::section::SectionHeader;
 
-fn main() {
-    let path = std::path::PathBuf::from("some_file");
+let path = std::path::PathBuf::from("tests/samples/hello.so");
+let file_data = std::fs::read(path).expect("Could not read file.");
+let slice = file_data.as_slice();
+let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
-    let file_data = std::fs::read(path).expect("Could not read file.").as_slice();
+// Get the ELF file's build-id
+let abi_shdr: SectionHeader = file
+    .section_header_by_name(".note.gnu.build-id")
+    .expect("section table should be parseable")
+    .expect("file should have a .note.ABI-tag section");
 
-    let mut file = File::open_stream(file_data).expect("Could not parse ELF Header");
+let notes: Vec<Note> = file
+    .section_data_as_notes(&abi_shdr)
+    .expect("Should be able to get note section data")
+    .collect();
+assert_eq!(
+    notes[0],
+    Note::GnuBuildId(NoteGnuBuildId(
+        &[140, 51, 19, 23, 221, 90, 215, 131, 169, 13,
+          210, 183, 215, 77, 216, 175, 167, 110, 3, 209]))
+);
 
-    let (symtab, strtab) = file
-        .symbol_table()
-        .expect("Failed to read symbol table")
-        .expect("File contained no symbol table");
-    let symbol = symtab.get(30).expect("Failed to get symbol");
-    let symbol_name = strtab
-        .get(symbol.st_name as usize)
-        .expect("Failed to get name from strtab");
+// Find lazy-parsing types for the common ELF sections (we want .dynsym, .dynstr, .hash)
+let common = file.find_common_sections().expect("shdrs should parse");
+let (dynsyms, strtab) = (common.dynsyms.unwrap(), common.dynsyms_strs.unwrap());
+let hash_table = common.sysv_hash.unwrap();
 
-    println!("{symbol_name}: {symbol}");
-}
+// Use the hash table to find a given symbol in it.
+let name = b"memset";
+let (sym_idx, sym) = hash_table.find(name, sysv_hash(name), &dynsyms, &strtab)
+    .expect("hash table and symbols should parse").unwrap();
 
+// Verify that we got the same symbol from the hash table we expected
+assert_eq!(sym_idx, 2);
+assert_eq!(strtab.get(sym.st_name as usize).unwrap(), "memset");
+assert_eq!(sym, dynsyms.get(sym_idx).unwrap());
 ```
