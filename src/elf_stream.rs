@@ -555,7 +555,7 @@ struct CachingReader<R: Read + Seek> {
 }
 
 impl<R: Read + Seek> CachingReader<R> {
-    pub fn new(mut reader: R) -> Result<Self, ParseError> {
+    fn new(mut reader: R) -> Result<Self, ParseError> {
         // Cache the size of the stream so that we can err (rather than OOM) on invalid
         // huge read requests.
         let stream_len = reader.seek(SeekFrom::End(0))?;
@@ -566,12 +566,12 @@ impl<R: Read + Seek> CachingReader<R> {
         })
     }
 
-    pub fn read_bytes(&mut self, start: usize, end: usize) -> Result<&[u8], ParseError> {
+    fn read_bytes(&mut self, start: usize, end: usize) -> Result<&[u8], ParseError> {
         self.load_bytes(start..end)?;
         Ok(self.get_bytes(start..end))
     }
 
-    pub fn get_bytes(&self, range: Range<usize>) -> &[u8] {
+    fn get_bytes(&self, range: Range<usize>) -> &[u8] {
         // It's a programmer error to call get_bytes without first calling load_bytes, so
         // we want to panic here.
         self.bufs
@@ -579,7 +579,7 @@ impl<R: Read + Seek> CachingReader<R> {
             .expect("load_bytes must be called before get_bytes for every range")
     }
 
-    pub fn load_bytes(&mut self, range: Range<usize>) -> Result<(), ParseError> {
+    fn load_bytes(&mut self, range: Range<usize>) -> Result<(), ParseError> {
         if self.bufs.contains_key(&(range.start, range.end)) {
             return Ok(());
         }
@@ -597,7 +597,7 @@ impl<R: Read + Seek> CachingReader<R> {
         Ok(())
     }
 
-    pub fn clear_cache(&mut self) {
+    fn clear_cache(&mut self) {
         self.bufs.clear()
     }
 }
