@@ -1,4 +1,37 @@
 //! Parsing ELF notes: `.note.*`, [SHT_NOTE](crate::abi::SHT_NOTE), [PT_NOTE](crate::abi::PT_NOTE)
+//!
+//! Example for getting the GNU ABI-tag note:
+//! ```
+//! use elf::ElfBytes;
+//! use elf::endian::AnyEndian;
+//! use elf::note::Note;
+//! use elf::note::NoteGnuAbiTag;
+//!
+//! let path = std::path::PathBuf::from("tests/samples/test1");
+//! let file_data = std::fs::read(path).expect("Could not read file.");
+//! let slice = file_data.as_slice();
+//! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+//!
+//! let shdr = file
+//!     .section_headers()
+//!     .expect("File should have section table")
+//!     .get(2)
+//!     .expect("We expect the note shdr at index 2");
+//!
+//! let notes: Vec<_> = file
+//!     .section_data_as_notes(&shdr)
+//!     .expect("Should be able to get note section data")
+//!     .collect();
+//! assert_eq!(
+//!     notes[0],
+//!     Note::GnuAbiTag(NoteGnuAbiTag {
+//!         os: 0,
+//!         major: 2,
+//!         minor: 6,
+//!         subminor: 32
+//!     })
+//! );
+//! ```
 use crate::abi;
 use crate::endian::EndianParse;
 use crate::parse::{Class, ParseAt, ParseError};
