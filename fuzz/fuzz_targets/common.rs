@@ -1,8 +1,8 @@
 #![no_main]
 
 use elf::endian::AnyEndian;
-use elf::ElfBytes;
 use elf::hash::sysv_hash;
+use elf::ElfBytes;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

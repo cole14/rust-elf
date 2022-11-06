@@ -75,7 +75,7 @@ fn parse_section_headers<E: EndianParse, S: Read + Seek>(
 
 impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn open_stream(reader: S) -> Result<ElfStream<E, S>, ParseError> {
-        let mut cr = CachingReader::new(reader);
+        let mut cr = CachingReader::new(reader)?;
         let ident_buf = cr.read_bytes(0, abi::EI_NIDENT)?;
         let ident = FileHeader::parse_ident(ident_buf)?;
 
@@ -550,15 +550,20 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
 struct CachingReader<R: Read + Seek> {
     reader: R,
+    stream_len: u64,
     bufs: HashMap<(usize, usize), Box<[u8]>>,
 }
 
 impl<R: Read + Seek> CachingReader<R> {
-    pub fn new(reader: R) -> Self {
-        CachingReader {
+    pub fn new(mut reader: R) -> Result<Self, ParseError> {
+        // Cache the size of the stream so that we can err (rather than OOM) on invalid
+        // huge read requests.
+        let stream_len = reader.seek(SeekFrom::End(0))?;
+        Ok(CachingReader {
             reader,
+            stream_len,
             bufs: HashMap::<(usize, usize), Box<[u8]>>::default(),
-        }
+        })
     }
 
     pub fn read_bytes(&mut self, start: usize, end: usize) -> Result<&[u8], ParseError> {
@@ -579,7 +584,12 @@ impl<R: Read + Seek> CachingReader<R> {
             return Ok(());
         }
 
-        // Seek before allocating so we error early on bad read requests.
+        // Verify that the read range doesn't go past the end of the stream (corrupted files)
+        let end = range.end as u64;
+        if end > self.stream_len {
+            return Err(ParseError::BadOffset(end));
+        }
+
         self.reader.seek(SeekFrom::Start(range.start as u64))?;
         let mut bytes = vec![0; range.len()].into_boxed_slice();
         self.reader.read_exact(&mut bytes)?;

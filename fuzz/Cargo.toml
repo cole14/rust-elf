@@ -43,3 +43,9 @@ name = "symver"
 path = "fuzz_targets/symver.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "stream"
+path = "fuzz_targets/stream.rs"
+test = false
+doc = false
