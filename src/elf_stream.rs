@@ -608,7 +608,7 @@ mod interface_tests {
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
     use crate::hash::SysVHashTable;
-    use crate::note::Note;
+    use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
     use crate::relocation::Rela;
     use crate::symbol::Symbol;
 
@@ -852,11 +852,12 @@ mod interface_tests {
             .expect("Failed to read relas section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            Note {
-                n_type: 1,
-                name: "GNU",
-                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
-            }
+            Note::GnuAbiTag(NoteGnuAbiTag {
+                os: 0,
+                major: 2,
+                minor: 6,
+                subminor: 32
+            })
         );
         assert!(notes.next().is_none());
     }
@@ -878,22 +879,19 @@ mod interface_tests {
             .expect("Failed to read relas section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            Note {
-                n_type: 1,
-                name: "GNU",
-                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
-            }
+            Note::GnuAbiTag(NoteGnuAbiTag {
+                os: 0,
+                major: 2,
+                minor: 6,
+                subminor: 32
+            })
         );
         assert_eq!(
             notes.next().expect("Failed to get second note"),
-            Note {
-                n_type: 3,
-                name: "GNU",
-                desc: &[
-                    119, 65, 159, 13, 165, 16, 131, 12, 87, 167, 200, 204, 176, 238, 133, 95, 238,
-                    211, 118, 163
-                ]
-            }
+            Note::GnuBuildId(NoteGnuBuildId(&[
+                119, 65, 159, 13, 165, 16, 131, 12, 87, 167, 200, 204, 176, 238, 133, 95, 238, 211,
+                118, 163
+            ]))
         );
         assert!(notes.next().is_none());
     }

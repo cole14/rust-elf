@@ -738,7 +738,7 @@ mod interface_tests {
     use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
-    use crate::note::Note;
+    use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
     use crate::relocation::Rela;
     use crate::segment::ProgramHeader;
 
@@ -1025,11 +1025,12 @@ mod interface_tests {
             .expect("Failed to read note section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            Note {
-                n_type: 1,
-                name: "GNU",
-                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
-            }
+            Note::GnuAbiTag(NoteGnuAbiTag {
+                os: 0,
+                major: 2,
+                minor: 6,
+                subminor: 32
+            })
         );
         assert!(notes.next().is_none());
     }
@@ -1052,22 +1053,19 @@ mod interface_tests {
             .expect("Failed to read notes segment");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
-            Note {
-                n_type: 1,
-                name: "GNU",
-                desc: &[0, 0, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 32, 0, 0, 0]
-            }
+            Note::GnuAbiTag(NoteGnuAbiTag {
+                os: 0,
+                major: 2,
+                minor: 6,
+                subminor: 32
+            })
         );
         assert_eq!(
             notes.next().expect("Failed to get second note"),
-            Note {
-                n_type: 3,
-                name: "GNU",
-                desc: &[
-                    0x77, 0x41, 0x9F, 0x0D, 0xA5, 0x10, 0x83, 0x0C, 0x57, 0xA7, 0xC8, 0xCC, 0xB0,
-                    0xEE, 0x85, 0x5F, 0xEE, 0xD3, 0x76, 0xA3
-                ],
-            }
+            Note::GnuBuildId(NoteGnuBuildId(&[
+                119, 65, 159, 13, 165, 16, 131, 12, 87, 167, 200, 204, 176, 238, 133, 95, 238, 211,
+                118, 163
+            ]))
         );
         assert!(notes.next().is_none());
     }
