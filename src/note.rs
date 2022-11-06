@@ -9,6 +9,8 @@ use core::str::from_utf8;
 pub enum NoteDesc<'data> {
     /// (name: [abi::ELF_NOTE_GNU], n_type: [abi::NT_GNU_ABI_TAG])
     GnuAbiTag(GnuAbiTagDesc),
+    /// (name: [abi::ELF_NOTE_GNU], n_type: [abi::NT_GNU_BUILD_ID])
+    GnuBuildId(GnuBuildIdDesc<'data>),
     /// All other notes that we don't know how to parse
     Unknown(&'data [u8]),
 }
@@ -29,6 +31,7 @@ impl<'data> NoteDesc<'data> {
                     &mut offset,
                     note.desc,
                 )?)),
+                abi::NT_GNU_BUILD_ID => Ok(NoteDesc::GnuBuildId(GnuBuildIdDesc(note.desc))),
                 _ => Ok(NoteDesc::Unknown(note.desc)),
             },
             _ => Ok(NoteDesc::Unknown(note.desc)),
@@ -74,6 +77,14 @@ impl ParseAt for GnuAbiTagDesc {
         size_of::<u32>() * 4
     }
 }
+
+/// A [abi::NT_GNU_BUILD_ID]'s desc data contains:
+/// a build ID note which is unique among the set of meaningful contents
+/// for ELF files and identical when the output file would otherwise have been identical.
+///
+/// (see: <https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf>)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GnuBuildIdDesc<'data>(&'data [u8]);
 
 #[derive(Debug)]
 pub struct NoteIterator<'data, E: EndianParse> {
@@ -250,8 +261,36 @@ mod parse_tests {
                     }
                 );
             }
-            NoteDesc::Unknown(desc) => {
-                panic!("Failed to match ABI note: {:?}", desc);
+            _ => {
+                panic!("Failed to match ABI note desc");
+            }
+        }
+    }
+
+    #[test]
+    fn parse_desc_gnu_build_id() {
+        let data = [
+            0x04, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x47, 0x4e,
+            0x55, 0x00, 0x77, 0x41, 0x9f, 0x0d, 0xa5, 0x10, 0x83, 0x0c, 0x57, 0xa7, 0xc8, 0xcc,
+            0xb0, 0xee, 0x85, 0x5f, 0xee, 0xd3, 0x76, 0xa3,
+        ];
+
+        let mut offset = 0;
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
+            .expect("Failed to parse");
+
+        match NoteDesc::parse_from(LittleEndian, Class::ELF32, note).expect("should parse") {
+            NoteDesc::GnuBuildId(build_id) => {
+                assert_eq!(
+                    build_id,
+                    GnuBuildIdDesc(&[
+                        0x77, 0x41, 0x9f, 0x0d, 0xa5, 0x10, 0x83, 0x0c, 0x57, 0xa7, 0xc8, 0xcc,
+                        0xb0, 0xee, 0x85, 0x5f, 0xee, 0xd3, 0x76, 0xa3,
+                    ])
+                );
+            }
+            _ => {
+                panic!("Failed to match ABI note desc");
             }
         }
     }
