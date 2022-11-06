@@ -251,6 +251,58 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(Some((shdrs, StringTable::new(strtab_buf))))
     }
 
+    /// Parse section headers until one is found with the given name
+    ///
+    /// Example to get the ELF file's ABI-tag note
+    /// ```
+    /// use elf::ElfBytes;
+    /// use elf::endian::AnyEndian;
+    /// use elf::section::SectionHeader;
+    /// use elf::note::Note;
+    /// use elf::note::NoteGnuAbiTag;
+    ///
+    /// let path = std::path::PathBuf::from("tests/samples/test1");
+    /// let file_data = std::fs::read(path).unwrap();
+    /// let slice = file_data.as_slice();
+    /// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
+    ///
+    /// let shdr: SectionHeader = file
+    ///     .section_header_by_name(".note.ABI-tag")
+    ///     .expect("section table should be parseable")
+    ///     .expect("file should have a .note.ABI-tag section");
+    ///
+    /// let notes: Vec<_> = file
+    ///     .section_data_as_notes(&shdr)
+    ///     .expect("Should be able to get note section data")
+    ///     .collect();
+    /// assert_eq!(
+    ///     notes[0],
+    ///     Note::GnuAbiTag(NoteGnuAbiTag {
+    ///         os: 0,
+    ///         major: 2,
+    ///         minor: 6,
+    ///         subminor: 32
+    ///     }));
+    /// ```
+    pub fn section_header_by_name(&self, name: &str) -> Result<Option<SectionHeader>, ParseError> {
+        let (shdrs, strtab) = match self.section_headers_with_strtab()? {
+            Some((shdrs, strtab)) => (shdrs, strtab),
+            None => {
+                return Ok(None);
+            }
+        };
+
+        Ok(shdrs.iter().find(|shdr| {
+            let sh_name = match strtab.get(shdr.sh_name as usize) {
+                Ok(name) => name,
+                _ => {
+                    return false;
+                }
+            };
+            name == sh_name
+        }))
+    }
+
     /// Efficiently locate the set of common sections found in ELF files by doing a single iteration
     /// over the SectionHeaders table.
     ///
@@ -853,6 +905,27 @@ mod interface_tests {
         let (name, shdr) = with_names[4];
         assert_eq!(name, ".gnu.hash");
         assert_eq!(shdr.sh_type, abi::SHT_GNU_HASH);
+    }
+
+    #[test]
+    fn section_header_by_name() {
+        let path = std::path::PathBuf::from("tests/samples/test1");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+
+        let shdr = file
+            .section_header_by_name(".gnu.hash")
+            .expect("section table should be parseable")
+            .expect("file should have .gnu.hash section");
+
+        assert_eq!(shdr.sh_type, SHT_GNU_HASH);
+
+        let shdr = file
+            .section_header_by_name(".not.found")
+            .expect("section table should be parseable");
+
+        assert_eq!(shdr, None);
     }
 
     #[test]

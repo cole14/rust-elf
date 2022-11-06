@@ -13,10 +13,9 @@
 //! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 //!
 //! let shdr = file
-//!     .section_headers()
-//!     .expect("File should have section table")
-//!     .get(2)
-//!     .expect("We expect the note shdr at index 2");
+//!     .section_header_by_name(".note.ABI-tag")
+//!     .expect("section table should be parseable")
+//!     .expect("file should have a .note.ABI-tag section");
 //!
 //! let notes: Vec<_> = file
 //!     .section_data_as_notes(&shdr)
