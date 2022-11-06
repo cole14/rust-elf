@@ -26,13 +26,57 @@ pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
     pub ehdr: FileHeader,
     reader: CachingReader<S>,
     endian: E,
+    shdrs: Vec<SectionHeader>,
+}
+
+/// Read the stream bytes backing the section headers table and parse them all into their Rust native type.
+///
+/// Returns a [ParseError] if the data bytes for the section table cannot be read.
+/// i.e. if the ELF [FileHeader]'s e_shnum, e_shoff, e_shentsize are invalid and point
+/// to a range in the file data that does not actually exist, or if any of the headers failed to parse.
+fn parse_section_headers<E: EndianParse, S: Read + Seek>(
+    endian: E,
+    ehdr: &FileHeader,
+    reader: &mut CachingReader<S>,
+) -> Result<Vec<SectionHeader>, ParseError> {
+    // It's Ok to have no section headers
+    if ehdr.e_shoff == 0 {
+        return Ok(Vec::default());
+    }
+
+    // Validate shentsize before trying to read the table so that we can error early for corrupted files
+    let entsize = SectionHeader::validate_entsize(ehdr.class, ehdr.e_shentsize as usize)?;
+
+    // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
+    // e_shnum is zero and the actual number of section header table entries
+    // is contained in the sh_size field of the section header at index 0.
+    let shoff: usize = ehdr.e_shoff.try_into()?;
+    let mut shnum = ehdr.e_shnum as usize;
+    if shnum == 0 {
+        let end = shoff
+            .checked_add(entsize)
+            .ok_or(ParseError::IntegerOverflow)?;
+        let mut offset = 0;
+        let data = reader.read_bytes(shoff, end)?;
+        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        shnum = shdr0.sh_size.try_into()?;
+    }
+
+    let size = entsize
+        .checked_mul(shnum)
+        .ok_or(ParseError::IntegerOverflow)?;
+    let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+    let buf = reader.read_bytes(shoff, end)?;
+    let shdr_vec = SectionHeaderTable::new(endian, ehdr.class, buf)
+        .iter()
+        .collect();
+    Ok(shdr_vec)
 }
 
 impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn open_stream(reader: S) -> Result<ElfStream<E, S>, ParseError> {
         let mut cr = CachingReader::new(reader);
-        cr.load_bytes(0..abi::EI_NIDENT)?;
-        let ident_buf = cr.get_bytes(0..abi::EI_NIDENT);
+        let ident_buf = cr.read_bytes(0, abi::EI_NIDENT)?;
         let ident = FileHeader::parse_ident(ident_buf)?;
 
         let tail_start = abi::EI_NIDENT;
@@ -40,15 +84,22 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             Class::ELF32 => tail_start + crate::file::ELF32_EHDR_TAILSIZE,
             Class::ELF64 => tail_start + crate::file::ELF64_EHDR_TAILSIZE,
         };
-        cr.load_bytes(tail_start..tail_end)?;
-        let tail_buf = cr.get_bytes(tail_start..tail_end);
+        let tail_buf = cr.read_bytes(tail_start, tail_end)?;
 
         let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
         let endian = E::from_ei_data(ehdr.ei_data)?;
+
+        let shdrs = parse_section_headers(endian, &ehdr, &mut cr)?;
+
+        // We parsed out the ehdr and shdrs into their own allocated containers, so there's no need to keep
+        // around their backing data anymore.
+        cr.clear_cache();
+
         Ok(ElfStream {
             reader: cr,
             ehdr,
             endian,
+            shdrs,
         })
     }
 
@@ -75,89 +126,9 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         }
     }
 
-    fn shnum(&mut self) -> Result<u64, ParseError> {
-        // If the number of sections is greater than or equal to SHN_LORESERVE (0xff00),
-        // e_shnum is zero and the actual number of section header table entries
-        // is contained in the sh_size field of the section header at index 0.
-        let mut shnum = self.ehdr.e_shnum as u64;
-        if self.ehdr.e_shoff > 0 && self.ehdr.e_shnum == 0 {
-            let shdr_0 = self.section_header_by_index(0)?;
-            shnum = shdr_0.sh_size;
-        }
-        Ok(shnum)
-    }
-
-    fn shstrndx(&mut self) -> Result<u32, ParseError> {
-        // If the section name string table section index is greater than or
-        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
-        // (0xffff) and the actual index of the section name string table section
-        // is contained in the sh_link field of the section header at index 0.
-        let mut shstrndx = self.ehdr.e_shstrndx as u32;
-        if self.ehdr.e_shstrndx == abi::SHN_XINDEX {
-            let shdr_0 = self.section_header_by_index(0)?;
-            shstrndx = shdr_0.sh_link;
-        }
-        Ok(shstrndx)
-    }
-
-    /// Helper method for reading a particular section header without the need to know the whole
-    /// section table size. Useful for reading header[0] to get shnum or shstrndx.
-    fn section_header_by_index(&mut self, index: usize) -> Result<SectionHeader, ParseError> {
-        if self.ehdr.e_shnum > 0 && index >= self.ehdr.e_shnum as usize {
-            return Err(ParseError::BadOffset(index as u64));
-        }
-
-        // Validate shentsize before trying to read so that we can error early for corrupted files
-        let entsize =
-            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
-
-        let shoff: usize = self.ehdr.e_shoff.try_into()?;
-        let entry_off = index
-            .checked_mul(entsize)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let start = shoff
-            .checked_add(entry_off)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = start
-            .checked_add(entsize)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.reader.read_bytes(start, end)?;
-        let mut offset = 0;
-        SectionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)
-    }
-
-    /// Get an lazy-parsing table for the Section Headers in the file.
-    ///
-    /// The underlying ELF bytes backing the section headers table are read all at once
-    /// when the table is requested, but parsing is deferred to be lazily
-    /// parsed on demand on each table.get() call or table.iter().next() call.
-    ///
-    /// Returns a [ParseError] if the data bytes for the section table cannot be
-    /// read i.e. if the ELF [FileHeader]'s
-    /// [e_shnum](FileHeader#structfield.e_shnum),
-    /// [e_shoff](FileHeader#structfield.e_shoff),
-    /// [e_shentsize](FileHeader#structfield.e_shentsize) are invalid and point
-    /// to a range in the file data that does not actually exist.
-    pub fn section_headers(&mut self) -> Result<SectionHeaderTable<E>, ParseError> {
-        // It's Ok to have no section headers
-        if self.ehdr.e_shoff == 0 {
-            return Ok(SectionHeaderTable::new(self.endian, self.ehdr.class, &[]));
-        }
-
-        // Get the number of section headers (could be in ehdr or shdrs[0])
-        let shnum: usize = self.shnum()?.try_into()?;
-
-        // Validate shentsize before trying to read the table so that we can error early for corrupted files
-        let entsize =
-            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
-
-        let start: usize = self.ehdr.e_shoff.try_into()?;
-        let size = entsize
-            .checked_mul(shnum)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        let buf = self.reader.read_bytes(start, end)?;
-        Ok(SectionHeaderTable::new(self.endian, self.ehdr.class, buf))
+    /// Get the parsed section headers table
+    pub fn section_headers(&self) -> &Vec<SectionHeader> {
+        &self.shdrs
     }
 
     /// Get an lazy-parsing table for the Section Headers in the file and its associated StringTable.
@@ -176,47 +147,29 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// to a ranges in the file data that does not actually exist.
     pub fn section_headers_with_strtab(
         &mut self,
-    ) -> Result<(SectionHeaderTable<E>, StringTable), ParseError> {
+    ) -> Result<(&Vec<SectionHeader>, StringTable), ParseError> {
         // It's Ok to have no section headers
-        if self.ehdr.e_shoff == 0 {
-            return Ok((
-                SectionHeaderTable::new(self.endian, self.ehdr.class, &[]),
-                StringTable::default(),
-            ));
+        if self.shdrs.len() == 0 {
+            return Ok((&self.shdrs, StringTable::default()));
         }
 
-        // Load the section header table bytes (we want concurrent referneces to strtab too)
-        let shnum: usize = self.shnum()?.try_into()?;
+        // If the section name string table section index is greater than or
+        // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
+        // (0xffff) and the actual index of the section name string table section
+        // is contained in the sh_link field of the section header at index 0.
+        let mut shstrndx = self.ehdr.e_shstrndx as usize;
+        if self.ehdr.e_shstrndx == abi::SHN_XINDEX {
+            shstrndx = self.shdrs[0].sh_link as usize;
+        }
 
-        // Validate shentsize before trying to read the table so that we can error early for corrupted files
-        let entsize =
-            SectionHeader::validate_entsize(self.ehdr.class, self.ehdr.e_shentsize as usize)?;
-        let shdrs_start: usize = self.ehdr.e_shoff.try_into()?;
-        let shdrs_size = entsize
-            .checked_mul(shnum)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let shdrs_end = shdrs_start
-            .checked_add(shdrs_size)
-            .ok_or(ParseError::IntegerOverflow)?;
-        self.reader.load_bytes(shdrs_start..shdrs_end)?;
-
-        // Load the section bytes for the strtab
-        // (we want immutable references to both the symtab and its strtab concurrently)
-        // Get the index of section headers' strtab (could be in ehdr or shdrs[0])
-        let shstrndx: usize = self.shstrndx()?.try_into()?;
-
-        let strtab = self.section_header_by_index(shstrndx)?;
+        let strtab = self
+            .shdrs
+            .get(shstrndx)
+            .ok_or(ParseError::BadOffset(shstrndx as u64))?;
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
-        self.reader.load_bytes(strtab_start..strtab_end)?;
-
-        // Return the (symtab, strtab)
-        let shdrs = SectionHeaderTable::new(
-            self.endian,
-            self.ehdr.class,
-            self.reader.get_bytes(shdrs_start..shdrs_end),
-        );
-        let strtab = StringTable::new(self.reader.get_bytes(strtab_start..strtab_end));
-        Ok((shdrs, strtab))
+        let strtab_buf = self.reader.read_bytes(strtab_start, strtab_end)?;
+        let strtab = StringTable::new(strtab_buf);
+        Ok((&self.shdrs, strtab))
     }
 
     /// Read the section data for the given [SectionHeader](SectionHeader).
@@ -284,36 +237,39 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         &mut self,
         symtab_type: u32,
     ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
+        if self.shdrs.len() == 0 {
+            return Ok(None);
+        }
+
         // Get the symtab header for the symtab. The gABI states there can be zero or one per ELF file.
-        let symtab_shdr = match self
-            .section_headers()?
-            .iter()
-            .find(|shdr| shdr.sh_type == symtab_type)
-        {
-            Some(shdr) => shdr,
-            None => return Ok(None),
-        };
+        match self.shdrs.iter().find(|shdr| shdr.sh_type == symtab_type) {
+            Some(shdr) => {
+                // Load the section bytes for the symtab
+                // (we want immutable references to both the symtab and its strtab concurrently)
+                let (symtab_start, symtab_end) = shdr.get_data_range()?;
+                self.reader.load_bytes(symtab_start..symtab_end)?;
 
-        // Load the section bytes for the symtab
-        // (we want immutable references to both the symtab and its strtab concurrently)
-        let (symtab_start, symtab_end) = symtab_shdr.get_data_range()?;
-        self.reader.load_bytes(symtab_start..symtab_end)?;
+                // Load the section bytes for the strtab
+                // (we want immutable references to both the symtab and its strtab concurrently)
+                let strtab = self
+                    .shdrs
+                    .get(shdr.sh_link as usize)
+                    .ok_or(ParseError::BadOffset(shdr.sh_link as u64))?;
+                let (strtab_start, strtab_end) = strtab.get_data_range()?;
+                self.reader.load_bytes(strtab_start..strtab_end)?;
 
-        // Load the section bytes for the strtab
-        // (we want immutable references to both the symtab and its strtab concurrently)
-        let strtab = self.section_header_by_index(symtab_shdr.sh_link as usize)?;
-        let (strtab_start, strtab_end) = strtab.get_data_range()?;
-        self.reader.load_bytes(strtab_start..strtab_end)?;
-
-        // Validate entsize before trying to read the table so that we can error early for corrupted files
-        Symbol::validate_entsize(self.ehdr.class, symtab_shdr.sh_entsize.try_into()?)?;
-        let symtab = SymbolTable::new(
-            self.endian,
-            self.ehdr.class,
-            self.reader.get_bytes(symtab_start..symtab_end),
-        );
-        let strtab = StringTable::new(self.reader.get_bytes(strtab_start..strtab_end));
-        Ok(Some((symtab, strtab)))
+                // Validate entsize before trying to read the table so that we can error early for corrupted files
+                Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
+                let symtab = SymbolTable::new(
+                    self.endian,
+                    self.ehdr.class,
+                    self.reader.get_bytes(symtab_start..symtab_end),
+                );
+                let strtab = StringTable::new(self.reader.get_bytes(strtab_start..strtab_end));
+                Ok(Some((symtab, strtab)))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
@@ -335,9 +291,9 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// Get the .dynamic section/segment contents.
     pub fn dynamic_section(&mut self) -> Result<Option<DynIterator<E>>, ParseError> {
         // If we have section headers, then look it up there
-        if self.ehdr.e_shoff > 0 {
+        if self.shdrs.len() > 0 {
             if let Some(shdr) = self
-                .section_headers()?
+                .shdrs
                 .iter()
                 .find(|shdr| shdr.sh_type == abi::SHT_DYNAMIC)
             {
@@ -364,17 +320,22 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// This is a GNU extension and not all objects use symbol versioning.
     /// Returns an empty Option if the object does not use symbol versioning.
     pub fn symbol_version_table(&mut self) -> Result<Option<SymbolVersionTable<E>>, ParseError> {
+        // No sections means no GNU symbol versioning sections, which is ok
+        if self.shdrs.len() == 0 {
+            return Ok(None);
+        }
+
         let mut versym_opt: Option<SectionHeader> = None;
         let mut needs_opt: Option<SectionHeader> = None;
         let mut defs_opt: Option<SectionHeader> = None;
         // Find the GNU Symbol versioning sections (if any)
-        for shdr in self.section_headers()? {
+        for shdr in self.shdrs.iter() {
             if shdr.sh_type == abi::SHT_GNU_VERSYM {
-                versym_opt = Some(shdr);
+                versym_opt = Some(*shdr);
             } else if shdr.sh_type == abi::SHT_GNU_VERNEED {
-                needs_opt = Some(shdr);
+                needs_opt = Some(*shdr);
             } else if shdr.sh_type == abi::SHT_GNU_VERDEF {
-                defs_opt = Some(shdr);
+                defs_opt = Some(*shdr);
             }
 
             // If we've found all three sections, then we're done
@@ -401,7 +362,10 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 let (start, end) = shdr.get_data_range()?;
                 self.reader.load_bytes(start..end)?;
 
-                let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
+                let strs_shdr = self
+                    .shdrs
+                    .get(shdr.sh_link as usize)
+                    .ok_or(ParseError::BadOffset(shdr.sh_link as u64))?;
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
                 self.reader.load_bytes(strs_start..strs_end)?;
 
@@ -418,7 +382,10 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 let (start, end) = shdr.get_data_range()?;
                 self.reader.load_bytes(start..end)?;
 
-                let strs_shdr = self.section_header_by_index(shdr.sh_link as usize)?;
+                let strs_shdr = self
+                    .shdrs
+                    .get(shdr.sh_link as usize)
+                    .ok_or(ParseError::BadOffset(shdr.sh_link as u64))?;
                 let (strs_start, strs_end) = strs_shdr.get_data_range()?;
                 self.reader.load_bytes(strs_start..strs_end)?;
 
@@ -619,6 +586,10 @@ impl<R: Read + Seek> CachingReader<R> {
         self.bufs.insert((range.start, range.end), bytes);
         Ok(())
     }
+
+    pub fn clear_cache(&mut self) {
+        self.bufs.clear()
+    }
 }
 
 #[cfg(test)]
@@ -632,37 +603,11 @@ mod interface_tests {
     use crate::symbol::Symbol;
 
     #[test]
-    fn test_open_stream_with_cachedreadbytes() {
+    fn test_open_stream() {
         let path = std::path::PathBuf::from("tests/samples/test1");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
         assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
-    }
-
-    #[test]
-    fn section_header_by_index() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
-        let io = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
-
-        let shdr = file
-            .section_header_by_index(file.ehdr.e_shstrndx as usize)
-            .expect("Failed to parse shdr");
-        assert_eq!(
-            shdr,
-            SectionHeader {
-                sh_name: 17,
-                sh_type: 3,
-                sh_flags: 0,
-                sh_addr: 0,
-                sh_offset: 4532,
-                sh_size: 268,
-                sh_link: 0,
-                sh_info: 0,
-                sh_addralign: 1,
-                sh_entsize: 0,
-            }
-        );
     }
 
     #[test]
@@ -675,21 +620,13 @@ mod interface_tests {
             .section_headers_with_strtab()
             .expect("Failed to get shdrs");
 
-        let with_names: Vec<(&str, SectionHeader)> = shdrs
-            .iter()
-            .map(|shdr| {
-                (
-                    strtab
-                        .get(shdr.sh_name as usize)
-                        .expect("Failed to get section name"),
-                    shdr,
-                )
-            })
-            .collect();
+        let shdr_4 = &shdrs[4];
+        let name = strtab
+            .get(shdr_4.sh_name as usize)
+            .expect("Failed to get section name");
 
-        let (name, shdr) = with_names[4];
         assert_eq!(name, ".gnu.hash");
-        assert_eq!(shdr.sh_type, abi::SHT_GNU_HASH);
+        assert_eq!(shdr_4.sh_type, abi::SHT_GNU_HASH);
     }
 
     #[test]
@@ -698,9 +635,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(26)
-            .expect("Failed to get .gnu.version section");
+        let shdr = file.section_headers()[26];
         assert_eq!(shdr.sh_type, abi::SHT_NOBITS);
         let (data, chdr) = file
             .section_data(&shdr)
@@ -715,9 +650,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(7)
-            .expect("Failed to get .gnu.version section");
+        let shdr = file.section_headers()[7];
         assert_eq!(shdr.sh_type, abi::SHT_GNU_VERSYM);
         let (data, chdr) = file
             .section_data(&shdr)
@@ -732,9 +665,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(file.ehdr.e_shstrndx as usize)
-            .expect("Failed to parse shdr");
+        let shdr = file.section_headers()[file.ehdr.e_shstrndx as usize];
         let strtab = file
             .section_data_as_strtab(&shdr)
             .expect("Failed to read strtab");
@@ -863,9 +794,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(10)
-            .expect("Failed to get rela shdr");
+        let shdr = file.section_headers()[10];
         file.section_data_as_rels(&shdr)
             .expect_err("Expected error parsing non-REL scn as RELs");
     }
@@ -876,9 +805,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(10)
-            .expect("Failed to get rela shdr");
+        let shdr = file.section_headers()[10];
         let mut relas = file
             .section_data_as_relas(&shdr)
             .expect("Failed to read relas section");
@@ -909,9 +836,7 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let shdr = file
-            .section_header_by_index(2)
-            .expect("Failed to get .note.ABI-tag shdr");
+        let shdr = file.section_headers()[2];
         let mut notes = file
             .section_data_as_notes(&shdr)
             .expect("Failed to read relas section");
@@ -1000,9 +925,8 @@ mod interface_tests {
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
         // Look up the SysV hash section header
-        let hash_shdr = file
+        let hash_shdr = *file
             .section_headers()
-            .expect("Failed to parse shdrs")
             .iter()
             .find(|shdr| shdr.sh_type == abi::SHT_HASH)
             .expect("Failed to find sysv hash section");
