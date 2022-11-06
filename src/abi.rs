@@ -968,6 +968,9 @@ pub const ELFCOMPRESS_LOPROC: u32 = 0x70000000;
 /// Values in [ELFCOMPRESS_LOPROC, ELFCOMPRESS_HIPROC] are reserved for processor-specific semantics.
 pub const ELFCOMPRESS_HIPROC: u32 = 0x7fffffff;
 
+/// GNU-extension notes have this name
+pub const ELF_NOTE_GNU: &str = "GNU";
+
 // Note header descriptor types constants (n_type)
 
 /// ABI information

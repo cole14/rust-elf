@@ -150,6 +150,7 @@ impl ParseAt for NoteHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::abi;
     use crate::endian::{BigEndian, LittleEndian};
 
     #[test]
@@ -198,7 +199,7 @@ mod parse_tests {
             note,
             Note {
                 n_type: 5,
-                name: "GNU",
+                name: abi::ELF_NOTE_GNU,
                 desc: &[2, 0, 0, 192, 4, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
             }
         );
@@ -292,7 +293,7 @@ mod parse_tests {
             note,
             Note {
                 n_type: 1,
-                name: "GNU",
+                name: abi::ELF_NOTE_GNU,
                 desc: &[01, 02],
             }
         );
@@ -338,7 +339,7 @@ mod parse_tests {
             note,
             Note {
                 n_type: 1,
-                name: "GNU",
+                name: abi::ELF_NOTE_GNU,
                 desc: &[],
             }
         );
