@@ -546,12 +546,9 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(None)
     }
 
-    /// Get the section data for a given pair of [SectionHeader] for the symbol table and its linked strtab,
-    /// and interpret them as [SymbolTable] and [StringTable].
-    ///
-    /// This mostly a helper method and its probably easier to use [ElfBytes::symbol_table] or
-    /// [ElfBytes::dynamic_symbol_table] or [ElfBytes::find_common_sections]
-    pub fn section_data_as_symbol_table(
+    /// Helper method to get the section data for a given pair of [SectionHeader] for the symbol
+    /// table and its linked strtab, and interpret them as [SymbolTable] and [StringTable].
+    fn section_data_as_symbol_table(
         &self,
         shdr: &SectionHeader,
         strtab_shdr: &SectionHeader,
