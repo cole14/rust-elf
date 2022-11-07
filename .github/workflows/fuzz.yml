@@ -16,12 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install nightly Rust
-      shell: bash
-      run: |
-        curl -sSL https://sh.rustup.rs | sh -s -- -y --profile=minimal --default-toolchain=nightly
-        export PATH="$HOME/.cargo/bin:$PATH"
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - uses: actions-rs/toolchain@v1
+      name: Install Rust
+      with:
+          profile: minimal
+          toolchain: nightly
+          override: true
     - name: Install cargo fuzz
       run: cargo install cargo-fuzz
     - name: Build
