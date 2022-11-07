@@ -1302,3 +1302,104 @@ mod interface_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod arch_tests {
+    use super::*;
+    use crate::endian::AnyEndian;
+
+    // Basic smoke test which parses out symbols and headers for a given sample object of a given architecture
+    macro_rules! arch_test {
+        ( $arch:expr, $e_machine:expr, $endian:expr) => {{
+            let path_str = format!("sample-objects/symver.{}.so", $arch);
+            let path = std::path::PathBuf::from(path_str);
+            let file_data = std::fs::read(path).expect("file should exist");
+            let slice = file_data.as_slice();
+            let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("should parse");
+
+            assert_eq!(file.ehdr.e_machine, $e_machine);
+            assert_eq!(file.endian, $endian);
+
+            if let Some((shdrs, strtab)) = file.section_headers_with_strtab().expect("should parse")
+            {
+                let _: Vec<_> = shdrs
+                    .iter()
+                    .map(|shdr| {
+                        (
+                            strtab.get(shdr.sh_name as usize).expect("should parse"),
+                            shdr,
+                        )
+                    })
+                    .collect();
+            }
+
+            let common = file.find_common_sections().expect("should parse");
+
+            if let Some(symtab) = common.symtab {
+                if let Some(strtab) = common.symtab_strs {
+                    let _: Vec<_> = symtab
+                        .iter()
+                        .map(|sym| (strtab.get(sym.st_name as usize).expect("should parse"), sym))
+                        .collect();
+                }
+            }
+
+            if let Some(symtab) = common.dynsyms {
+                if let Some(strtab) = common.dynsyms_strs {
+                    let _: Vec<_> = symtab
+                        .iter()
+                        .map(|sym| (strtab.get(sym.st_name as usize).expect("should parse"), sym))
+                        .collect();
+                }
+            }
+
+            if let Some(phdrs) = file.segments() {
+                let note_phdrs: Vec<_> = phdrs
+                    .iter()
+                    .filter(|phdr| phdr.p_type == abi::PT_NOTE)
+                    .collect();
+                for phdr in note_phdrs {
+                    let _: Vec<_> = file
+                        .segment_data_as_notes(&phdr)
+                        .expect("should parse")
+                        .collect();
+                }
+            }
+        }};
+    }
+
+    #[test]
+    fn x86_64() {
+        arch_test!("x86_64", abi::EM_X86_64, AnyEndian::Little);
+    }
+
+    #[test]
+    fn m68k() {
+        arch_test!("m68k", abi::EM_68K, AnyEndian::Big);
+    }
+
+    #[test]
+    fn aarch64() {
+        arch_test!("aarch64", abi::EM_AARCH64, AnyEndian::Little);
+    }
+
+    #[test]
+    fn armhf() {
+        arch_test!("armhf", abi::EM_ARM, AnyEndian::Little);
+    }
+
+    #[test]
+    fn powerpc64() {
+        arch_test!("powerpc64", abi::EM_PPC64, AnyEndian::Big);
+    }
+
+    #[test]
+    fn powerpc64le() {
+        arch_test!("powerpc64le", abi::EM_PPC64, AnyEndian::Little);
+    }
+
+    #[test]
+    fn riscv64() {
+        arch_test!("riscv64", abi::EM_RISCV, AnyEndian::Little);
+    }
+}
