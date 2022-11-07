@@ -24,9 +24,10 @@ use crate::file::FileHeader;
 /// a `Read + Seek`.
 pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
     pub ehdr: FileHeader,
+    shdrs: Vec<SectionHeader>,
+    phdrs: Vec<ProgramHeader>,
     reader: CachingReader<S>,
     endian: E,
-    shdrs: Vec<SectionHeader>,
 }
 
 /// Read the stream bytes backing the section headers table and parse them all into their Rust native type.
@@ -73,7 +74,27 @@ fn parse_section_headers<E: EndianParse, S: Read + Seek>(
     Ok(shdr_vec)
 }
 
+fn parse_program_headers<E: EndianParse, S: Read + Seek>(
+    endian: E,
+    ehdr: &FileHeader,
+    reader: &mut CachingReader<S>,
+) -> Result<Vec<ProgramHeader>, ParseError> {
+    match ehdr.get_phdrs_data_range()? {
+        Some((start, end)) => {
+            reader.load_bytes(start..end)?;
+            let buf = reader.get_bytes(start..end);
+            let phdrs_vec = SegmentTable::new(endian, ehdr.class, buf).iter().collect();
+            Ok(phdrs_vec)
+        }
+        None => Ok(Vec::default()),
+    }
+}
+
 impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
+    /// Do a minimal amount of parsing work to open an [ElfStream] handle from a Read+Seek containing an ELF object.
+    ///
+    /// This parses the ELF [FileHeader], [SectionHeader] table, and [ProgramHeader] (segments) table.
+    /// All other file data (section data, segment data) is left unread and unparsed.
     pub fn open_stream(reader: S) -> Result<ElfStream<E, S>, ParseError> {
         let mut cr = CachingReader::new(reader)?;
         let ident_buf = cr.read_bytes(0, abi::EI_NIDENT)?;
@@ -90,40 +111,24 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let endian = E::from_ei_data(ehdr.ei_data)?;
 
         let shdrs = parse_section_headers(endian, &ehdr, &mut cr)?;
+        let phdrs = parse_program_headers(endian, &ehdr, &mut cr)?;
 
         // We parsed out the ehdr and shdrs into their own allocated containers, so there's no need to keep
         // around their backing data anymore.
         cr.clear_cache();
 
         Ok(ElfStream {
-            reader: cr,
             ehdr,
-            endian,
             shdrs,
+            phdrs,
+            reader: cr,
+            endian,
         })
     }
 
-    /// Get an lazy-parsing table for the Segments (ELF Program Headers) in the file.
-    ///
-    /// The underlying ELF bytes backing the program headers table are read all at once
-    /// when the table is requested, but parsing is deferred to be lazily
-    /// parsed on demand on each table.get() call or table.iter().next() call.
-    ///
-    /// Returns a [ParseError] if the data bytes for the segment table cannot be
-    /// read i.e. if the ELF [FileHeader]'s
-    /// [e_phnum](FileHeader#structfield.e_phnum),
-    /// [e_phoff](FileHeader#structfield.e_phoff),
-    /// [e_phentsize](FileHeader#structfield.e_phentsize) are invalid and point
-    /// to a range in the file data that does not actually exist.
-    pub fn segments(&mut self) -> Result<Option<SegmentTable<E>>, ParseError> {
-        match self.ehdr.get_phdrs_data_range()? {
-            Some((start, end)) => {
-                self.reader.load_bytes(start..end)?;
-                let buf = self.reader.get_bytes(start..end);
-                Ok(Some(SegmentTable::new(self.endian, self.ehdr.class, buf)))
-            }
-            None => Ok(None),
-        }
+    /// Get the parsed section headers table
+    pub fn segments(&self) -> &Vec<ProgramHeader> {
+        &self.phdrs
     }
 
     /// Get the parsed section headers table
@@ -353,8 +358,12 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
-        } else if let Some(phdrs) = self.segments()? {
-            if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
+        } else if self.phdrs.len() > 0 {
+            if let Some(phdr) = self
+                .phdrs
+                .iter()
+                .find(|phdr| phdr.p_type == abi::PT_DYNAMIC)
+            {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
                 return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
@@ -760,14 +769,9 @@ mod interface_tests {
     fn segments() {
         let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
-        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+        let file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let segments: Vec<ProgramHeader> = file
-            .segments()
-            .expect("Failed to read segments")
-            .expect("file should have segments")
-            .iter()
-            .collect();
+        let segments = file.segments();
         assert_eq!(
             segments[0],
             ProgramHeader {
@@ -939,14 +943,10 @@ mod interface_tests {
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
-        let phdrs: Vec<ProgramHeader> = file
-            .segments()
-            .expect("Failed to get .note.ABI-tag shdr")
-            .expect("File should have headers")
-            .iter()
-            .collect();
+        let phdrs = file.segments();
+        let note_phdr = phdrs[5];
         let mut notes = file
-            .segment_data_as_notes(&phdrs[5])
+            .segment_data_as_notes(&note_phdr)
             .expect("Failed to read relas section");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
