@@ -92,7 +92,7 @@
 //! use elf::note::NoteGnuBuildId;
 //! use elf::section::SectionHeader;
 //!
-//! let path = std::path::PathBuf::from("tests/samples/hello.so");
+//! let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
 //! let file_data = std::fs::read(path).expect("Could not read file.");
 //! let slice = file_data.as_slice();
 //! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");

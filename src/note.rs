@@ -7,7 +7,7 @@
 //! use elf::note::Note;
 //! use elf::note::NoteGnuAbiTag;
 //!
-//! let path = std::path::PathBuf::from("tests/samples/test1");
+//! let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
 //! let file_data = std::fs::read(path).expect("Could not read file.");
 //! let slice = file_data.as_slice();
 //! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");

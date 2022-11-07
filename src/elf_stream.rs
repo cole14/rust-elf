@@ -184,7 +184,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// use elf::note::Note;
     /// use elf::note::NoteGnuAbiTag;
     ///
-    /// let path = std::path::PathBuf::from("tests/samples/test1");
+    /// let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
     /// let io = std::fs::File::open(path).expect("Could not open file.");
     /// let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -665,7 +665,7 @@ mod interface_tests {
 
     #[test]
     fn test_open_stream() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
         assert_eq!(file.ehdr.e_type, abi::ET_EXEC);
@@ -673,7 +673,7 @@ mod interface_tests {
 
     #[test]
     fn section_headers_with_strtab() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -692,7 +692,7 @@ mod interface_tests {
 
     #[test]
     fn section_header_by_name() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -712,7 +712,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_for_nobits() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -727,7 +727,7 @@ mod interface_tests {
 
     #[test]
     fn section_data() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -742,7 +742,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_strtab() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -758,7 +758,7 @@ mod interface_tests {
 
     #[test]
     fn segments() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -785,7 +785,7 @@ mod interface_tests {
 
     #[test]
     fn symbol_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -815,7 +815,7 @@ mod interface_tests {
 
     #[test]
     fn dynamic_symbol_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -845,7 +845,7 @@ mod interface_tests {
 
     #[test]
     fn dynamic_section() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -871,7 +871,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_rels() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -882,7 +882,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_relas() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -913,7 +913,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_notes() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -935,7 +935,7 @@ mod interface_tests {
 
     #[test]
     fn segment_data_as_notes() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
@@ -969,7 +969,7 @@ mod interface_tests {
 
     #[test]
     fn symbol_version_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
         let vst = file
@@ -999,7 +999,7 @@ mod interface_tests {
 
     #[test]
     fn sysv_hash_table() {
-        let path = std::path::PathBuf::from("tests/samples/hello.so");
+        let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 

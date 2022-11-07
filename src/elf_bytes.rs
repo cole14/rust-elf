@@ -38,7 +38,7 @@ use crate::symbol::{Symbol, SymbolTable};
 /// use elf::ElfBytes;
 /// use elf::segment::ProgramHeader;
 ///
-/// let path = std::path::PathBuf::from("tests/samples/hello.so");
+/// let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
 /// let file_data = std::fs::read(path).unwrap();
 ///
 /// let slice = file_data.as_slice();
@@ -201,7 +201,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// use elf::ElfBytes;
     /// use elf::section::SectionHeader;
     ///
-    /// let path = std::path::PathBuf::from("tests/samples/hello.so");
+    /// let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
     /// let file_data = std::fs::read(path).unwrap();
     ///
     /// let slice = file_data.as_slice();
@@ -261,7 +261,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// use elf::note::Note;
     /// use elf::note::NoteGnuAbiTag;
     ///
-    /// let path = std::path::PathBuf::from("tests/samples/test1");
+    /// let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
     /// let file_data = std::fs::read(path).unwrap();
     /// let slice = file_data.as_slice();
     /// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
@@ -793,7 +793,7 @@ mod interface_tests {
 
     #[test]
     fn simultaenous_segments_parsing() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -834,7 +834,7 @@ mod interface_tests {
 
     #[test]
     fn segments() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -861,7 +861,7 @@ mod interface_tests {
 
     #[test]
     fn section_headers() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -877,7 +877,7 @@ mod interface_tests {
 
     #[test]
     fn section_headers_with_strtab() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -906,7 +906,7 @@ mod interface_tests {
 
     #[test]
     fn section_header_by_name() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -927,7 +927,7 @@ mod interface_tests {
 
     #[test]
     fn find_common_sections() {
-        let path = std::path::PathBuf::from("tests/samples/hello.so");
+        let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -945,7 +945,7 @@ mod interface_tests {
 
     #[test]
     fn section_data() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -969,7 +969,7 @@ mod interface_tests {
     // Test all the different section_data_as* with a section of the wrong type
     #[test]
     fn section_data_as_wrong_type() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1019,7 +1019,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_strtab() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1042,7 +1042,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_relas() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1079,7 +1079,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_notes() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1107,7 +1107,7 @@ mod interface_tests {
 
     #[test]
     fn segment_data_as_notes() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1142,7 +1142,7 @@ mod interface_tests {
 
     #[test]
     fn dynamic() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1170,7 +1170,7 @@ mod interface_tests {
 
     #[test]
     fn symbol_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1201,7 +1201,7 @@ mod interface_tests {
 
     #[test]
     fn dynamic_symbol_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1232,7 +1232,7 @@ mod interface_tests {
 
     #[test]
     fn symbol_version_table() {
-        let path = std::path::PathBuf::from("tests/samples/test1");
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
@@ -1264,7 +1264,7 @@ mod interface_tests {
 
     #[test]
     fn sysv_hash_table() {
-        let path = std::path::PathBuf::from("tests/samples/hello.so");
+        let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
