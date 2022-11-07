@@ -586,3 +586,13 @@ pub fn ch_type_to_str(ch_type: u32) -> Option<&'static str> {
         _ => None,
     }
 }
+
+pub fn note_abi_tag_os_to_str(os: u32) -> Option<&'static str> {
+    match os {
+        abi::ELF_NOTE_GNU_ABI_TAG_OS_LINUX => Some("Linux"),
+        abi::ELF_NOTE_GNU_ABI_TAG_OS_GNU => Some("GNU"),
+        abi::ELF_NOTE_GNU_ABI_TAG_OS_SOLARIS2 => Some("Solaris"),
+        abi::ELF_NOTE_GNU_ABI_TAG_OS_FREEBSD => Some("FreeBSD"),
+        _ => None,
+    }
+}
