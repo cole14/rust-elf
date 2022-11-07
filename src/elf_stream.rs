@@ -1005,9 +1005,8 @@ mod interface_tests {
 
         // Look up the SysV hash section header
         let hash_shdr = *file
-            .section_headers()
-            .iter()
-            .find(|shdr| shdr.sh_type == abi::SHT_HASH)
+            .section_header_by_name(".hash")
+            .expect("Failed to find sysv hash section")
             .expect("Failed to find sysv hash section");
 
         // We don't have a file interface for getting the SysV hash section yet, so clone the section bytes
