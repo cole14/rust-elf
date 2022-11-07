@@ -31,11 +31,13 @@ jobs:
       with:
         path: fuzz/corpus
         key: fuzz-corpus
-    - name: run fuzz targets
+    - name: fuzzy common
       run: cargo fuzz run common -- -max_total_time=60
-    - name: run fuzz targets
+    - name: fuzzy notes
       run: cargo fuzz run notes -- -max_total_time=60
-    - name: run fuzz targets
+    - name: fuzzy symver
       run: cargo fuzz run symver -- -max_total_time=60
-    - name: run fuzz targets
+    - name: fuzzy symbol_table
       run: cargo fuzz run symbol_table -- -max_total_time=60
+    - name: fuzzy stream
+      run: cargo fuzz run stream -- -max_total_time=60
