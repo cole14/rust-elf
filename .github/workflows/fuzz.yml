@@ -22,15 +22,21 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-    - name: Install cargo fuzz
-      run: cargo install cargo-fuzz
+    - uses: actions-rs/install@v0.1
+      name: Install cargo-fuzz
+      with:
+          crate: cargo-fuzz
+          version: latest
+          use-tool-cache: true
     - name: Build
       run: cargo build --verbose
     - name: Cache fuzzy corpus
       uses: actions/cache@v3
       with:
         path: fuzz/corpus
-        key: fuzz-corpus
+        key: fuzz-corpus-${{ github.run_id }}
+        restore-keys: |
+            fuzz-corpus-
     - name: fuzzy common
       run: cargo fuzz run common -- -max_total_time=60
     - name: fuzzy notes
