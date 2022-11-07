@@ -26,6 +26,11 @@ jobs:
       run: cargo install cargo-fuzz
     - name: Build
       run: cargo build --verbose
+    - name: Cache fuzzy corpus
+      uses: actions/cache@v3
+      with:
+        path: fuzz/corpus
+        key: fuzz-corpus
     - name: run fuzz targets
       run: cargo fuzz run common -- -max_total_time=60
     - name: run fuzz targets
