@@ -1,5 +1,3 @@
-use core::ops::Range;
-
 use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::{Dyn, DynamicTable};
@@ -10,7 +8,7 @@ use crate::gnu_symver::{
 };
 use crate::hash::{GnuHashTable, SysVHashTable};
 use crate::note::NoteIterator;
-use crate::parse::{Class, ParseAt, ParseError};
+use crate::parse::{Class, ParseAt, ParseError, ReadBytesExt};
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};
@@ -746,49 +744,12 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     }
 }
 
-// Simple convenience extension trait to wrap get() with .ok_or(SliceReadError)
-trait ReadBytesExt<'data> {
-    fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
-}
-
-impl<'data> ReadBytesExt<'data> for &'data [u8] {
-    fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError> {
-        let start = range.start;
-        let end = range.end;
-        self.get(range)
-            .ok_or(ParseError::SliceReadError((start, end)))
-    }
-}
-
 //  _            _
 // | |_ ___  ___| |_ ___
 // | __/ _ \/ __| __/ __|
 // | ||  __/\__ \ |_\__ \
 //  \__\___||___/\__|___/
 //
-
-#[cfg(test)]
-mod read_bytes_tests {
-    use super::ParseError;
-    use super::ReadBytesExt;
-
-    #[test]
-    fn get_bytes_works() {
-        let data = &[0u8, 1, 2, 3];
-        let subslice = data.get_bytes(1..3).expect("should be within range");
-        assert_eq!(subslice, [1, 2]);
-    }
-
-    #[test]
-    fn get_bytes_out_of_range_errors() {
-        let data = &[0u8, 1, 2, 3];
-        let err = data.get_bytes(3..9).expect_err("should be out of range");
-        assert!(
-            matches!(err, ParseError::SliceReadError((3, 9))),
-            "Unexpected Error type found: {err}"
-        );
-    }
-}
 
 #[cfg(test)]
 mod interface_tests {

@@ -2,7 +2,7 @@
 use core::mem::size_of;
 
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable, U32Table};
+use crate::parse::{Class, ParseAt, ParseError, ParsingTable, ReadBytesExt, U32Table};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
 
@@ -62,9 +62,7 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
         let buckets_end = offset
             .checked_add(buckets_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let buckets_buf = data
-            .get(offset..buckets_end)
-            .ok_or(ParseError::BadOffset(offset as u64))?;
+        let buckets_buf = data.get_bytes(offset..buckets_end)?;
         let buckets = U32Table::new(endian, class, buckets_buf);
         offset = buckets_end;
 
@@ -74,9 +72,7 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
         let chains_end = offset
             .checked_add(chains_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let chains_buf = data
-            .get(offset..chains_end)
-            .ok_or(ParseError::BadOffset(offset as u64))?;
+        let chains_buf = data.get_bytes(offset..chains_end)?;
         let chains = U32Table::new(endian, class, chains_buf);
 
         Ok(SysVHashTable { buckets, chains })
@@ -204,9 +200,7 @@ impl<'data, E: EndianParse> GnuHashTable<'data, E> {
         let bloom_end = offset
             .checked_add(bloom_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let bloom_buf = data
-            .get(offset..bloom_end)
-            .ok_or(ParseError::SliceReadError((offset, bloom_end)))?;
+        let bloom_buf = data.get_bytes(offset..bloom_end)?;
         offset = bloom_end;
 
         let buckets_size = size_of::<u32>()
@@ -215,9 +209,7 @@ impl<'data, E: EndianParse> GnuHashTable<'data, E> {
         let buckets_end = offset
             .checked_add(buckets_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let buckets_buf = data
-            .get(offset..buckets_end)
-            .ok_or(ParseError::SliceReadError((offset, buckets_end)))?;
+        let buckets_buf = data.get_bytes(offset..buckets_end)?;
         let buckets = U32Table::new(endian, class, buckets_buf);
         offset = buckets_end;
 

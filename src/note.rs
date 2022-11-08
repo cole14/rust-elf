@@ -33,7 +33,7 @@
 //! ```
 use crate::abi;
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError};
+use crate::parse::{Class, ParseAt, ParseError, ReadBytesExt};
 use core::mem::size_of;
 use core::str::from_utf8;
 
@@ -71,9 +71,7 @@ impl<'data> Note<'data> {
         let name_end = name_start
             .checked_add(name_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let name_buf = data
-            .get(name_start..name_end)
-            .ok_or(ParseError::SliceReadError((name_start, name_end)))?;
+        let name_buf = data.get_bytes(name_start..name_end)?;
         let name = from_utf8(name_buf)?;
         *offset = name_end;
 
@@ -89,9 +87,7 @@ impl<'data> Note<'data> {
         let desc_end = desc_start
             .checked_add(desc_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let raw_desc = data
-            .get(desc_start..desc_end)
-            .ok_or(ParseError::SliceReadError((desc_start, desc_end)))?;
+        let raw_desc = data.get_bytes(desc_start..desc_end)?;
         *offset = desc_end;
 
         // skip over padding if needed to get back to 4-byte alignment
