@@ -1,3 +1,4 @@
+//! Parsing the ELF File Header
 use crate::abi;
 use crate::endian::{AnyEndian, EndianParse};
 use crate::parse::{ParseAt, ParseError};

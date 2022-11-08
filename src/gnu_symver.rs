@@ -1,4 +1,4 @@
-//! Parsing GNU extension sections for dynamic symbol versioning
+//! Parsing GNU extension sections for dynamic symbol versioning `.gnu.version.*`
 use crate::abi;
 use crate::endian::EndianParse;
 use crate::file::Class;

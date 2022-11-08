@@ -1,4 +1,4 @@
-//! Parsing hash table sections for symbol tables: `.hash`, [SHT_HASH](crate::abi::SHT_HASH)
+//! Parsing hash table sections for symbol tables: `.hash`, and `.gnu.hash`
 use core::mem::size_of;
 
 use crate::endian::EndianParse;

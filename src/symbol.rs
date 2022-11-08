@@ -1,4 +1,4 @@
-//! Parsing symbol table sections: `.symtab`, `.dynsym`, [SHT_DYNSYM](crate::abi::SHT_DYNSYM)
+//! Parsing symbol table sections: `.symtab`, `.dynsym`
 use crate::abi;
 use crate::endian::EndianParse;
 use crate::file::Class;
