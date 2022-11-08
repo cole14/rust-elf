@@ -423,8 +423,6 @@ pub const SHT_PREINIT_ARRAY: u32 = 16;
 pub const SHT_GROUP: u32 = 17;
 /// Extended symbol table section index
 pub const SHT_SYMTAB_SHNDX: u32 = 18;
-/// Number of reserved SHT_* values
-pub const SHT_NUM: u32 = 19;
 /// Values in [SHT_LOOS, SHT_HIOS] are reserved for operating system-specific semantics.
 pub const SHT_LOOS: u32 = 0x60000000;
 /// Object attributes
@@ -1394,7 +1392,7 @@ pub const GNU_PROPERTY_AARCH64_FEATURE_1_AND: u32 = 0xc0000000;
 pub const GNU_PROPERTY_AARCH64_FEATURE_1_BTI: u32 = 0x1;
 pub const GNU_PROPERTY_AARCH64_FEATURE_1_PAC: u32 = 0x2;
 
-/* AArch64 specific values for the Dyn d_tag field.  */
+// AArch64 specific values for the Dyn d_tag field.
 /// indicates PLTs enabled with Branch Target Identification mechanism
 pub const DT_AARCH64_BTI_PLT: i64 = 0x70000001;
 /// indicates PLTs enabled with Pointer Authentication.
@@ -1669,6 +1667,455 @@ pub const R_AARCH64_TLS_TPREL: u32 = 1030;
 pub const R_AARCH64_TLSDESC: u32 = 1031;
 /// STT_GNU_IFUNC relocation.
 pub const R_AARCH64_IRELATIVE: u32 = 1032;
+
+//  ____                        ____   ____
+// |  _ \ _____      _____ _ __|  _ \ / ___|
+// | |_) / _ \ \ /\ / / _ \ '__| |_) | |
+// |  __/ (_) \ V  V /  __/ |  |  __/| |___
+// |_|   \___/ \_/\_/ \___|_|  |_|    \____|
+//
+// See: https://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi.html#ELF-HEAD
+
+/// PowerPC embedded flag
+pub const EF_PPC_EMB: u32 = 0x80000000;
+/// PowerPC -mrelocatable flag
+pub const EF_PPC_RELOCATABLE: u32 = 0x00010000;
+/// PowerPC -mrelocatable-lib flag
+pub const EF_PPC_RELOCATABLE_LIB: u32 = 0x00008000;
+
+// PowerPC relocations types
+pub const R_PPC_NONE: u32 = 0;
+/// 32bit absolute address
+pub const R_PPC_ADDR32: u32 = 1;
+/// 26bit address, 2 bits ignored.
+pub const R_PPC_ADDR24: u32 = 2;
+/// 16bit absolute address
+pub const R_PPC_ADDR16: u32 = 3;
+/// lower 16bit of absolute address
+pub const R_PPC_ADDR16_LO: u32 = 4;
+/// high 16bit of absolute address
+pub const R_PPC_ADDR16_HI: u32 = 5;
+/// adjusted high 16bit
+pub const R_PPC_ADDR16_HA: u32 = 6;
+/// 16bit address, 2 bits ignored
+pub const R_PPC_ADDR14: u32 = 7;
+pub const R_PPC_ADDR14_BRTAKEN: u32 = 8;
+pub const R_PPC_ADDR14_BRNTAKEN: u32 = 9;
+/// PC relative 26 bit
+pub const R_PPC_REL24: u32 = 10;
+/// PC relative 16 bit
+pub const R_PPC_REL14: u32 = 11;
+pub const R_PPC_REL14_BRTAKEN: u32 = 12;
+pub const R_PPC_REL14_BRNTAKEN: u32 = 13;
+pub const R_PPC_GOT16: u32 = 14;
+pub const R_PPC_GOT16_LO: u32 = 15;
+pub const R_PPC_GOT16_HI: u32 = 16;
+pub const R_PPC_GOT16_HA: u32 = 17;
+pub const R_PPC_PLTREL24: u32 = 18;
+pub const R_PPC_COPY: u32 = 19;
+pub const R_PPC_GLOB_DAT: u32 = 20;
+pub const R_PPC_JMP_SLOT: u32 = 21;
+pub const R_PPC_RELATIVE: u32 = 22;
+pub const R_PPC_LOCAL24PC: u32 = 23;
+pub const R_PPC_UADDR32: u32 = 24;
+pub const R_PPC_UADDR16: u32 = 25;
+pub const R_PPC_REL32: u32 = 26;
+pub const R_PPC_PLT32: u32 = 27;
+pub const R_PPC_PLTREL32: u32 = 28;
+pub const R_PPC_PLT16_LO: u32 = 29;
+pub const R_PPC_PLT16_HI: u32 = 30;
+pub const R_PPC_PLT16_HA: u32 = 31;
+pub const R_PPC_SDAREL16: u32 = 32;
+pub const R_PPC_SECTOFF: u32 = 33;
+pub const R_PPC_SECTOFF_LO: u32 = 34;
+pub const R_PPC_SECTOFF_HI: u32 = 35;
+pub const R_PPC_SECTOFF_HA: u32 = 36;
+
+/// (sym+add)@tls
+pub const R_PPC_TLS: u32 = 67;
+/// (sym+add)@dtpmod
+pub const R_PPC_DTPMOD32: u32 = 68;
+/// (sym+add)@tprel
+pub const R_PPC_TPREL16: u32 = 69;
+/// (sym+add)@tprel@l
+pub const R_PPC_TPREL16_LO: u32 = 70;
+/// (sym+add)@tprel@h
+pub const R_PPC_TPREL16_HI: u32 = 71;
+/// (sym+add)@tprel@ha
+pub const R_PPC_TPREL16_HA: u32 = 72;
+/// (sym+add)@tprel
+pub const R_PPC_TPREL32: u32 = 73;
+/// (sym+add)@dtprel
+pub const R_PPC_DTPREL16: u32 = 74;
+/// (sym+add)@dtprel@l
+pub const R_PPC_DTPREL16_LO: u32 = 75;
+/// (sym+add)@dtprel@h
+pub const R_PPC_DTPREL16_HI: u32 = 76;
+/// (sym+add)@dtprel@ha
+pub const R_PPC_DTPREL16_HA: u32 = 77;
+/// (sym+add)@dtprel
+pub const R_PPC_DTPREL32: u32 = 78;
+/// (sym+add)@got@tlsgd
+pub const R_PPC_GOT_TLSGD16: u32 = 79;
+/// (sym+add)@got@tlsgd@l
+pub const R_PPC_GOT_TLSGD16_LO: u32 = 80;
+/// (sym+add)@got@tlsgd@h
+pub const R_PPC_GOT_TLSGD16_HI: u32 = 81;
+/// (sym+add)@got@tlsgd@ha
+pub const R_PPC_GOT_TLSGD16_HA: u32 = 82;
+/// (sym+add)@got@tlsld
+pub const R_PPC_GOT_TLSLD16: u32 = 83;
+/// (sym+add)@got@tlsld@l
+pub const R_PPC_GOT_TLSLD16_LO: u32 = 84;
+/// (sym+add)@got@tlsld@h
+pub const R_PPC_GOT_TLSLD16_HI: u32 = 85;
+/// (sym+add)@got@tlsld@ha
+pub const R_PPC_GOT_TLSLD16_HA: u32 = 86;
+/// (sym+add)@got@tprel
+pub const R_PPC_GOT_TPREL16: u32 = 87;
+/// (sym+add)@got@tprel@l
+pub const R_PPC_GOT_TPREL16_LO: u32 = 88;
+/// (sym+add)@got@tprel@h
+pub const R_PPC_GOT_TPREL16_HI: u32 = 89;
+/// (sym+add)@got@tprel@ha
+pub const R_PPC_GOT_TPREL16_HA: u32 = 90;
+/// (sym+add)@got@dtprel
+pub const R_PPC_GOT_DTPREL16: u32 = 91;
+/// (sym+add)@got@dtprel@l
+pub const R_PPC_GOT_DTPREL16_LO: u32 = 92;
+/// (sym+add)@got@dtprel@h
+pub const R_PPC_GOT_DTPREL16_HI: u32 = 93;
+/// (sym+add)@got@dtprel@ha
+pub const R_PPC_GOT_DTPREL16_HA: u32 = 94;
+/// (sym+add)@tlsgd
+pub const R_PPC_TLSGD: u32 = 95;
+/// (sym+add)@tlsld
+pub const R_PPC_TLSLD: u32 = 96;
+
+// The remaining relocs are from the Embedded ELF ABI, and are not in the SVR4 ELF ABI.
+pub const R_PPC_EMB_NADDR32: u32 = 101;
+pub const R_PPC_EMB_NADDR16: u32 = 102;
+pub const R_PPC_EMB_NADDR16_LO: u32 = 103;
+pub const R_PPC_EMB_NADDR16_HI: u32 = 104;
+pub const R_PPC_EMB_NADDR16_HA: u32 = 105;
+pub const R_PPC_EMB_SDAI16: u32 = 106;
+pub const R_PPC_EMB_SDA2I16: u32 = 107;
+pub const R_PPC_EMB_SDA2REL: u32 = 108;
+/// 16 bit offset in SDA
+pub const R_PPC_EMB_SDA21: u32 = 109;
+pub const R_PPC_EMB_MRKREF: u32 = 110;
+pub const R_PPC_EMB_RELSEC16: u32 = 111;
+pub const R_PPC_EMB_RELST_LO: u32 = 112;
+pub const R_PPC_EMB_RELST_HI: u32 = 113;
+pub const R_PPC_EMB_RELST_HA: u32 = 114;
+pub const R_PPC_EMB_BIT_FLD: u32 = 115;
+pub const R_PPC_EMB_RELSDA: u32 = 116;
+
+/// like EMB_SDA21, but lower 16 bit
+pub const R_PPC_DIAB_SDA21_LO: u32 = 180;
+/// like EMB_SDA21, but high 16 bit
+pub const R_PPC_DIAB_SDA21_HI: u32 = 181;
+/// like EMB_SDA21, adjusted high 16
+pub const R_PPC_DIAB_SDA21_HA: u32 = 182;
+/// like EMB_RELSDA, but lower 16 bit
+pub const R_PPC_DIAB_RELSDA_LO: u32 = 183;
+/// like EMB_RELSDA, but high 16 bit
+pub const R_PPC_DIAB_RELSDA_HI: u32 = 184;
+/// like EMB_RELSDA, adjusted high 16
+pub const R_PPC_DIAB_RELSDA_HA: u32 = 185;
+
+// GNU extension to support local ifunc.
+pub const R_PPC_IRELATIVE: u32 = 248;
+
+// GNU relocs used in PIC code sequences.
+/// (sym+add-.)
+pub const R_PPC_REL16: u32 = 249;
+/// (sym+add-.)@l
+pub const R_PPC_REL16_LO: u32 = 250;
+/// (sym+add-.)@h
+pub const R_PPC_REL16_HI: u32 = 251;
+/// (sym+add-.)@ha
+pub const R_PPC_REL16_HA: u32 = 252;
+
+/// This is a phony reloc to handle any old fashioned TOC16 references that may still be in object files.
+pub const R_PPC_TOC16: u32 = 255;
+
+// PowerPC specific values for the Dyn d_tag field.
+pub const DT_PPC_GOT: i64 = 0x70000000;
+pub const DT_PPC_OPT: i64 = 0x70000001;
+
+/// PowerPC specific values for the DT_PPC_OPT Dyn entry.
+pub const PPC_OPT_TLS: u64 = 1;
+
+// e_flags bits specifying ABI.
+//   1 for original function descriptor using ABI,
+//   2 for revised ABI without function descriptors,
+//   0 for unspecified or not using any features affected by the differences.
+pub const EF_PPC64_ABI: u32 = 3;
+
+// PowerPC64 specific values for the Dyn d_tag field.
+pub const DT_PPC64_GLINK: i64 = 0x70000000;
+pub const DT_PPC64_OPD: i64 = 0x70000001;
+pub const DT_PPC64_OPDSZ: i64 = 0x70000002;
+pub const DT_PPC64_OPT: i64 = 0x70000003;
+
+// PowerPC64 specific bits in the DT_PPC64_OPT Dyn entry.
+pub const PPC64_OPT_TLS: u64 = 1;
+pub const PPC64_OPT_MULTI_TOC: u64 = 2;
+pub const PPC64_OPT_LOCALENTRY: u64 = 4;
+
+// PowerPC64 specific values for the Elf64_Sym st_other field.
+pub const STO_PPC64_LOCAL_BIT: u8 = 5;
+pub const STO_PPC64_LOCAL_MASK: u8 = 7 << STO_PPC64_LOCAL_BIT;
+
+// Relocation types
+//
+// A Represents the addend used to compute the value of the relocatable field.
+// B Represents the base address at which a shared object has been loaded into memory during execution.
+// G Represents the offset into the global offset table, relative to
+//     the TOC base, at which the address of the relocation entry's symbol
+//     plus addend will reside during execution.
+// L Represents the section offset or address of the procedure linkage
+//     table entry for the symbol plus addend.
+// M Similar to G, except that the address which is stored may be the
+//     address of the procedure linkage table entry for the symbol.
+// P Represents the place (section offset or address) of the storage
+//     unit being relocated (computed using r_offset).
+// R Represents the offset of the symbol within the section in which
+//     the symbol is defined (its section-relative address).
+// S Represents the value of the symbol whose index resides in the relocation entry.
+
+/// none
+pub const R_PPC64_NONE: u32 = 0;
+/// S + A
+pub const R_PPC64_ADDR32: u32 = 1;
+/// (S + A) >> 2
+pub const R_PPC64_ADDR24: u32 = 2;
+/// S + A
+pub const R_PPC64_ADDR16: u32 = 3;
+/// #lo(S + A)
+pub const R_PPC64_ADDR16_LO: u32 = 4;
+/// #hi(S + A)
+pub const R_PPC64_ADDR16_HI: u32 = 5;
+/// #ha(S + A)
+pub const R_PPC64_ADDR16_HA: u32 = 6;
+/// (S + A) >> 2
+pub const R_PPC64_ADDR14: u32 = 7;
+/// (S + A) >> 2
+pub const R_PPC64_ADDR14_BRTAKEN: u32 = 8;
+/// (S + A) >> 2
+pub const R_PPC64_ADDR14_BRNTAKEN: u32 = 9;
+/// (S + A - P) >> 2
+pub const R_PPC64_REL24: u32 = 10;
+/// (S + A - P) >> 2
+pub const R_PPC64_REL14: u32 = 11;
+/// (S + A - P) >> 2
+pub const R_PPC64_REL14_BRTAKEN: u32 = 12;
+/// (S + A - P) >> 2
+pub const R_PPC64_REL14_BRNTAKEN: u32 = 13;
+/// G
+pub const R_PPC64_GOT16: u32 = 14;
+/// #lo(G)
+pub const R_PPC64_GOT16_LO: u32 = 15;
+/// #hi(G)
+pub const R_PPC64_GOT16_HI: u32 = 16;
+/// #ha(G)
+pub const R_PPC64_GOT16_HA: u32 = 17;
+/// none
+pub const R_PPC64_COPY: u32 = 19;
+/// S + A
+pub const R_PPC64_GLOB_DAT: u32 = 20;
+/// see below
+pub const R_PPC64_JMP_SLOT: u32 = 21;
+/// B + A
+pub const R_PPC64_RELATIVE: u32 = 22;
+/// S + A
+pub const R_PPC64_UADDR32: u32 = 24;
+/// S + A
+pub const R_PPC64_UADDR16: u32 = 25;
+/// S + A - P
+pub const R_PPC64_REL32: u32 = 26;
+/// L
+pub const R_PPC64_PLT32: u32 = 27;
+/// L - P
+pub const R_PPC64_PLTREL32: u32 = 28;
+/// #lo(L)
+pub const R_PPC64_PLT16_LO: u32 = 29;
+/// #hi(L)
+pub const R_PPC64_PLT16_HI: u32 = 30;
+/// #ha(L)
+pub const R_PPC64_PLT16_HA: u32 = 31;
+/// R + A
+pub const R_PPC64_SECTOFF: u32 = 33;
+/// #lo(R + A)
+pub const R_PPC64_SECTOFF_LO: u32 = 34;
+/// #hi(R + A)
+pub const R_PPC64_SECTOFF_HI: u32 = 35;
+/// #ha(R + A)
+pub const R_PPC64_SECTOFF_HA: u32 = 36;
+/// (S + A - P) >> 2
+pub const R_PPC64_ADDR30: u32 = 37;
+/// S + A
+pub const R_PPC64_ADDR64: u32 = 38;
+/// #higher(S + A)
+pub const R_PPC64_ADDR16_HIGHER: u32 = 39;
+/// #highera(S + A)
+pub const R_PPC64_ADDR16_HIGHERA: u32 = 40;
+/// #highest(S + A)
+pub const R_PPC64_ADDR16_HIGHEST: u32 = 41;
+/// #highesta(S + A)
+pub const R_PPC64_ADDR16_HIGHESTA: u32 = 42;
+/// S + A
+pub const R_PPC64_UADDR64: u32 = 43;
+/// S + A - P
+pub const R_PPC64_REL64: u32 = 44;
+/// L
+pub const R_PPC64_PLT64: u32 = 45;
+/// L - P
+pub const R_PPC64_PLTREL64: u32 = 46;
+/// S + A - .TOC.
+pub const R_PPC64_TOC16: u32 = 47;
+/// #lo(S + A - .TOC.)
+pub const R_PPC64_TOC16_LO: u32 = 48;
+/// #hi(S + A - .TOC.)
+pub const R_PPC64_TOC16_HI: u32 = 49;
+/// #ha(S + A - .TOC.)
+pub const R_PPC64_TOC16_HA: u32 = 50;
+/// .TOC.
+pub const R_PPC64_TOC: u32 = 51;
+/// M
+pub const R_PPC64_PLTGOT16: u32 = 52;
+/// #lo(M)
+pub const R_PPC64_PLTGOT16_LO: u32 = 53;
+/// #hi(M)
+pub const R_PPC64_PLTGOT16_HI: u32 = 54;
+/// #ha(M)
+pub const R_PPC64_PLTGOT16_HA: u32 = 55;
+/// (S + A) >> 2
+pub const R_PPC64_ADDR16_DS: u32 = 56;
+/// #lo(S + A) >> 2
+pub const R_PPC64_ADDR16_LO_DS: u32 = 57;
+/// G >> 2
+pub const R_PPC64_GOT16_DS: u32 = 58;
+/// #lo(G) >> 2
+pub const R_PPC64_GOT16_LO_DS: u32 = 59;
+/// #lo(L) >> 2
+pub const R_PPC64_PLT16_LO_DS: u32 = 60;
+/// (R + A) >> 2
+pub const R_PPC64_SECTOFF_DS: u32 = 61;
+/// #lo(R + A) >> 2
+pub const R_PPC64_SECTOFF_LO_DS: u32 = 62;
+/// (S + A - .TOC.) >> 2
+pub const R_PPC64_TOC16_DS: u32 = 63;
+/// #lo(S + A - .TOC.) >> 2
+pub const R_PPC64_TOC16_LO_DS: u32 = 64;
+/// M >> 2
+pub const R_PPC64_PLTGOT16_DS: u32 = 65;
+/// #lo(M) >> 2
+pub const R_PPC64_PLTGOT16_LO_DS: u32 = 66;
+/// none
+pub const R_PPC64_TLS: u32 = 67;
+/// @dtpmod
+pub const R_PPC64_DTPMOD64: u32 = 68;
+/// @tprel
+pub const R_PPC64_TPREL16: u32 = 69;
+/// #lo(@tprel)
+pub const R_PPC64_TPREL16_LO: u32 = 60;
+/// #hi(@tprel)
+pub const R_PPC64_TPREL16_HI: u32 = 71;
+/// #ha(@tprel)
+pub const R_PPC64_TPREL16_HA: u32 = 72;
+/// @tprel
+pub const R_PPC64_TPREL64: u32 = 73;
+/// @dtprel
+pub const R_PPC64_DTPREL16: u32 = 74;
+/// #lo(@dtprel)
+pub const R_PPC64_DTPREL16_LO: u32 = 75;
+/// #hi(@dtprel)
+pub const R_PPC64_DTPREL16_HI: u32 = 76;
+/// #ha(@dtprel)
+pub const R_PPC64_DTPREL16_HA: u32 = 77;
+/// @dtprel
+pub const R_PPC64_DTPREL64: u32 = 78;
+/// @got@tlsgd
+pub const R_PPC64_GOT_TLSGD16: u32 = 79;
+/// #lo(@got@tlsgd)
+pub const R_PPC64_GOT_TLSGD16_LO: u32 = 80;
+/// #hi(@got@tlsgd)
+pub const R_PPC64_GOT_TLSGD16_HI: u32 = 81;
+/// #ha(@got@tlsgd)
+pub const R_PPC64_GOT_TLSGD16_HA: u32 = 82;
+/// @got@tlsld
+pub const R_PPC64_GOT_TLSLD16: u32 = 83;
+/// #lo(@got@tlsld)
+pub const R_PPC64_GOT_TLSLD16_LO: u32 = 84;
+/// #hi(@got@tlsld)
+pub const R_PPC64_GOT_TLSLD16_HI: u32 = 85;
+/// #ha(@got@tlsld)
+pub const R_PPC64_GOT_TLSLD16_HA: u32 = 86;
+/// @got@tprel
+pub const R_PPC64_GOT_TPREL16_DS: u32 = 87;
+/// #lo(@got@tprel)
+pub const R_PPC64_GOT_TPREL16_LO_DS: u32 = 88;
+/// #hi(@got@tprel)
+pub const R_PPC64_GOT_TPREL16_HI: u32 = 89;
+/// #ha(@got@tprel)
+pub const R_PPC64_GOT_TPREL16_HA: u32 = 90;
+/// @got@dtprel
+pub const R_PPC64_GOT_DTPREL16_DS: u32 = 91;
+/// #lo(@got@dtprel)
+pub const R_PPC64_GOT_DTPREL16_LO_DS: u32 = 92;
+/// #hi(@got@dtprel)
+pub const R_PPC64_GOT_DTPREL16_HI: u32 = 93;
+/// #ha(@got@dtprel)
+pub const R_PPC64_GOT_DTPREL16_HA: u32 = 94;
+/// @tprel
+pub const R_PPC64_TPREL16_DS: u32 = 95;
+/// #lo(@tprel)
+pub const R_PPC64_TPREL16_LO_DS: u32 = 96;
+/// #higher(@tprel)
+pub const R_PPC64_TPREL16_HIGHER: u32 = 97;
+/// #highera(@tprel)
+pub const R_PPC64_TPREL16_HIGHERA: u32 = 98;
+/// #highest(@tprel)
+pub const R_PPC64_TPREL16_HIGHEST: u32 = 99;
+/// #highesta(@tprel)
+pub const R_PPC64_TPREL16_HIGHESTA: u32 = 100;
+/// @dtprel
+pub const R_PPC64_DTPREL16_DS: u32 = 101;
+/// #lo(@dtprel)
+pub const R_PPC64_DTPREL16_LO_DS: u32 = 102;
+/// #higher(@dtprel)
+pub const R_PPC64_DTPREL16_HIGHER: u32 = 103;
+/// #highera(@dtprel)
+pub const R_PPC64_DTPREL16_HIGHERA: u32 = 104;
+/// #highest(@dtprel)
+pub const R_PPC64_DTPREL16_HIGHEST: u32 = 105;
+/// #highesta(@dtprel)
+pub const R_PPC64_DTPREL16_HIGHESTA: u32 = 106;
+/// (sym+add)@tlsgd
+pub const R_PPC64_TLSGD: u32 = 107;
+/// (sym+add)@tlsld
+pub const R_PPC64_TLSLD: u32 = 108;
+pub const R_PPC64_TOCSAVE: u32 = 109;
+pub const R_PPC64_ADDR16_HIGH: u32 = 110;
+pub const R_PPC64_ADDR16_HIGHA: u32 = 111;
+pub const R_PPC64_TPREL16_HIGH: u32 = 112;
+pub const R_PPC64_TPREL16_HIGHA: u32 = 113;
+pub const R_PPC64_DTPREL16_HIGH: u32 = 114;
+pub const R_PPC64_DTPREL16_HIGHA: u32 = 115;
+
+// GNU extension to support local ifunc.
+pub const R_PPC64_JMP_IREL: u32 = 247;
+pub const R_PPC64_IRELATIVE: u32 = 248;
+/// (sym+add-.)
+pub const R_PPC64_REL16: u32 = 249;
+/// (sym+add-.)@l
+pub const R_PPC64_REL16_LO: u32 = 250;
+/// (sym+add-.)@h
+pub const R_PPC64_REL16_HI: u32 = 251;
+/// (sym+add-.)@ha
+pub const R_PPC64_REL16_HA: u32 = 252;
 
 //  ____  ___ ____   ____   __     __
 // |  _ \|_ _/ ___| / ___|  \ \   / /
