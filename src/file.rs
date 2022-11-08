@@ -3,9 +3,22 @@ use crate::endian::{AnyEndian, EndianParse};
 use crate::parse::{ParseAt, ParseError};
 use crate::segment::ProgramHeader;
 
-// Re-export Class here for the public interface alongside FileHeader where it's exposed
-// in the public interface.
-pub use crate::parse::Class;
+/// Represents the ELF file data format (little-endian vs big-endian)
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Class {
+    ELF32,
+    ELF64,
+}
+
+impl core::fmt::Display for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        let str = match self {
+            Class::ELF32 => "32-bit",
+            Class::ELF64 => "64-bit",
+        };
+        write!(f, "{}", str)
+    }
+}
 
 /// Encapsulates the contents of the ELF File Header
 ///

@@ -6,11 +6,12 @@ use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynIterator;
 use crate::endian::EndianParse;
+use crate::file::Class;
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
 use crate::note::NoteIterator;
-use crate::parse::{Class, ParseAt, ParseError};
+use crate::parse::{ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::ProgramHeader;

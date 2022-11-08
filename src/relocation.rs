@@ -1,6 +1,7 @@
 //! Parsing relocation sections: `.rel.*`, `.rela.*`, [SHT_REL](crate::abi::SHT_REL), [SHT_RELA](crate::abi::SHT_RELA)
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingIterator};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingIterator};
 
 pub type RelIterator<'data, E> = ParsingIterator<'data, E, Rel>;
 pub type RelaIterator<'data, E> = ParsingIterator<'data, E, Rela>;

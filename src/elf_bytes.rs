@@ -2,13 +2,13 @@ use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::{Dyn, DynamicTable};
 use crate::endian::EndianParse;
-use crate::file::FileHeader;
+use crate::file::{Class, FileHeader};
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
 use crate::hash::{GnuHashTable, SysVHashTable};
 use crate::note::NoteIterator;
-use crate::parse::{Class, ParseAt, ParseError, ReadBytesExt};
+use crate::parse::{ParseAt, ParseError, ReadBytesExt};
 use crate::relocation::{RelIterator, RelaIterator};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};

@@ -1,6 +1,7 @@
 //! Parsing `.dynamic` section or [PT_DYNAMIC](crate::abi::PT_DYNAMIC) segment contents
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingIterator, ParsingTable};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingIterator, ParsingTable};
 
 pub type DynamicTable<'data, E> = ParsingTable<'data, E, Dyn>;
 pub type DynIterator<'data, E> = ParsingIterator<'data, E, Dyn>;

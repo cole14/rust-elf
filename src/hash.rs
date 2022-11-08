@@ -2,7 +2,8 @@
 use core::mem::size_of;
 
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable, ReadBytesExt, U32Table};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingTable, ReadBytesExt, U32Table};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
 

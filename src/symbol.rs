@@ -1,7 +1,8 @@
 //! Parsing symbol table sections: `.symtab`, `.dynsym`, [SHT_DYNSYM](crate::abi::SHT_DYNSYM)
 use crate::abi;
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type SymbolTable<'data, E> = ParsingTable<'data, E, Symbol>;
 

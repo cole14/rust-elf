@@ -1,6 +1,7 @@
 use core::{marker::PhantomData, ops::Range};
 
 use crate::endian::EndianParse;
+use crate::file::Class;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -170,23 +171,6 @@ impl From<core::num::TryFromIntError> for ParseError {
 impl From<std::io::Error> for ParseError {
     fn from(err: std::io::Error) -> ParseError {
         ParseError::IOError(err)
-    }
-}
-
-/// Represents the ELF file data format (little-endian vs big-endian)
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Class {
-    ELF32,
-    ELF64,
-}
-
-impl core::fmt::Display for Class {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self {
-            Class::ELF32 => "32-bit",
-            Class::ELF64 => "64-bit",
-        };
-        write!(f, "{}", str)
     }
 }
 

@@ -33,7 +33,8 @@
 //! ```
 use crate::abi;
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ReadBytesExt};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ReadBytesExt};
 use core::mem::size_of;
 use core::str::from_utf8;
 

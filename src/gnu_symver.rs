@@ -1,7 +1,8 @@
 //! Parsing GNU extension sections for dynamic symbol versioning
 use crate::abi;
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingTable};
 use crate::string_table::StringTable;
 
 #[derive(Debug, PartialEq)]

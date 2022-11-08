@@ -6,7 +6,8 @@
 //! It is up to users of the library to choose the decompression library of
 //! their choice when dealing with compressed section contents.
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompressionHeader {

@@ -1,6 +1,7 @@
 //! Parsing the Section Header table
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type SectionHeaderTable<'data, E> = ParsingTable<'data, E, SectionHeader>;
 

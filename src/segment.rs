@@ -1,6 +1,7 @@
 //! Parsing the Program Header table aka Segment table aka `Elf_Phdr`
 use crate::endian::EndianParse;
-use crate::parse::{Class, ParseAt, ParseError, ParsingTable};
+use crate::file::Class;
+use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type SegmentTable<'data, E> = ParsingTable<'data, E, ProgramHeader>;
 
