@@ -8,7 +8,7 @@ use crate::file::FileHeader;
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
-use crate::hash::SysVHashTable;
+use crate::hash::{GnuHashTable, SysVHashTable};
 use crate::note::NoteIterator;
 use crate::parse::{Class, ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
@@ -141,6 +141,9 @@ pub struct CommonElfSections<'data, E: EndianParse> {
 
     /// .hash section
     pub sysv_hash: Option<SysVHashTable<'data, E>>,
+
+    /// .gnu.hash section
+    pub gnu_hash: Option<GnuHashTable<'data, E>>,
 }
 
 impl<'data, E: EndianParse> ElfBytes<'data, E> {
@@ -341,6 +344,12 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                         let buf = self.data.get_bytes(start..end)?;
                         result.sysv_hash =
                             Some(SysVHashTable::new(self.endian, self.ehdr.class, buf)?);
+                    }
+                    abi::SHT_GNU_HASH => {
+                        let (start, end) = shdr.get_data_range()?;
+                        let buf = self.data.get_bytes(start..end)?;
+                        result.gnu_hash =
+                            Some(GnuHashTable::new(self.endian, self.ehdr.class, buf)?);
                     }
                     _ => {
                         continue;
@@ -787,6 +796,7 @@ mod interface_tests {
     use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
+    use crate::hash::sysv_hash;
     use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
     use crate::relocation::Rela;
     use crate::segment::ProgramHeader;
@@ -941,6 +951,7 @@ mod interface_tests {
         assert!(elf_scns.dynsyms_strs.is_some());
         assert!(elf_scns.dynamic.is_some());
         assert!(elf_scns.sysv_hash.is_some());
+        assert!(elf_scns.gnu_hash.is_some());
     }
 
     #[test]
@@ -1280,12 +1291,12 @@ mod interface_tests {
             .expect("Failed to find symbol table");
 
         // Verify that these three symbols all collide in the hash table's buckets
-        assert_eq!(crate::hash::sysv_hash(b"use_memset_v2"), 0x8080542);
-        assert_eq!(crate::hash::sysv_hash(b"__gmon_start__"), 0xF4D007F);
-        assert_eq!(crate::hash::sysv_hash(b"memset"), 0x73C49C4);
-        assert_eq!(crate::hash::sysv_hash(b"use_memset_v2") % 3, 0);
-        assert_eq!(crate::hash::sysv_hash(b"__gmon_start__") % 3, 0);
-        assert_eq!(crate::hash::sysv_hash(b"memset") % 3, 0);
+        assert_eq!(sysv_hash(b"use_memset_v2"), 0x8080542);
+        assert_eq!(sysv_hash(b"__gmon_start__"), 0xF4D007F);
+        assert_eq!(sysv_hash(b"memset"), 0x73C49C4);
+        assert_eq!(sysv_hash(b"use_memset_v2") % 3, 0);
+        assert_eq!(sysv_hash(b"__gmon_start__") % 3, 0);
+        assert_eq!(sysv_hash(b"memset") % 3, 0);
 
         // Use the hash table to find a given symbol in it.
         let (sym_idx, sym) = hash_table
@@ -1296,6 +1307,35 @@ mod interface_tests {
         // Verify that we got the same symbol from the hash table we expected
         assert_eq!(sym_idx, 2);
         assert_eq!(strtab.get(sym.st_name as usize).unwrap(), "memset");
+        assert_eq!(
+            sym,
+            symtab.get(sym_idx).expect("Failed to get expected sym")
+        );
+    }
+
+    #[test]
+    fn gnu_hash_table() {
+        let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
+
+        // Look up the SysV hash section header
+        let common = file.find_common_sections().unwrap();
+        let hash_table = common.gnu_hash.expect("should have .gnu.hash section");
+
+        // Get the dynamic symbol table.
+        let (symtab, strtab) = (common.dynsyms.unwrap(), common.dynsyms_strs.unwrap());
+
+        // manually look one up by explicit name to make sure the above loop is doing something
+        let (sym_idx, sym) = hash_table
+            .find(b"use_memset", &symtab, &strtab)
+            .expect("Failed to parse hash")
+            .expect("Failed to find hash");
+
+        // Verify that we got the same symbol from the hash table we expected
+        assert_eq!(sym_idx, 9);
+        assert_eq!(strtab.get(sym.st_name as usize).unwrap(), "use_memset");
         assert_eq!(
             sym,
             symtab.get(sym_idx).expect("Failed to get expected sym")
@@ -1320,51 +1360,76 @@ mod arch_tests {
             assert_eq!(file.ehdr.e_machine, $e_machine);
             assert_eq!(file.endian, $endian);
 
-            if let Some((shdrs, strtab)) = file.section_headers_with_strtab().expect("should parse")
-            {
-                let _: Vec<_> = shdrs
-                    .iter()
-                    .map(|shdr| {
-                        (
-                            strtab.get(shdr.sh_name as usize).expect("should parse"),
-                            shdr,
-                        )
-                    })
-                    .collect();
-            }
+            let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse").unwrap();
+            let _: Vec<_> = shdrs
+                .iter()
+                .map(|shdr| {
+                    (
+                        strtab.get(shdr.sh_name as usize).expect("should parse"),
+                        shdr,
+                    )
+                })
+                .collect();
 
             let common = file.find_common_sections().expect("should parse");
 
-            if let Some(symtab) = common.symtab {
-                if let Some(strtab) = common.symtab_strs {
-                    let _: Vec<_> = symtab
-                        .iter()
-                        .map(|sym| (strtab.get(sym.st_name as usize).expect("should parse"), sym))
-                        .collect();
-                }
-            }
-
-            if let Some(symtab) = common.dynsyms {
-                if let Some(strtab) = common.dynsyms_strs {
-                    let _: Vec<_> = symtab
-                        .iter()
-                        .map(|sym| (strtab.get(sym.st_name as usize).expect("should parse"), sym))
-                        .collect();
-                }
-            }
-
-            if let Some(phdrs) = file.segments() {
-                let note_phdrs: Vec<_> = phdrs
+            // parse out all the normal symbol table symbols with their names
+            {
+                let symtab = common.symtab.unwrap();
+                let strtab = common.symtab_strs.unwrap();
+                let _: Vec<_> = symtab
                     .iter()
-                    .filter(|phdr| phdr.p_type == abi::PT_NOTE)
+                    .map(|sym| (strtab.get(sym.st_name as usize).expect("should parse"), sym))
                     .collect();
-                for phdr in note_phdrs {
-                    let _: Vec<_> = file
-                        .segment_data_as_notes(&phdr)
-                        .expect("should parse")
-                        .collect();
+            }
+
+            // parse out all the dynamic symbols and look them up in the gnu hash table
+            {
+                let symtab = common.dynsyms.unwrap();
+                let strtab = common.dynsyms_strs.unwrap();
+                let symbols_with_names: Vec<_> = symtab
+                    .iter()
+                    .map(|sym| (strtab.get_raw(sym.st_name as usize).expect("should parse"), sym))
+                    .collect();
+
+                let hash_table = common.gnu_hash.unwrap();
+
+                // look up each entry that should be in the hash table and make sure its there
+                let start_idx = hash_table.hdr.table_start_idx as usize;
+                for sym_idx in 0..symtab.len() {
+                    let (symbol_name, symbol) = symbols_with_names.get(sym_idx).unwrap();
+
+                    let result = hash_table
+                        .find(symbol_name, &symtab, &strtab)
+                        .expect("Failed to parse hash");
+
+                    if sym_idx < start_idx {
+                        assert_eq!(result, None);
+                    } else {
+                        let (hash_sym_idx, hash_symbol) = result.unwrap();
+
+                        // Verify that we got the same symbol from the hash table we expected
+                        assert_eq!(sym_idx, hash_sym_idx);
+                        assert_eq!(
+                            strtab.get_raw(hash_symbol.st_name as usize).unwrap(),
+                            *symbol_name
+                        );
+                        assert_eq!(*symbol, hash_symbol);
+                    }
                 }
             }
+
+            let phdrs = file.segments().unwrap();
+            let note_phdrs: Vec<_> = phdrs
+                .iter()
+                .filter(|phdr| phdr.p_type == abi::PT_NOTE)
+                .collect();
+            for phdr in note_phdrs {
+                let _: Vec<_> = file
+                    .segment_data_as_notes(&phdr)
+                    .expect("should parse")
+                    .collect();
+                }
         }};
     }
 
