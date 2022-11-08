@@ -447,8 +447,6 @@ pub const SHT_LOPROC: u32 = 0x70000000;
 pub const SHT_IA_64_EXT: u32 = 0x70000000; // SHT_LOPROC + 0;
 /// IA_64 unwind section
 pub const SHT_IA_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
-/// RISCV Attributers
-pub const SHT_RISCV_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
 /// Values in [SHT_LOPROC, SHT_HIPROC] are reserved for processor-specific semantics.
 pub const SHT_HIPROC: u32 = 0x7fffffff;
 /// Values in [SHT_LOUSER, SHT_HIUSER] are reserved for application-specific semantics.
@@ -1671,6 +1669,154 @@ pub const R_AARCH64_TLS_TPREL: u32 = 1030;
 pub const R_AARCH64_TLSDESC: u32 = 1031;
 /// STT_GNU_IFUNC relocation.
 pub const R_AARCH64_IRELATIVE: u32 = 1032;
+
+//  ____  ___ ____   ____   __     __
+// |  _ \|_ _/ ___| / ___|  \ \   / /
+// | |_) || |\___ \| |   ____\ \ / /
+// |  _ < | | ___) | |__|_____\ V /
+// |_| \_\___|____/ \____|     \_/
+//
+// See: https://github.com/riscv-non-isa/riscv-elf-psabi-doc
+
+/// This bit is set when the binary targets the C ABI.
+pub const EF_RISCV_RVC: u32 = 0x0001;
+pub const EF_RISCV_FLOAT_ABI_SOFT: u32 = 0x0000;
+pub const EF_RISCV_FLOAT_ABI_SINGLE: u32 = 0x0002;
+pub const EF_RISCV_FLOAT_ABI_DOUBLE: u32 = 0x0004;
+pub const EF_RISCV_FLOAT_ABI_QUAD: u32 = 0x0006;
+/// This is used as a mask to test for one of the above floating-point ABIs,
+/// e.g., (e_flags & EF_RISCV_FLOAT_ABI) == EF_RISCV_FLOAT_ABI_DOUBLE.
+pub const EF_RISCV_FLOAT_ABI_MASK: u32 = 0x0006;
+/// This bit is set when the binary targets the E ABI.
+pub const EF_RISCV_RVE: u32 = 0x0008;
+/// This bit is set when the binary requires the RVTSO memory consistency model.
+pub const EF_RISCV_TSO: u32 = 0x0010;
+
+pub const SHT_RISCV_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
+pub const SHT_RISCV_ATTRIBUTES_SECTION_NAME: &'static str = ".riscv.attributes";
+
+pub const PT_RISCV_ATTRIBUTES: u32 = 0x70000003;
+
+/// Any functions that use registers in a way that is incompatible with the
+/// calling convention of the ABI in use must be annotated with STO_RISCV_VARIANT_CC
+pub const STO_RISCV_VARIANT_CC: u8 = 0x80;
+
+/// An object must have the dynamic tag DT_RISCV_VARIANT_CC if it has one or more R_RISCV_JUMP_SLOT
+/// relocations against symbols with the STO_RISCV_VARIANT_CC attribute.
+pub const DT_RISCV_VARIANT_CC: i64 = 0x70000001;
+
+// RISC-V relocation types
+//
+// A Addend field in the relocation entry associated with the symbol
+// B Base address of a shared object loaded into memory
+// G Offset of the symbol into the GOT (Global Offset Table)
+// GOT Address of the GOT (Global Offset Table)
+// P Position of the relocation
+// S Value of the symbol in the symbol table
+// V Value at the position of the relocation
+// GP Value of __global_pointer$ symbol
+// TLSMODULE TLS module index for the object containing the symbol
+// TLSOFFSET TLS static block offset (relative to tp) for the object containing the symbol
+
+pub const R_RISCV_NONE: u32 = 0;
+/// 32-bit relocation: S + A
+pub const R_RISCV_32: u32 = 1;
+/// 64-bit relocation: S + A
+pub const R_RISCV_64: u32 = 2;
+/// Adjust a link address (A) to its load address: (B + A).
+pub const R_RISCV_RELATIVE: u32 = 3;
+/// Must be in executable; not allowed in shared library
+pub const R_RISCV_COPY: u32 = 4;
+/// Indicates the symbol associated with a PLT entry: S
+pub const R_RISCV_JUMP_SLOT: u32 = 5;
+/// TLSMODULE
+pub const R_RISCV_TLS_DTPMOD32: u32 = 6;
+/// TLSMODULE
+pub const R_RISCV_TLS_DTPMOD64: u32 = 7;
+/// S + A - TLS_DTV_OFFSET
+pub const R_RISCV_TLS_DTPREL32: u32 = 8;
+/// S + A - TLS_DTV_OFFSET
+pub const R_RISCV_TLS_DTPREL64: u32 = 9;
+/// S + A + TLSOFFSET
+pub const R_RISCV_TLS_TPREL32: u32 = 10;
+/// S + A + TLSOFFSET
+pub const R_RISCV_TLS_TPREL64: u32 = 11;
+/// 12-bit PC-relative branch offset S + A - P
+pub const R_RISCV_BRANCH: u32 = 16;
+/// 20-bit PC-relative jump offset S + A - P
+pub const R_RISCV_JAL: u32 = 17;
+/// Deprecated, please use CALL_PLT instead 32-bit PC-relative function call, macros call, tail: S + A - P
+pub const R_RISCV_CALL: u32 = 18;
+/// 32-bit PC-relative function call, macros call, tail (PIC): S + A - P
+pub const R_RISCV_CALL_PLT: u32 = 19;
+/// High 20 bits of 32-bit PC-relative GOT access, %got_pcrel_hi(symbol): G + GOT + A - P
+pub const R_RISCV_GOT_HI20: u32 = 20;
+/// High 20 bits of 32-bit PC-relative TLS IE GOT access, macro la.tls.ie
+pub const R_RISCV_TLS_GOT_HI20: u32 = 21;
+/// High 20 bits of 32-bit PC-relative TLS GD GOT reference, macro la.tls.gd
+pub const R_RISCV_TLS_GD_HI20: u32 = 22;
+/// High 20 bits of 32-bit PC-relative reference, %pcrel_hi(symbol): S + A - P
+pub const R_RISCV_PCREL_HI20: u32 = 23;
+/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: S - P
+pub const R_RISCV_PCREL_LO12_I: u32 = 24;
+/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: S - P
+pub const R_RISCV_PCREL_LO12_S: u32 = 25;
+/// High 20 bits of 32-bit absolute address, %hi(symbol): S + A
+pub const R_RISCV_HI20: u32 = 26;
+/// Low 12 bits of 32-bit absolute address, %lo(symbol): S + A
+pub const R_RISCV_LO12_I: u32 = 27;
+/// Low 12 bits of 32-bit absolute address, %lo(symbol): S + A
+pub const R_RISCV_LO12_S: u32 = 28;
+/// High 20 bits of TLS LE thread pointer offset, %tprel_hi(symbol)
+pub const R_RISCV_TPREL_HI20: u32 = 29;
+/// Low 12 bits of TLS LE thread pointer offset, %tprel_lo(symbol)
+pub const R_RISCV_TPREL_LO12_I: u32 = 30;
+/// Low 12 bits of TLS LE thread pointer offset, %tprel_lo(symbol)
+pub const R_RISCV_TPREL_LO12_S: u32 = 31;
+/// TLS LE thread pointer usage, %tprel_add(symbol)
+pub const R_RISCV_TPREL_ADD: u32 = 32;
+/// 8-bit label addition: V + S + A
+pub const R_RISCV_ADD8: u32 = 33;
+/// 16-bit label addition: V + S + A
+pub const R_RISCV_ADD16: u32 = 34;
+/// 32-bit label addition: V + S + A
+pub const R_RISCV_ADD32: u32 = 35;
+/// 64-bit label addition: V + S + A
+pub const R_RISCV_ADD64: u32 = 36;
+/// 8-bit label subtraction: V - S - A
+pub const R_RISCV_SUB8: u32 = 37;
+/// 16-bit label subtraction: V - S - A
+pub const R_RISCV_SUB16: u32 = 38;
+/// 32-bit label subtraction: V - S - A
+pub const R_RISCV_SUB32: u32 = 39;
+/// 64-bit label subtraction: V - S - A
+pub const R_RISCV_SUB64: u32 = 40;
+/// Alignment statement. The addend indicates the number of bytes occupied by
+/// nop instructions at the relocation offset. The alignment boundary is
+/// specified by the addend rounded up to the next power of two.
+pub const R_RISCV_ALIGN: u32 = 43;
+/// 8-bit PC-relative branch offset: S + A - P
+pub const R_RISCV_RVC_BRANCH: u32 = 44;
+/// 11-bit PC-relative jump offset: S + A - P
+pub const R_RISCV_RVC_JUMP: u32 = 45;
+/// High 6 bits of 18-bit absolute address: S + A
+pub const R_RISCV_RVC_LUI: u32 = 46;
+/// Instruction can be relaxed, paired with a normal relocation at the same address
+pub const R_RISCV_RELAX: u32 = 51;
+/// Local label subtraction: V - S - A
+pub const R_RISCV_SUB6: u32 = 52;
+/// Local label assignment: S + A
+pub const R_RISCV_SET6: u32 = 53;
+/// Local label assignment: S + A
+pub const R_RISCV_SET8: u32 = 54;
+/// Local label assignment: S + A
+pub const R_RISCV_SET16: u32 = 55;
+/// Local label assignment: S + A
+pub const R_RISCV_SET32: u32 = 56;
+/// 32-bit PC relative: S + A - P
+pub const R_RISCV_32_PCREL: u32 = 57;
+/// Relocation against a non-preemptible ifunc symbolifunc_resolver: (B + A)
+pub const R_RISCV_IRELATIVE: u32 = 58;
 
 //       ___   __      __   _  _
 // __  _( _ ) / /_    / /_ | || |
