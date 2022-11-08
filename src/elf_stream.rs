@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom};
 
 use crate::abi;
 use crate::compression::CompressionHeader;
-use crate::dynamic::DynIterator;
+use crate::dynamic::DynamicTable;
 use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::gnu_symver::{
@@ -346,7 +346,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     }
 
     /// Get the .dynamic section/segment contents.
-    pub fn dynamic_section(&mut self) -> Result<Option<DynIterator<E>>, ParseError> {
+    pub fn dynamic_section(&mut self) -> Result<Option<DynamicTable<E>>, ParseError> {
         // If we have section headers, then look it up there
         if self.shdrs.len() > 0 {
             if let Some(shdr) = self
@@ -356,7 +356,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
-                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
         } else if self.phdrs.len() > 0 {
@@ -367,7 +367,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
-                return Ok(Some(DynIterator::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
             }
         }
         Ok(None)
@@ -857,7 +857,8 @@ mod interface_tests {
         let mut dynamic = file
             .dynamic_section()
             .expect("Failed to parse .dynamic")
-            .expect("Failed to find .dynamic");
+            .expect("Failed to find .dynamic")
+            .iter();
         assert_eq!(
             dynamic.next().expect("Failed to get dyn entry"),
             Dyn {
