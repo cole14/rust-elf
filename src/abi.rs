@@ -449,8 +449,6 @@ pub const SHT_IA_64_EXT: u32 = 0x70000000; // SHT_LOPROC + 0;
 pub const SHT_IA_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
 /// RISCV Attributers
 pub const SHT_RISCV_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
-/// X86_64 unwind section
-pub const SHT_X86_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
 /// Values in [SHT_LOPROC, SHT_HIPROC] are reserved for processor-specific semantics.
 pub const SHT_HIPROC: u32 = 0x7fffffff;
 /// Values in [SHT_LOUSER, SHT_HIUSER] are reserved for application-specific semantics.
@@ -1673,3 +1671,101 @@ pub const R_AARCH64_TLS_TPREL: u32 = 1030;
 pub const R_AARCH64_TLSDESC: u32 = 1031;
 /// STT_GNU_IFUNC relocation.
 pub const R_AARCH64_IRELATIVE: u32 = 1032;
+
+//       ___   __      __   _  _
+// __  _( _ ) / /_    / /_ | || |
+// \ \/ / _ \| '_ \  | '_ \| || |_
+//  >  < (_) | (_) | | (_) |__   _|
+// /_/\_\___/ \___/___\___/   |_|
+//              |_____|
+//
+// See: https://gitlab.com/x86-psABIs/x86-64-ABI
+
+/// If an object file section does not have this flag set, then it may not hold
+/// more than 2GB and can be freely referred to in objects using smaller code models.
+pub const SHF_X86_64_LARGE: u64 = 0x10000000;
+
+/// This section contains unwind function table entries for stack unwinding.
+pub const SHT_X86_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
+
+// x86_64 reloc types
+//
+// A Represents the addend used to compute the value of the relocatable field.
+// B Represents the base address at which a shared object has been loaded into memory
+//     during execution. Generally, a shared object is built with a 0 base virtual address,
+//     but the execution address will be different.
+// G Represents the offset into the global offset table at which the relocation entry’s symbol
+//     will reside during execution.
+// GOT Represents the address of the global offset table.
+// L Represents the place (section offset or address) of the Procedure Linkage Table entry for a symbol.
+// P Represents the place (section offset or address) of the storage unit being relocated (computed using r_offset).
+// S Represents the value of the symbol whose index resides in the relocation entry.
+// Z Represents the size of the symbol whose index resides in the relocation entry.
+
+pub const R_X86_64_NONE: u32 = 0;
+/// S + A
+pub const R_X86_64_64: u32 = 1;
+/// S + A - P
+pub const R_X86_64_PC32: u32 = 2;
+/// G + A
+pub const R_X86_64_GOT32: u32 = 3;
+/// L + A - P
+pub const R_X86_64_PLT32: u32 = 4;
+pub const R_X86_64_COPY: u32 = 5;
+/// S
+pub const R_X86_64_GLOB_DAT: u32 = 6;
+/// S
+pub const R_X86_64_JUMP_SLOT: u32 = 7;
+/// B + A
+pub const R_X86_64_RELATIVE: u32 = 8;
+/// G + GOT + A - P
+pub const R_X86_64_GOTPCREL: u32 = 9;
+/// S + A
+pub const R_X86_64_32: u32 = 10;
+/// S + A
+pub const R_X86_64_32S: u32 = 11;
+/// S + A
+pub const R_X86_64_16: u32 = 12;
+/// S + A - P
+pub const R_X86_64_PC16: u32 = 13;
+/// S + A
+pub const R_X86_64_8: u32 = 14;
+/// S + A - P
+pub const R_X86_64_PC8: u32 = 15;
+pub const R_X86_64_DTPMOD64: u32 = 16;
+pub const R_X86_64_DTPOFF64: u32 = 17;
+pub const R_X86_64_TPOFF64: u32 = 18;
+pub const R_X86_64_TLSGD: u32 = 19;
+pub const R_X86_64_TLSLD: u32 = 20;
+pub const R_X86_64_DTPOFF32: u32 = 21;
+pub const R_X86_64_GOTTPOFF: u32 = 22;
+pub const R_X86_64_TPOFF32: u32 = 23;
+/// S + A - P
+pub const R_X86_64_PC64: u32 = 24;
+/// S + A - GOT
+pub const R_X86_64_GOTOFF64: u32 = 25;
+/// GOT + A - P
+pub const R_X86_64_GOTPC32: u32 = 26;
+/// G + A
+pub const R_X86_64_GOT64: u32 = 27;
+/// G + GOT - P + A
+pub const R_X86_64_GOTPCREL64: u32 = 28;
+/// GOT - P + A
+pub const R_X86_64_GOTPC64: u32 = 29;
+/// L - GOT + A
+pub const R_X86_64_PLTOFF64: u32 = 31;
+/// Z + A
+pub const R_X86_64_SIZE32: u32 = 32;
+/// Z + A
+pub const R_X86_64_SIZE64: u32 = 33;
+pub const R_X86_64_GOTPC32_TLSDESC: u32 = 34;
+pub const R_X86_64_TLSDESC_CALL: u32 = 35;
+pub const R_X86_64_TLSDESC: u32 = 36;
+/// indirect (B + A)
+pub const R_X86_64_IRELATIVE: u32 = 37;
+/// B + A
+pub const R_X86_64_RELATIVE64: u32 = 38;
+/// G + GOT + A - P
+pub const R_X86_64_GOTPCRELX: u32 = 41;
+/// G + GOT + A - P
+pub const R_X86_64_REX_GOTPCRELX: u32 = 42;
