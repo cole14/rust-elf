@@ -346,7 +346,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     }
 
     /// Get the .dynamic section/segment contents.
-    pub fn dynamic_section(&mut self) -> Result<Option<DynamicTable<E>>, ParseError> {
+    pub fn dynamic(&mut self) -> Result<Option<DynamicTable<E>>, ParseError> {
         // If we have section headers, then look it up there
         if self.shdrs.len() > 0 {
             if let Some(shdr) = self
@@ -849,13 +849,13 @@ mod interface_tests {
     }
 
     #[test]
-    fn dynamic_section() {
+    fn dynamic() {
         let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
 
         let mut dynamic = file
-            .dynamic_section()
+            .dynamic()
             .expect("Failed to parse .dynamic")
             .expect("Failed to find .dynamic")
             .iter();
