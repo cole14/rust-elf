@@ -701,6 +701,28 @@ mod interface_tests {
     }
 
     #[test]
+    fn shnum_and_shstrndx_in_shdr0() {
+        let path = std::path::PathBuf::from("sample-objects/shnum.x86_64");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
+        let (shdrs, strtab) = file
+            .section_headers_with_strtab()
+            .expect("shdrs should be parsable");
+
+        let shdrs_len = shdrs.len();
+        assert_eq!(shdrs_len, 0xFF15);
+
+        let shdr = shdrs.get(shdrs_len - 1).unwrap();
+        let name = strtab
+            .get(shdr.sh_name as usize)
+            .expect("Failed to get section name");
+
+        assert_eq!(name, ".shstrtab");
+        assert_eq!(shdr.sh_type, abi::SHT_STRTAB);
+    }
+
+    #[test]
     fn section_header_by_name() {
         let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
