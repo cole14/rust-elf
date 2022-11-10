@@ -1,7 +1,6 @@
 #![no_main]
 
 use elf::endian::AnyEndian;
-use elf::hash::sysv_hash;
 use elf::ElfBytes;
 use libfuzzer_sys::fuzz_target;
 
@@ -27,8 +26,15 @@ fuzz_target!(|data: &[u8]| {
 
                     // use the hash table
                     if let Some(hash) = common.sysv_hash {
-                        for name in sym_names {
-                            let _ = hash.find(name, sysv_hash(name), &dynsyms, &dynstrs);
+                        for name in sym_names.iter() {
+                            let _ = hash.find(name, &dynsyms, &dynstrs);
+                        }
+                    }
+
+                    // use the gnu hash table
+                    if let Some(hash) = common.gnu_hash {
+                        for name in sym_names.iter() {
+                            let _ = hash.find(name, &dynsyms, &dynstrs);
                         }
                     }
                 }
