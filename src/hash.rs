@@ -83,7 +83,6 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
     pub fn find(
         &self,
         name: &[u8],
-        hash: u32,
         symtab: &SymbolTable<'data, E>,
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
@@ -91,6 +90,8 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
         if self.buckets.len() == 0 {
             return Ok(None);
         }
+
+        let hash = sysv_hash(name);
 
         let start = (hash as usize) % self.buckets.len();
         let mut index = self.buckets.get(start)? as usize;

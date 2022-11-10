@@ -1285,7 +1285,7 @@ mod interface_tests {
 
         // Use the hash table to find a given symbol in it.
         let (sym_idx, sym) = hash_table
-            .find(b"memset", 0x73C49C4, &symtab, &strtab)
+            .find(b"memset", &symtab, &strtab)
             .expect("Failed to parse hash")
             .expect("Failed to find hash");
 

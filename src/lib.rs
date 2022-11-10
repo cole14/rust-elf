@@ -121,7 +121,7 @@
 //!
 //! // Use the hash table to find a given symbol in it.
 //! let name = b"memset";
-//! let (sym_idx, sym) = hash_table.find(name, sysv_hash(name), &dynsyms, &strtab)
+//! let (sym_idx, sym) = hash_table.find(name, &dynsyms, &strtab)
 //!     .expect("hash table and symbols should parse").unwrap();
 //!
 //! // Verify that we got the same symbol from the hash table we expected
@@ -133,6 +133,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod abi;
+
 pub mod compression;
 pub mod dynamic;
 pub mod file;
