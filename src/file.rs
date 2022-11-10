@@ -1,8 +1,7 @@
 //! Parsing the ELF File Header
 use crate::abi;
 use crate::endian::{AnyEndian, EndianParse};
-use crate::parse::{ParseAt, ParseError};
-use crate::segment::ProgramHeader;
+use crate::parse::ParseError;
 
 /// Represents the ELF file data format (little-endian vs big-endian)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -184,28 +183,6 @@ impl FileHeader {
             e_shnum,
             e_shstrndx,
         })
-    }
-
-    /// Calculate the (start, end) range in bytes for where the ProgramHeader table resides in
-    /// the ELF file containing this FileHeader.
-    ///
-    /// Returns Ok(None) if the file does not contain any ProgramHeaders.
-    /// Returns a ParseError if the range could not fit in the system's usize or encountered overflow
-    pub(crate) fn get_phdrs_data_range(self) -> Result<Option<(usize, usize)>, ParseError> {
-        if self.e_phnum == 0 {
-            return Ok(None);
-        }
-
-        // Validate ph entsize. We do this when calculating the range before so that we can error
-        // early for corrupted files.
-        let entsize = ProgramHeader::validate_entsize(self.class, self.e_phentsize as usize)?;
-
-        let start: usize = self.e_phoff.try_into()?;
-        let size = entsize
-            .checked_mul(self.e_phnum as usize)
-            .ok_or(ParseError::IntegerOverflow)?;
-        let end = start.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
-        Ok(Some((start, end)))
     }
 }
 

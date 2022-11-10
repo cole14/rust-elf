@@ -112,13 +112,32 @@ fn find_phdrs<'data, E: EndianParse>(
     ehdr: &FileHeader,
     data: &'data [u8],
 ) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
-    match ehdr.get_phdrs_data_range()? {
-        Some((start, end)) => {
-            let buf = data.get_bytes(start..end)?;
-            Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
-        }
-        None => Ok(None),
+    // It's Ok to have no program headers
+    if ehdr.e_phoff == 0 {
+        return Ok(None);
     }
+
+    // If the number of segments is greater than or equal to PN_XNUM (0xffff),
+    // e_phnum is set to PN_XNUM, and the actual number of program header table
+    // entries is contained in the sh_info field of the section header at index 0.
+    let mut phnum = ehdr.e_phnum as usize;
+    if phnum == abi::PN_XNUM as usize {
+        let shoff: usize = ehdr.e_shoff.try_into()?;
+        let mut offset = shoff;
+        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        phnum = shdr0.sh_info.try_into()?;
+    }
+
+    // Validate phentsize before trying to read the table so that we can error early for corrupted files
+    let entsize = ProgramHeader::validate_entsize(ehdr.class, ehdr.e_phentsize as usize)?;
+
+    let phoff: usize = ehdr.e_phoff.try_into()?;
+    let size = entsize
+        .checked_mul(phnum)
+        .ok_or(ParseError::IntegerOverflow)?;
+    let end = phoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
+    let buf = data.get_bytes(phoff..end)?;
+    Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
 }
 
 /// This struct collects the common sections found in ELF objects
@@ -854,6 +873,33 @@ mod interface_tests {
                 p_memsz: 448,
                 p_flags: 5,
                 p_align: 8,
+            }
+        );
+    }
+
+    #[test]
+    fn segments_phnum_in_shdr0() {
+        let path = std::path::PathBuf::from("sample-objects/phnum.m68k.so");
+        let file_data = std::fs::read(path).expect("Could not read file.");
+        let slice = file_data.as_slice();
+        let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+
+        let segments: Vec<ProgramHeader> = file
+            .segments()
+            .expect("File should have a segment table")
+            .iter()
+            .collect();
+        assert_eq!(
+            segments[0],
+            ProgramHeader {
+                p_type: abi::PT_PHDR,
+                p_offset: 92,
+                p_vaddr: 0,
+                p_paddr: 0,
+                p_filesz: 32,
+                p_memsz: 32,
+                p_flags: 0x20003,
+                p_align: 0x40000,
             }
         );
     }

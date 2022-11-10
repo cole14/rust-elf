@@ -328,6 +328,13 @@ pub const EV_NONE: u8 = 0;
 /// Current version
 pub const EV_CURRENT: u8 = 1;
 
+/// If the number of program headers is greater than or equal to PN_XNUM (0xffff),
+/// this member has the value PN_XNUM (0xffff). The actual number of
+/// program header table entries is contained in the sh_info field of the
+/// section header at index 0. Otherwise, the sh_info member of the initial
+/// section header entry contains the value zero.
+pub const PN_XNUM: u16 = 0xffff;
+
 /// PF_* define constants for the ELF Program Header's p_flags field.
 /// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
 /// are both 4-byte unsigned integers with 4-byte alignment
