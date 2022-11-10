@@ -8,6 +8,7 @@ documentation = "https://docs.rs/elf/latest/elf/"
 description = "A pure-rust library for parsing ELF files"
 keywords = ["binary", "elf", "object", "parser"]
 categories = ["no-std", "os", "embedded"]
+exclude = [".gitignore", "/.github", "/sample-objects"]
 readme = "README.md"
 edition = "2021"
 
