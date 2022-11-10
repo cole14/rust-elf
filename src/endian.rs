@@ -10,14 +10,9 @@
 //! * [BigEndian]/[LittleEndian]: For tools that know they only want to parse a single given byte order known at compile time.
 //! * [type@NativeEndian]: For tools that know they want to parse the same byte order as the target's byte order.
 //
-// Note: This is largely inspired by the endian parsing code in the object crate (I tried valiantly to
-// explore alternate shapes, but this won out). The design choices for ParseAt/EndianParse
-// are to avoid the unsafe reinterpret cast/transmute calls that rely on `#[repr(C)]` and
-// proper alignment that is done in the Pod trait over there.
-//
-// That method is slick, and also - do we need really it? I want to see how far we can get
-// using only safe code.
-
+// Note:
+//   I'd love to see this get replaced with safe transmutes, if that RFC ever gets formalized.
+//   Until then, this crate serves as an example implementation for what's possible with purely safe rust.
 use crate::abi;
 use crate::parse::ParseError;
 

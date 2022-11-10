@@ -1,20 +1,61 @@
-//! The `elf` crate provides an interface for reading ELF object files.
+//! The `elf` crate provides a pure-safe-rust interface for reading ELF object files.
 //!
 //! # Capabilities
 //!
-//! ### no_std option:
+//! ### ✨ No unsafe code ✨
+//! With memory safety a core goal, this crate contains zero unsafe code blocks, so you
+//! can trust in rust's memory safety guarantees without also having to trust this
+//! library developer as having truly been "right" in why some unsafe block was safe. 💃
+//!
+//! Many of the other rust ELF parsers out there contain bits of unsafe code deep
+//! down or in dependencies to reinterpret/transmute byte contents as structures in
+//! order to drive zero-copy parsing. They're slick, and there's typically
+//! appropriate checking to validate the assumptions to make that unsafe code work,
+//! but nevertheless it introduces unsafe code blocks at the core of the parsers. This
+//! crate strives to serve as an alternate implementation with zero unsafe blocks, while
+//! also biasing for performance.
+//!
+//! Note: I'd love to see this crate be enhanced further once rust provides safe transmutes.
+//!
+//! See: <https://github.com/rust-lang/project-safe-transmute>
+//!
+//! ### ✨ Fuzz Tested ✨
+//! Various parts of the library are fuzz tested for panics and crashes (see `fuzz/`).
+//!
+//! Memory safety is a core goal, as is providing a safe interface that errors on bad data
+//! over crashing or panicking. Checked integer math is used where appropriate, and ParseErrors are
+//! returned when bad or corrupted ELF structures are encountered.
+//!
+//! ### ✨ Works in `no_std` environments ✨
 //! This crate provides an elf parsing interface which does not allocate or use any std
 //! features, so it can be used in `no_std` environments such as kernels and bootloaders.
 //! The no_std variant merely disables the additional stream-oriented `std:: Read + Seek` interface.
 //! All core parsing functionality is the same!
 //!
-//! ### Zero-alloc parser:
+//! ### ✨ Zero-alloc parser ✨
 //! This crate implements parsing in a way that avoids heap allocations. ELF structures
 //! are parsed and stored on the stack and provided by patterns such as lazily parsed iterators
-//! that yield stack allocated rust types. The structures are copy-converted as
-//! needed from the underlying file data into Rust's native struct representation.
+//! that yield stack allocated rust types, or lazily parsing tables that only parse out a particular
+//! entry on table.get(index). The structures are copy-converted as needed from the underlying file
+//! data into Rust's native struct representation.
 //!
-//! ### Endian-aware:
+//! ### ✨ Some zero-copy interfaces ✨
+//! The StringTable, for instance, yields `&[u8]` and `&str` backed by the raw string table bytes.
+//!
+//! The [ElfBytes] parser type also does not make raw copies of the underlying file data to back
+//! the parser lazy parser interfaces `ParsingIterator` and `ParsingTable`. They merely wrap byte slices
+//! internally, and yield rust repr values on demand, which does entail copying of the bytes into the
+//! parsed rust-native format.
+//!
+//! Depending on the use-case, it can be more efficient to restructure the raw ELF into different layouts
+//! for more efficient interpretation, say, by re-indexing a flat table into a HashMap. `ParsingIterator`s
+//! make that easy and rustily-intuitive.
+//!
+//! The `ParsingIterator`s are also nice in that you can easily zip/enumerate/filter/collect them
+//! how you wish. Do you know that you want to do multiple passes over pairs from different tables? Just
+//! zip/collect them into another type so you only parse/endian-flip each entry once!
+//!
+//! ### ✨ Endian-aware ✨
 //! This crate handles translating between file and host endianness when
 //! parsing the ELF contents and provides four endian parsing implementations
 //! optimized to support the different common use-cases for an ELF parsing library.
@@ -29,27 +70,7 @@
 //! When the limited specifications are used, errors are properly returned when asked to parse an ELF file
 //! with an unexpected byte ordering.
 //!
-//! ### Lazy parsing:
-//! This crate strives for lazy evaluation and parsing when possible. ELF structures are
-//! generally provided through lazy-parsing interface types such as `ParsingIterator`s and `ParsingTable`s
-//! which defer interpreting the raw ELF bytes for a given structure until they're needed.
-//!
-//! The `ParsingIterator`s are also nice in that you can easily zip/enumerate/filter/collect them
-//! how you wish. Do you know that you want to do multiple passes over pairs from different tables? Just
-//! zip/collect them into another type so you only parse each entry once!
-//!
-//! ### Some zero-copy interfaces
-//! The StringTable, for instance, yields `&[u8]` and `&str` backed by the raw string table bytes.
-//!
-//! The [ElfBytes] parser type also does not make raw copies of any of the underlying file data to back
-//! the parser lazy parser interfaces `ParsingIterator` and `ParsingTable`. They merely wrap byte slices
-//! internally, though the parsing of a struct into the rust type does entail copying of the bytes in the
-//! parsed rust-native format.
-//!
-//! Depending on the use-case, it can be more efficient to restructure the raw ELF into different layouts
-//! for more efficient interpretation, and `ParsingIterator`s make that easy and rustily-intuitive.
-//!
-//! ### Stream-based lazy i/o interface
+//! ### ✨ Stream-based lazy i/o interface ✨
 //! The [ElfStream] parser type takes a `std:: Read + Seek` (such as `std::fs::File`) where ranges of
 //! file contents are read lazily on-demand based on what the user wants to parse.
 //!
@@ -61,27 +82,8 @@
 //! overhead of reading a bunch of unused file data just to parse out a few things, (like
 //! grabbing the `.gnu.note.build-id`)
 //!
-//! ### Fuzz Tested
-//! Various parts of the library are fuzz tested for panics and crashes (see `fuzz/`).
-//!
-//! Memory safety is a core goal, as is providing a safe interface that errors on bad data
-//! over crashing/panicking. Checked integer math is used where appropriate, and ParseErrors are
-//! returned when bad/corrupted ELF structures are encountered.
-//!
-//! ### No unsafe code:
-//! With memory safety a core goal, this crate contains zero unsafe code blocks, so you
-//! can trust in rust's memory safety guarantees without also having to trust this
-//! library developer as having truly been "right" in why some unsafe block is safe. 💃
-//!
-//! Many of the other rust ELF parsers out there contain bits of unsafe code deep
-//! down or in dependencies to reinterpret/transmute byte contents as structures in
-//! order to drive zero-copy parsing. They're slick, and there's typically
-//! appropriate checking to validate the assumptions to make that unsafe code work,
-//! but nevertheless it introduces unsafe code blocks at the core of the parsers. This
-//! crate strives to serve as an alternate implementation with zero unsafe blocks.
-//!
-//! ### Tiny library with no dependencies and fast compilation times
-//! ✨ Release-target compilation times on this developer's 2021 m1 macbook are sub-second. ✨
+//! ### ✨ Tiny library with no dependencies and fast compilation times ✨
+//! Release-target compilation times on this developer's 2021 m1 macbook are sub-second.
 //!
 //! Example using [ElfBytes]:
 //! ```
