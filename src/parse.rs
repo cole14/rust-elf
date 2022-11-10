@@ -418,6 +418,16 @@ mod parsing_table_tests {
     }
 
     #[test]
+    fn test_u32_table_get_parse_failure() {
+        let data = vec![0u8, 1];
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
+        assert!(matches!(
+            table.get(0),
+            Err(ParseError::SliceReadError((0, 4)))
+        ));
+    }
+
+    #[test]
     fn test_lsb_u32_table_get() {
         let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
         let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
@@ -451,5 +461,12 @@ mod parsing_table_tests {
         assert!(matches!(table.get(0), Ok(0x00010203)));
         assert!(matches!(table.get(1), Ok(0x04050607)));
         assert!(matches!(table.get(7), Err(ParseError::BadOffset(7))));
+    }
+
+    #[test]
+    fn test_u32_table_get_unaligned() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.get(1..).unwrap());
+        assert!(matches!(table.get(0), Ok(0x04030201)));
     }
 }
