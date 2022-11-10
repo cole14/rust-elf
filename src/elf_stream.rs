@@ -139,7 +139,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
     /// Get an lazy-parsing table for the Section Headers in the file and its associated StringTable.
     ///
-    /// The underlying ELF bytes backing the section headers table  and string
+    /// The underlying ELF bytes backing the section headers table and string
     /// table are read all at once when the table is requested, but parsing is
     /// deferred to be lazily parsed on demand on each table.get(), strtab.get(), or
     /// table.iter().next() call.
@@ -153,10 +153,15 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// to a ranges in the file data that does not actually exist.
     pub fn section_headers_with_strtab(
         &mut self,
-    ) -> Result<(&Vec<SectionHeader>, StringTable), ParseError> {
+    ) -> Result<(&Vec<SectionHeader>, Option<StringTable>), ParseError> {
         // It's Ok to have no section headers
         if self.shdrs.len() == 0 {
-            return Ok((&self.shdrs, StringTable::default()));
+            return Ok((&self.shdrs, None));
+        }
+
+        // It's Ok to not have a string table
+        if self.ehdr.e_shstrndx == abi::SHN_UNDEF {
+            return Ok((&self.shdrs, None));
         }
 
         // If the section name string table section index is greater than or
@@ -168,6 +173,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             shstrndx = self.shdrs[0].sh_link as usize;
         }
 
+        // We have a strtab, so wrap it in a zero-copy StringTable
         let strtab = self
             .shdrs
             .get(shstrndx)
@@ -175,7 +181,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
         let strtab_buf = self.reader.read_bytes(strtab_start, strtab_end)?;
         let strtab = StringTable::new(strtab_buf);
-        Ok((&self.shdrs, strtab))
+        Ok((&self.shdrs, Some(strtab)))
     }
 
     /// Find the parsed section header with the given name (if any).
@@ -216,7 +222,14 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         &mut self,
         name: &str,
     ) -> Result<Option<&SectionHeader>, ParseError> {
-        let (shdrs, strtab) = self.section_headers_with_strtab()?;
+        let (shdrs, strtab) = match self.section_headers_with_strtab()? {
+            (shdr, Some(strtab)) => (shdr, strtab),
+            // We can't look up shdrs by name if there's no strtab.
+            // (hint: try looking it up by its sh_type).
+            _ => {
+                return Ok(None);
+            }
+        };
 
         Ok(shdrs.iter().find(|shdr| {
             let sh_name = match strtab.get(shdr.sh_name as usize) {
@@ -690,6 +703,7 @@ mod interface_tests {
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
             .expect("Failed to get shdrs");
+        let (shdrs, strtab) = (shdrs, strtab.unwrap());
 
         let shdr_4 = &shdrs[4];
         let name = strtab
@@ -709,6 +723,7 @@ mod interface_tests {
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
             .expect("shdrs should be parsable");
+        let (shdrs, strtab) = (shdrs, strtab.unwrap());
 
         let shdrs_len = shdrs.len();
         assert_eq!(shdrs_len, 0xFF15);
@@ -1089,6 +1104,7 @@ mod arch_tests {
             assert_eq!(file.endian, $endian);
 
             let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse");
+            let (shdrs, strtab) = (shdrs, strtab.unwrap());
             let _: Vec<_> = shdrs
                 .iter()
                 .map(|shdr| {

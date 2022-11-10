@@ -198,8 +198,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     ///
     /// Example usage:
     /// ```
+    /// use std::collections::HashMap;
     /// use elf::endian::AnyEndian;
     /// use elf::ElfBytes;
+    /// use elf::note::Note;
+    /// use elf::note::NoteGnuBuildId;
     /// use elf::section::SectionHeader;
     ///
     /// let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
@@ -209,13 +212,16 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
     ///
     /// // Get the section header table alongside its string table
-    /// let (shdrs, strtab) = file
+    /// let (shdrs_opt, strtab_opt) = file
     ///     .section_headers_with_strtab()
-    ///     .expect("shdrs offsets should be valid")
-    ///     .expect("File should have shdrs");
+    ///     .expect("shdrs offsets should be valid");
+    /// let (shdrs, strtab) = (
+    ///     shdrs_opt.expect("Should have shdrs"),
+    ///     strtab_opt.expect("Should have strtab")
+    /// );
     ///
-    /// // Parse the shdrs and collect them alongside their names
-    /// let with_names: Vec<(&str, SectionHeader)> = shdrs
+    /// // Parse the shdrs and collect them into a map keyed on their zero-copied name
+    /// let with_names: HashMap<&str, SectionHeader> = shdrs
     ///     .iter()
     ///     .map(|shdr| {
     ///         (
@@ -224,17 +230,38 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     ///         )
     ///     })
     ///     .collect();
+    ///
+    /// // Get the zero-copy parsed type for the the build id note
+    /// let build_id_note_shdr: &SectionHeader = with_names
+    ///     .get(".note.gnu.build-id")
+    ///     .expect("Should have build id note section");
+    /// let notes: Vec<_> = file
+    ///     .section_data_as_notes(build_id_note_shdr)
+    ///     .expect("Should be able to get note section data")
+    ///     .collect();
+    /// println!("{:?}", notes[0]);
     /// ```
     pub fn section_headers_with_strtab(
         &self,
-    ) -> Result<Option<(SectionHeaderTable<'data, E>, StringTable<'data>)>, ParseError> {
+    ) -> Result<
+        (
+            Option<SectionHeaderTable<'data, E>>,
+            Option<StringTable<'data>>,
+        ),
+        ParseError,
+    > {
         // It's Ok to have no section headers
         let shdrs = match self.section_headers() {
             Some(shdrs) => shdrs,
             None => {
-                return Ok(None);
+                return Ok((None, None));
             }
         };
+
+        // It's Ok to not have a string table
+        if self.ehdr.e_shstrndx == abi::SHN_UNDEF {
+            return Ok((Some(shdrs), None));
+        }
 
         // If the section name string table section index is greater than or
         // equal to SHN_LORESERVE (0xff00), e_shstrndx has the value SHN_XINDEX
@@ -249,7 +276,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let strtab = shdrs.get(shstrndx)?;
         let (strtab_start, strtab_end) = strtab.get_data_range()?;
         let strtab_buf = self.data.get_bytes(strtab_start..strtab_end)?;
-        Ok(Some((shdrs, StringTable::new(strtab_buf))))
+        Ok((Some(shdrs), Some(StringTable::new(strtab_buf))))
     }
 
     /// Parse section headers until one is found with the given name
@@ -287,8 +314,9 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// ```
     pub fn section_header_by_name(&self, name: &str) -> Result<Option<SectionHeader>, ParseError> {
         let (shdrs, strtab) = match self.section_headers_with_strtab()? {
-            Some((shdrs, strtab)) => (shdrs, strtab),
-            None => {
+            (Some(shdrs), Some(strtab)) => (shdrs, strtab),
+            _ => {
+                // If we don't have shdrs, or don't have a strtab, we can't find a section by its name
                 return Ok(None);
             }
         };
@@ -855,8 +883,8 @@ mod interface_tests {
 
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
-            .expect("shdrs should be parsable")
-            .expect("File should have shdrs");
+            .expect("shdrs should be parsable");
+        let (shdrs, strtab) = (shdrs.unwrap(), strtab.unwrap());
 
         let with_names: Vec<(&str, SectionHeader)> = shdrs
             .iter()
@@ -884,8 +912,8 @@ mod interface_tests {
 
         let (shdrs, strtab) = file
             .section_headers_with_strtab()
-            .expect("shdrs should be parsable")
-            .expect("File should have shdrs");
+            .expect("shdrs should be parsable");
+        let (shdrs, strtab) = (shdrs.unwrap(), strtab.unwrap());
 
         let shdrs_len = shdrs.len();
         assert_eq!(shdrs_len, 0xFF15);
@@ -1345,7 +1373,8 @@ mod arch_tests {
             assert_eq!(file.ehdr.e_machine, $e_machine);
             assert_eq!(file.endian, $endian);
 
-            let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse").unwrap();
+            let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse");
+            let (shdrs, strtab) = (shdrs.unwrap(), strtab.unwrap());
             let _: Vec<_> = shdrs
                 .iter()
                 .map(|shdr| {
