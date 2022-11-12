@@ -2,7 +2,7 @@ use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::{Dyn, DynamicTable};
 use crate::endian::EndianParse;
-use crate::file::{Class, FileHeader};
+use crate::file::{parse_ident, Class, FileHeader};
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
@@ -62,9 +62,8 @@ use crate::symbol::{Symbol, SymbolTable};
 /// println!("There are {} PT_LOAD segments", all_load_phdrs.len());
 /// ```
 pub struct ElfBytes<'data, E: EndianParse> {
-    pub ehdr: FileHeader,
+    pub ehdr: FileHeader<E>,
     data: &'data [u8],
-    endian: E,
     shdrs: Option<SectionHeaderTable<'data, E>>,
     phdrs: Option<SegmentTable<'data, E>>,
 }
@@ -74,8 +73,7 @@ pub struct ElfBytes<'data, E: EndianParse> {
 /// If shnum > SHN_LORESERVE (0xff00), then this will additionally parse out shdr[0] to calculate
 /// the full table size, but all other parsing of SectionHeaders is deferred.
 fn find_shdrs<'data, E: EndianParse>(
-    endian: E,
-    ehdr: &FileHeader,
+    ehdr: &FileHeader<E>,
     data: &'data [u8],
 ) -> Result<Option<SectionHeaderTable<'data, E>>, ParseError> {
     // It's Ok to have no section headers
@@ -90,7 +88,7 @@ fn find_shdrs<'data, E: EndianParse>(
     let mut shnum = ehdr.e_shnum as usize;
     if shnum == 0 {
         let mut offset = shoff;
-        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        let shdr0 = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, data)?;
         shnum = shdr0.sh_size.try_into()?;
     }
 
@@ -102,14 +100,17 @@ fn find_shdrs<'data, E: EndianParse>(
         .ok_or(ParseError::IntegerOverflow)?;
     let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
     let buf = data.get_bytes(shoff..end)?;
-    Ok(Some(SectionHeaderTable::new(endian, ehdr.class, buf)))
+    Ok(Some(SectionHeaderTable::new(
+        ehdr.endianness,
+        ehdr.class,
+        buf,
+    )))
 }
 
 /// Find the location (if any) of the program headers in the given data buffer and take a
 /// subslice of their data and wrap it in a lazy-parsing SegmentTable.
 fn find_phdrs<'data, E: EndianParse>(
-    endian: E,
-    ehdr: &FileHeader,
+    ehdr: &FileHeader<E>,
     data: &'data [u8],
 ) -> Result<Option<SegmentTable<'data, E>>, ParseError> {
     // It's Ok to have no program headers
@@ -124,7 +125,7 @@ fn find_phdrs<'data, E: EndianParse>(
     if phnum == abi::PN_XNUM as usize {
         let shoff: usize = ehdr.e_shoff.try_into()?;
         let mut offset = shoff;
-        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        let shdr0 = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, data)?;
         phnum = shdr0.sh_info.try_into()?;
     }
 
@@ -137,7 +138,7 @@ fn find_phdrs<'data, E: EndianParse>(
         .ok_or(ParseError::IntegerOverflow)?;
     let end = phoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
     let buf = data.get_bytes(phoff..end)?;
-    Ok(Some(SegmentTable::new(endian, ehdr.class, buf)))
+    Ok(Some(SegmentTable::new(ehdr.endianness, ehdr.class, buf)))
 }
 
 /// This struct collects the common sections found in ELF objects
@@ -172,7 +173,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     // N.B. I thought about calling this "sparse_parse", but it felt too silly for a serious lib like this
     pub fn minimal_parse(data: &'data [u8]) -> Result<Self, ParseError> {
         let ident_buf = data.get_bytes(0..abi::EI_NIDENT)?;
-        let ident = FileHeader::parse_ident(ident_buf)?;
+        let ident = parse_ident(ident_buf)?;
 
         let tail_start = abi::EI_NIDENT;
         let tail_end = match ident.1 {
@@ -182,14 +183,12 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let tail_buf = data.get_bytes(tail_start..tail_end)?;
 
         let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
-        let endian = E::from_ei_data(ehdr.ei_data)?;
 
-        let shdrs = find_shdrs(endian, &ehdr, data)?;
-        let phdrs = find_phdrs(endian, &ehdr, data)?;
+        let shdrs = find_shdrs(&ehdr, data)?;
+        let phdrs = find_phdrs(&ehdr, data)?;
         Ok(ElfBytes {
             ehdr,
             data,
-            endian,
             shdrs,
             phdrs,
         })
@@ -387,14 +386,20 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                     abi::SHT_HASH => {
                         let (start, end) = shdr.get_data_range()?;
                         let buf = self.data.get_bytes(start..end)?;
-                        result.sysv_hash =
-                            Some(SysVHashTable::new(self.endian, self.ehdr.class, buf)?);
+                        result.sysv_hash = Some(SysVHashTable::new(
+                            self.ehdr.endianness,
+                            self.ehdr.class,
+                            buf,
+                        )?);
                     }
                     abi::SHT_GNU_HASH => {
                         let (start, end) = shdr.get_data_range()?;
                         let buf = self.data.get_bytes(start..end)?;
-                        result.gnu_hash =
-                            Some(GnuHashTable::new(self.endian, self.ehdr.class, buf)?);
+                        result.gnu_hash = Some(GnuHashTable::new(
+                            self.ehdr.endianness,
+                            self.ehdr.class,
+                            buf,
+                        )?);
                     }
                     _ => {
                         continue;
@@ -409,7 +414,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
                 if let Some(dyn_phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                     let (start, end) = dyn_phdr.get_file_data_range()?;
                     let buf = self.data.get_bytes(start..end)?;
-                    result.dynamic = Some(DynamicTable::new(self.endian, self.ehdr.class, buf));
+                    result.dynamic = Some(DynamicTable::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        buf,
+                    ));
                 }
             }
         }
@@ -441,7 +450,12 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
             Ok((buf, None))
         } else {
             let mut offset = 0;
-            let chdr = CompressionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)?;
+            let chdr = CompressionHeader::parse_at(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &mut offset,
+                buf,
+            )?;
             let compressed_buf = buf.get(offset..).ok_or(ParseError::SliceReadError((
                 offset,
                 shdr.sh_size.try_into()?,
@@ -484,7 +498,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         }
 
         let (buf, _) = self.section_data(shdr)?;
-        Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
+        Ok(RelIterator::new(self.ehdr.endianness, self.ehdr.class, buf))
     }
 
     /// Get the section data for a given [SectionHeader], and interpret it as an
@@ -503,7 +517,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         }
 
         let (buf, _) = self.section_data(shdr)?;
-        Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
+        Ok(RelaIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
     }
 
     /// Get the section data for a given [SectionHeader], and interpret it as an
@@ -523,7 +541,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
         let (buf, _) = self.section_data(shdr)?;
         Ok(NoteIterator::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             shdr.sh_addralign as usize,
             buf,
@@ -546,7 +564,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         // Validate entsize before trying to read the table so that we can error early for corrupted files
         Dyn::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
         let (buf, _) = self.section_data(shdr)?;
-        Ok(DynamicTable::new(self.endian, self.ehdr.class, buf))
+        Ok(DynamicTable::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
     }
 
     /// Get the segment's file data for a given segment/[ProgramHeader].
@@ -574,7 +596,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
         let buf = self.segment_data(phdr)?;
         Ok(NoteIterator::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             phdr.p_align as usize,
             buf,
@@ -593,7 +615,11 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
             if let Some(phdr) = phdrs.iter().find(|phdr| phdr.p_type == abi::PT_DYNAMIC) {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.data.get_bytes(start..end)?;
-                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                )));
             }
         }
 
@@ -620,7 +646,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         let (strtab_start, strtab_end) = strtab_shdr.get_data_range()?;
         let strtab_buf = self.data.get_bytes(strtab_start..strtab_end)?;
 
-        let symtab = SymbolTable::new(self.endian, self.ehdr.class, symtab_buf);
+        let symtab = SymbolTable::new(self.ehdr.endianness, self.ehdr.class, symtab_buf);
         let strtab = StringTable::new(strtab_buf);
         Ok((symtab, strtab))
     }
@@ -725,7 +751,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         VersionIndex::validate_entsize(self.ehdr.class, versym_shdr.sh_entsize.try_into()?)?;
         let (versym_start, versym_end) = versym_shdr.get_data_range()?;
         let version_ids = VersionIndexTable::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             self.data.get_bytes(versym_start..versym_end)?,
         );
@@ -742,7 +768,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
                 Some((
                     VerNeedIterator::new(
-                        self.endian,
+                        self.ehdr.endianness,
                         self.ehdr.class,
                         shdr.sh_info as u64,
                         0,
@@ -768,7 +794,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 
                 Some((
                     VerDefIterator::new(
-                        self.endian,
+                        self.ehdr.endianness,
                         self.ehdr.class,
                         shdr.sh_info as u64,
                         0,
@@ -1417,7 +1443,7 @@ mod arch_tests {
             let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("should parse");
 
             assert_eq!(file.ehdr.e_machine, $e_machine);
-            assert_eq!(file.endian, $endian);
+            assert_eq!(file.ehdr.endianness, $endian);
 
             let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse");
             let (shdrs, strtab) = (shdrs.unwrap(), strtab.unwrap());

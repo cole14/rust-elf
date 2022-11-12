@@ -6,7 +6,7 @@ use crate::abi;
 use crate::compression::CompressionHeader;
 use crate::dynamic::DynamicTable;
 use crate::endian::EndianParse;
-use crate::file::Class;
+use crate::file::{parse_ident, Class};
 use crate::gnu_symver::{
     SymbolVersionTable, VerDefIterator, VerNeedIterator, VersionIndex, VersionIndexTable,
 };
@@ -24,11 +24,10 @@ use crate::file::FileHeader;
 /// This type encapsulates the stream-oriented interface for parsing ELF objects from
 /// a `Read + Seek`.
 pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
-    pub ehdr: FileHeader,
+    pub ehdr: FileHeader<E>,
     shdrs: Vec<SectionHeader>,
     phdrs: Vec<ProgramHeader>,
     reader: CachingReader<S>,
-    endian: E,
 }
 
 /// Read the stream bytes backing the section headers table and parse them all into their Rust native type.
@@ -37,8 +36,7 @@ pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
 /// i.e. if the ELF [FileHeader]'s e_shnum, e_shoff, e_shentsize are invalid and point
 /// to a range in the file data that does not actually exist, or if any of the headers failed to parse.
 fn parse_section_headers<E: EndianParse, S: Read + Seek>(
-    endian: E,
-    ehdr: &FileHeader,
+    ehdr: &FileHeader<E>,
     reader: &mut CachingReader<S>,
 ) -> Result<Vec<SectionHeader>, ParseError> {
     // It's Ok to have no section headers
@@ -60,7 +58,7 @@ fn parse_section_headers<E: EndianParse, S: Read + Seek>(
             .ok_or(ParseError::IntegerOverflow)?;
         let mut offset = 0;
         let data = reader.read_bytes(shoff, end)?;
-        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        let shdr0 = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, data)?;
         shnum = shdr0.sh_size.try_into()?;
     }
 
@@ -69,15 +67,14 @@ fn parse_section_headers<E: EndianParse, S: Read + Seek>(
         .ok_or(ParseError::IntegerOverflow)?;
     let end = shoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
     let buf = reader.read_bytes(shoff, end)?;
-    let shdr_vec = SectionHeaderTable::new(endian, ehdr.class, buf)
+    let shdr_vec = SectionHeaderTable::new(ehdr.endianness, ehdr.class, buf)
         .iter()
         .collect();
     Ok(shdr_vec)
 }
 
 fn parse_program_headers<E: EndianParse, S: Read + Seek>(
-    endian: E,
-    ehdr: &FileHeader,
+    ehdr: &FileHeader<E>,
     reader: &mut CachingReader<S>,
 ) -> Result<Vec<ProgramHeader>, ParseError> {
     // It's Ok to have no program headers
@@ -96,7 +93,7 @@ fn parse_program_headers<E: EndianParse, S: Read + Seek>(
             .ok_or(ParseError::IntegerOverflow)?;
         let data = reader.read_bytes(shoff, end)?;
         let mut offset = 0;
-        let shdr0 = SectionHeader::parse_at(endian, ehdr.class, &mut offset, data)?;
+        let shdr0 = SectionHeader::parse_at(ehdr.endianness, ehdr.class, &mut offset, data)?;
         phnum = shdr0.sh_info.try_into()?;
     }
 
@@ -109,7 +106,9 @@ fn parse_program_headers<E: EndianParse, S: Read + Seek>(
         .ok_or(ParseError::IntegerOverflow)?;
     let end = phoff.checked_add(size).ok_or(ParseError::IntegerOverflow)?;
     let buf = reader.read_bytes(phoff, end)?;
-    let phdrs_vec = SegmentTable::new(endian, ehdr.class, buf).iter().collect();
+    let phdrs_vec = SegmentTable::new(ehdr.endianness, ehdr.class, buf)
+        .iter()
+        .collect();
     Ok(phdrs_vec)
 }
 
@@ -121,7 +120,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn open_stream(reader: S) -> Result<ElfStream<E, S>, ParseError> {
         let mut cr = CachingReader::new(reader)?;
         let ident_buf = cr.read_bytes(0, abi::EI_NIDENT)?;
-        let ident = FileHeader::parse_ident(ident_buf)?;
+        let ident = parse_ident(ident_buf)?;
 
         let tail_start = abi::EI_NIDENT;
         let tail_end = match ident.1 {
@@ -131,10 +130,9 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let tail_buf = cr.read_bytes(tail_start, tail_end)?;
 
         let ehdr = FileHeader::parse_tail(ident, tail_buf)?;
-        let endian = E::from_ei_data(ehdr.ei_data)?;
 
-        let shdrs = parse_section_headers(endian, &ehdr, &mut cr)?;
-        let phdrs = parse_program_headers(endian, &ehdr, &mut cr)?;
+        let shdrs = parse_section_headers(&ehdr, &mut cr)?;
+        let phdrs = parse_program_headers(&ehdr, &mut cr)?;
 
         // We parsed out the ehdr and shdrs into their own allocated containers, so there's no need to keep
         // around their backing data anymore.
@@ -145,7 +143,6 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             shdrs,
             phdrs,
             reader: cr,
-            endian,
         })
     }
 
@@ -293,7 +290,12 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             Ok((buf, None))
         } else {
             let mut offset = 0;
-            let chdr = CompressionHeader::parse_at(self.endian, self.ehdr.class, &mut offset, buf)?;
+            let chdr = CompressionHeader::parse_at(
+                self.ehdr.endianness,
+                self.ehdr.class,
+                &mut offset,
+                buf,
+            )?;
             let compressed_buf = buf.get(offset..).ok_or(ParseError::SliceReadError((
                 offset,
                 shdr.sh_size.try_into()?,
@@ -353,7 +355,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 // Validate entsize before trying to read the table so that we can error early for corrupted files
                 Symbol::validate_entsize(self.ehdr.class, shdr.sh_entsize.try_into()?)?;
                 let symtab = SymbolTable::new(
-                    self.endian,
+                    self.ehdr.endianness,
                     self.ehdr.class,
                     self.reader.get_bytes(symtab_start..symtab_end),
                 );
@@ -391,7 +393,11 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
-                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                )));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
         } else if self.phdrs.len() > 0 {
@@ -402,7 +408,11 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             {
                 let (start, end) = phdr.get_file_data_range()?;
                 let buf = self.reader.read_bytes(start, end)?;
-                return Ok(Some(DynamicTable::new(self.endian, self.ehdr.class, buf)));
+                return Ok(Some(DynamicTable::new(
+                    self.ehdr.endianness,
+                    self.ehdr.class,
+                    buf,
+                )));
             }
         }
         Ok(None)
@@ -501,7 +511,13 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.get_bytes(start..end);
                 Some((
-                    VerNeedIterator::new(self.endian, self.ehdr.class, shdr.sh_info as u64, 0, buf),
+                    VerNeedIterator::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        buf,
+                    ),
                     StringTable::new(strs_buf),
                 ))
             }
@@ -518,7 +534,13 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 let (start, end) = shdr.get_data_range()?;
                 let buf = self.reader.get_bytes(start..end);
                 Some((
-                    VerDefIterator::new(self.endian, self.ehdr.class, shdr.sh_info as u64, 0, buf),
+                    VerDefIterator::new(
+                        self.ehdr.endianness,
+                        self.ehdr.class,
+                        shdr.sh_info as u64,
+                        0,
+                        buf,
+                    ),
                     StringTable::new(strs_buf),
                 ))
             }
@@ -528,7 +550,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
         // Wrap the versym section data in a parsing table
         let version_ids = VersionIndexTable::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             self.reader.get_bytes(versym_start..versym_end),
         );
@@ -561,7 +583,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
-        Ok(RelIterator::new(self.endian, self.ehdr.class, buf))
+        Ok(RelIterator::new(self.ehdr.endianness, self.ehdr.class, buf))
     }
 
     /// Read the section data for the given
@@ -584,7 +606,11 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
 
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
-        Ok(RelaIterator::new(self.endian, self.ehdr.class, buf))
+        Ok(RelaIterator::new(
+            self.ehdr.endianness,
+            self.ehdr.class,
+            buf,
+        ))
     }
 
     /// Read the section data for the given
@@ -608,7 +634,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
         Ok(NoteIterator::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             shdr.sh_addralign as usize,
             buf,
@@ -636,7 +662,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let (start, end) = phdr.get_file_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
         Ok(NoteIterator::new(
-            self.endian,
+            self.ehdr.endianness,
             self.ehdr.class,
             phdr.p_align as usize,
             buf,
@@ -1097,8 +1123,9 @@ mod interface_tests {
             .section_data(&hash_shdr)
             .expect("Failed to get hash section data");
         let data_copy: Vec<u8> = data.into();
-        let hash_table = SysVHashTable::new(file.endian, file.ehdr.class, data_copy.as_ref())
-            .expect("Failed to parse hash table");
+        let hash_table =
+            SysVHashTable::new(file.ehdr.endianness, file.ehdr.class, data_copy.as_ref())
+                .expect("Failed to parse hash table");
 
         // Get the dynamic symbol table.
         let (symtab, strtab) = file
@@ -1144,7 +1171,7 @@ mod arch_tests {
             let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("should parse");
 
             assert_eq!(file.ehdr.e_machine, $e_machine);
-            assert_eq!(file.endian, $endian);
+            assert_eq!(file.ehdr.endianness, $endian);
 
             let (shdrs, strtab) = file.section_headers_with_strtab().expect("should parse");
             let (shdrs, strtab) = (shdrs, strtab.unwrap());

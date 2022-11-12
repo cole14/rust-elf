@@ -1,6 +1,6 @@
 //! Parsing the ELF File Header
 use crate::abi;
-use crate::endian::{AnyEndian, EndianParse};
+use crate::endian::EndianParse;
 use crate::parse::ParseError;
 
 /// Represents the ELF file data format (little-endian vs big-endian)
@@ -17,11 +17,11 @@ pub enum Class {
 /// the width of certain fields (32-bit vs 64-bit), the data endianness, the
 /// file type, and more.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct FileHeader {
+pub struct FileHeader<E: EndianParse> {
     /// 32-bit vs 64-bit
     pub class: Class,
     // file byte order
-    pub ei_data: u8,
+    pub endianness: E,
     /// elf version
     pub version: u32,
     /// OS ABI
@@ -77,55 +77,53 @@ pub struct FileHeader {
 pub const ELF32_EHDR_TAILSIZE: usize = 36;
 pub const ELF64_EHDR_TAILSIZE: usize = 48;
 
-// Read the platform-independent ident bytes
-impl FileHeader {
-    fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
-        // Verify the magic number
-        let magic = buf.split_at(abi::EI_CLASS).0;
-        if magic != abi::ELFMAGIC {
-            return Err(ParseError::BadMagic([
-                magic[0], magic[1], magic[2], magic[3],
-            ]));
-        }
-
-        // Verify ELF Version
-        let version = buf[abi::EI_VERSION];
-        if version != abi::EV_CURRENT {
-            return Err(ParseError::UnsupportedVersion((
-                version as u64,
-                abi::EV_CURRENT as u64,
-            )));
-        }
-
-        return Ok(());
+fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
+    // Verify the magic number
+    let magic = buf.split_at(abi::EI_CLASS).0;
+    if magic != abi::ELFMAGIC {
+        return Err(ParseError::BadMagic([
+            magic[0], magic[1], magic[2], magic[3],
+        ]));
     }
 
-    pub fn parse_ident(data: &[u8]) -> Result<(u8, Class, u8, u8), ParseError> {
-        Self::verify_ident(data)?;
-
-        let e_class = data[abi::EI_CLASS];
-        let class = match e_class {
-            abi::ELFCLASS32 => Class::ELF32,
-            abi::ELFCLASS64 => Class::ELF64,
-            _ => {
-                return Err(ParseError::UnsupportedElfClass(e_class));
-            }
-        };
-
-        Ok((
-            data[abi::EI_DATA],
-            class,
-            data[abi::EI_OSABI],
-            data[abi::EI_ABIVERSION],
-        ))
+    // Verify ELF Version
+    let version = buf[abi::EI_VERSION];
+    if version != abi::EV_CURRENT {
+        return Err(ParseError::UnsupportedVersion((
+            version as u64,
+            abi::EV_CURRENT as u64,
+        )));
     }
 
-    pub fn parse_tail(ident: (u8, Class, u8, u8), data: &[u8]) -> Result<FileHeader, ParseError> {
-        let (ei_data, class, osabi, abiversion) = ident;
-        let file_endian: AnyEndian;
+    return Ok(());
+}
 
-        // Verify endianness is something we know how to parse
-        file_endian = AnyEndian::from_ei_data(ei_data)?;
+pub fn parse_ident<E: EndianParse>(data: &[u8]) -> Result<(E, Class, u8, u8), ParseError> {
+    verify_ident(data)?;
+
+    let e_class = data[abi::EI_CLASS];
+    let class = match e_class {
+        abi::ELFCLASS32 => Class::ELF32,
+        abi::ELFCLASS64 => Class::ELF64,
+        _ => {
+            return Err(ParseError::UnsupportedElfClass(e_class));
+        }
+    };
+
+    // Verify endianness is something we know how to parse
+    let file_endian = E::from_ei_data(data[abi::EI_DATA])?;
+
+    Ok((
+        file_endian,
+        class,
+        data[abi::EI_OSABI],
+        data[abi::EI_ABIVERSION],
+    ))
+}
+
+impl<E: EndianParse> FileHeader<E> {
+    pub fn parse_tail(ident: (E, Class, u8, u8), data: &[u8]) -> Result<FileHeader<E>, ParseError> {
+        let (file_endian, class, osabi, abiversion) = ident;
 
         let mut offset = 0;
         let e_type = file_endian.parse_u16_at(&mut offset, data)?;
@@ -156,7 +154,7 @@ impl FileHeader {
 
         Ok(FileHeader {
             class,
-            ei_data,
+            endianness: file_endian,
             version,
             e_type,
             e_machine,
@@ -179,6 +177,7 @@ impl FileHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::endian::AnyEndian;
 
     #[test]
     fn test_verify_ident_valid() {
@@ -200,7 +199,7 @@ mod parse_tests {
             0,
             0,
         ];
-        FileHeader::verify_ident(&mut data.as_ref()).expect("Expected Ok result");
+        verify_ident(&mut data.as_ref()).expect("Expected Ok result");
     }
 
     #[test]
@@ -223,7 +222,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -250,7 +249,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -277,7 +276,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -304,7 +303,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -332,7 +331,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = FileHeader::verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::UnsupportedVersion((42, 1))),
             "Unexpected Error type found: {result}"
@@ -341,7 +340,7 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr32_works() {
-        let ident = (abi::ELFDATA2LSB, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
+        let ident = (AnyEndian::Little, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
         let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
         for n in 0..ELF64_EHDR_TAILSIZE {
             tail[n] = n as u8;
@@ -351,7 +350,7 @@ mod parse_tests {
             FileHeader::parse_tail(ident, &tail).unwrap(),
             FileHeader {
                 class: Class::ELF32,
-                ei_data: abi::ELFDATA2LSB,
+                endianness: AnyEndian::Little,
                 version: 0x7060504,
                 osabi: abi::ELFOSABI_LINUX,
                 abiversion: 7,
@@ -373,7 +372,7 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr32_fuzz_too_short() {
-        let ident = (abi::ELFDATA2LSB, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
+        let ident = (AnyEndian::Little, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
         let tail = [0u8; ELF32_EHDR_TAILSIZE];
 
         for n in 0..ELF32_EHDR_TAILSIZE {
@@ -388,7 +387,7 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr64_works() {
-        let ident = (abi::ELFDATA2MSB, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
+        let ident = (AnyEndian::Big, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
         let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
         for n in 0..ELF64_EHDR_TAILSIZE {
             tail[n] = n as u8;
@@ -398,7 +397,7 @@ mod parse_tests {
             FileHeader::parse_tail(ident, &tail).unwrap(),
             FileHeader {
                 class: Class::ELF64,
-                ei_data: abi::ELFDATA2MSB,
+                endianness: AnyEndian::Big,
                 version: 0x04050607,
                 osabi: abi::ELFOSABI_LINUX,
                 abiversion: 7,
@@ -420,7 +419,7 @@ mod parse_tests {
 
     #[test]
     fn test_parse_ehdr64_fuzz_too_short() {
-        let ident = (abi::ELFDATA2LSB, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
+        let ident = (AnyEndian::Little, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
         let tail = [0u8; ELF64_EHDR_TAILSIZE];
 
         for n in 0..ELF64_EHDR_TAILSIZE {
