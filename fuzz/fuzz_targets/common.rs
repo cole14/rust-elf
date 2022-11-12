@@ -10,7 +10,7 @@ fuzz_target!(|data: &[u8]| {
             let _: Vec<_> = shdrs.iter().collect();
         }
 
-        if let Ok(common) = file.find_common_sections() {
+        if let Ok(common) = file.find_common_data() {
             // parse the symbol table
             if let Some(symtab) = common.symtab {
                 let _: Vec<_> = symtab.iter().collect();

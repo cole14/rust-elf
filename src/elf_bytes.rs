@@ -43,7 +43,7 @@ use crate::symbol::{Symbol, SymbolTable};
 /// let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
 ///
 /// // Get all the common ELF sections (if any). We have a lot of ELF work to do!
-/// let common_sections = file.find_common_sections().unwrap();
+/// let common_sections = file.find_common_data().unwrap();
 /// // ... do some stuff with the symtab, dynsyms etc
 ///
 /// // It can also yield iterators on which we can do normal iterator things, like filtering
@@ -143,7 +143,7 @@ fn find_phdrs<'data, E: EndianParse>(
 
 /// This struct collects the common sections found in ELF objects
 #[derive(Default)]
-pub struct CommonElfSections<'data, E: EndianParse> {
+pub struct CommonElfData<'data, E: EndianParse> {
     /// .symtab section
     pub symtab: Option<SymbolTable<'data, E>>,
     /// strtab for .symtab
@@ -357,8 +357,8 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// symbol tables, string tables. Many of these can also be accessed by the more targeted
     /// helpers like [ElfBytes::symbol_table] or [ElfBytes::dynamic], though those each do their own
     /// internal searches through the shdrs to find the section.
-    pub fn find_common_sections(&self) -> Result<CommonElfSections<'data, E>, ParseError> {
-        let mut result: CommonElfSections<'data, E> = CommonElfSections::default();
+    pub fn find_common_data(&self) -> Result<CommonElfData<'data, E>, ParseError> {
+        let mut result: CommonElfData<'data, E> = CommonElfData::default();
 
         // Iterate once over the shdrs to collect up any known sections
         if let Some(shdrs) = self.shdrs {
@@ -549,7 +549,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     }
 
     /// Internal helper to get the section data for an SHT_DYNAMIC section as a .dynamic section table.
-    /// See [ElfBytes::dynamic] or [ElfBytes::find_common_sections] for the public interface
+    /// See [ElfBytes::dynamic] or [ElfBytes::find_common_data] for the public interface
     fn section_data_as_dynamic(
         &self,
         shdr: &SectionHeader,
@@ -1021,13 +1021,13 @@ mod interface_tests {
     }
 
     #[test]
-    fn find_common_sections() {
+    fn find_common_data() {
         let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
-        let elf_scns = file.find_common_sections().expect("file should parse");
+        let elf_scns = file.find_common_data().expect("file should parse");
 
         // hello.so should find everything
         assert!(elf_scns.symtab.is_some());
@@ -1366,7 +1366,7 @@ mod interface_tests {
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
 
         // Look up the SysV hash section header
-        let common = file.find_common_sections().expect("should parse");
+        let common = file.find_common_data().expect("should parse");
         let hash_table = common.sysv_hash.expect("should have .hash section");
 
         // Get the dynamic symbol table.
@@ -1406,7 +1406,7 @@ mod interface_tests {
         let file = ElfBytes::<AnyEndian>::minimal_parse(slice).unwrap();
 
         // Look up the SysV hash section header
-        let common = file.find_common_sections().unwrap();
+        let common = file.find_common_data().unwrap();
         let hash_table = common.gnu_hash.expect("should have .gnu.hash section");
 
         // Get the dynamic symbol table.
@@ -1457,7 +1457,7 @@ mod arch_tests {
                 })
                 .collect();
 
-            let common = file.find_common_sections().expect("should parse");
+            let common = file.find_common_data().expect("should parse");
 
             // parse out all the normal symbol table symbols with their names
             {

@@ -117,7 +117,7 @@
 //! );
 //!
 //! // Find lazy-parsing types for the common ELF sections (we want .dynsym, .dynstr, .hash)
-//! let common = file.find_common_sections().expect("shdrs should parse");
+//! let common = file.find_common_data().expect("shdrs should parse");
 //! let (dynsyms, strtab) = (common.dynsyms.unwrap(), common.dynsyms_strs.unwrap());
 //! let hash_table = common.sysv_hash.unwrap();
 //!
@@ -155,7 +155,7 @@ pub mod endian;
 mod parse;
 
 mod elf_bytes;
-pub use elf_bytes::CommonElfSections;
+pub use elf_bytes::CommonElfData;
 pub use elf_bytes::ElfBytes;
 
 #[cfg(feature = "std")]
