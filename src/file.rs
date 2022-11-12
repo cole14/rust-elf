@@ -10,16 +10,6 @@ pub enum Class {
     ELF64,
 }
 
-impl core::fmt::Display for Class {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let str = match self {
-            Class::ELF32 => "32-bit",
-            Class::ELF64 => "64-bit",
-        };
-        write!(f, "{}", str)
-    }
-}
-
 /// Encapsulates the contents of the ELF File Header
 ///
 /// The ELF File Header starts off every ELF file and both identifies the
