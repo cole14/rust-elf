@@ -5,7 +5,7 @@ use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ParsingTable};
 use crate::string_table::StringTable;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SymbolRequirement<'data> {
     pub file: &'data str,
     pub name: &'data str,
@@ -73,7 +73,7 @@ impl<'data, E: EndianParse> SymbolVersionTable<'data, E> {
         };
 
         let ver_ndx = self.version_ids.get(sym_idx)?;
-        let iter = verneeds.clone();
+        let iter = verneeds;
         for (vn, vna_iter) in iter {
             for vna in vna_iter {
                 if vna.vna_other != ver_ndx.index() {
@@ -113,7 +113,7 @@ impl<'data, E: EndianParse> SymbolVersionTable<'data, E> {
         };
 
         let ver_ndx = self.version_ids.get(sym_idx)?;
-        let iter = verdefs.clone();
+        let iter = *verdefs;
         for (vd, vda_iter) in iter {
             if vd.vd_ndx != ver_ndx.index() {
                 continue;
@@ -165,7 +165,7 @@ pub type VersionIndexTable<'data, E> = ParsingTable<'data, E, VersionIndex>;
 /// structures in the .gnu.version_d and .gnu.version_r sections. These values
 /// are located in identifiers provided by the the vna_other member of the VerNeedAux
 /// structure or the vd_ndx member of the VerDef structure.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VersionIndex(pub u16);
 
 impl VersionIndex {
@@ -193,9 +193,7 @@ impl ParseAt for VersionIndex {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        Ok(VersionIndex {
-            0: endian.parse_u16_at(offset, data)?,
-        })
+        Ok(VersionIndex(endian.parse_u16_at(offset, data)?))
     }
 
     #[inline]
@@ -222,7 +220,7 @@ impl ParseAt for VersionIndex {
 ///
 /// The .gnu.version_d section shall contain an array of VerDef structures
 /// optionally followed by an array of VerDefAux structures.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VerDef {
     /// Version information flag bitmask.
     pub vd_flags: u16,
@@ -303,7 +301,7 @@ impl<'data, E: EndianParse> VerDefIterator<'data, E> {
 impl<'data, E: EndianParse> Iterator for VerDefIterator<'data, E> {
     type Item = (VerDef, VerDefAuxIterator<'data, E>);
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 || self.count == 0 {
+        if self.data.is_empty() || self.count == 0 {
             return None;
         }
 
@@ -334,7 +332,7 @@ impl<'data, E: EndianParse> Iterator for VerDefIterator<'data, E> {
 }
 
 /// Version Definition Auxiliary Entries from the .gnu.version_d section
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VerDefAux {
     /// Offset to the version or dependency name string in the linked string table, in bytes.
     pub vda_name: u32,
@@ -391,7 +389,7 @@ impl<'data, E: EndianParse> VerDefAuxIterator<'data, E> {
 impl<'data, E: EndianParse> Iterator for VerDefAuxIterator<'data, E> {
     type Item = VerDefAux;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 || self.count == 0 {
+        if self.data.is_empty() || self.count == 0 {
             return None;
         }
 
@@ -457,7 +455,7 @@ impl<'data, E: EndianParse> Iterator for VerDefAuxIterator<'data, E> {
 ///
 /// The section shall contain an array of VerNeed structures optionally
 /// followed by an array of VerNeedAux structures.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VerNeed {
     /// Number of associated verneed array entries.
     pub vn_cnt: u16,
@@ -531,7 +529,7 @@ impl<'data, E: EndianParse> VerNeedIterator<'data, E> {
 impl<'data, E: EndianParse> Iterator for VerNeedIterator<'data, E> {
     type Item = (VerNeed, VerNeedAuxIterator<'data, E>);
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 || self.count == 0 {
+        if self.data.is_empty() || self.count == 0 {
             return None;
         }
 
@@ -562,7 +560,7 @@ impl<'data, E: EndianParse> Iterator for VerNeedIterator<'data, E> {
 }
 
 /// Version Need Auxiliary Entries from the .gnu.version_r section
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VerNeedAux {
     /// Dependency name hash value (ELF hash function).
     pub vna_hash: u32,
@@ -584,11 +582,11 @@ impl ParseAt for VerNeedAux {
         data: &[u8],
     ) -> Result<Self, ParseError> {
         Ok(VerNeedAux {
-            vna_hash: endian.parse_u32_at(offset, &data)?,
-            vna_flags: endian.parse_u16_at(offset, &data)?,
-            vna_other: endian.parse_u16_at(offset, &data)?,
-            vna_name: endian.parse_u32_at(offset, &data)?,
-            vna_next: endian.parse_u32_at(offset, &data)?,
+            vna_hash: endian.parse_u32_at(offset, data)?,
+            vna_flags: endian.parse_u16_at(offset, data)?,
+            vna_other: endian.parse_u16_at(offset, data)?,
+            vna_name: endian.parse_u32_at(offset, data)?,
+            vna_next: endian.parse_u32_at(offset, data)?,
         })
     }
 
@@ -628,7 +626,7 @@ impl<'data, E: EndianParse> VerNeedAuxIterator<'data, E> {
 impl<'data, E: EndianParse> Iterator for VerNeedAuxIterator<'data, E> {
     type Item = VerNeedAux;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 || self.count == 0 {
+        if self.data.is_empty() || self.count == 0 {
             return None;
         }
 
@@ -1178,22 +1176,22 @@ mod parse_tests {
 
     #[test]
     fn parse_verndx32_lsb() {
-        test_parse_for(LittleEndian, Class::ELF32, VersionIndex { 0: 0x0100 });
+        test_parse_for(LittleEndian, Class::ELF32, VersionIndex(0x0100));
     }
 
     #[test]
     fn parse_verndx32_msb() {
-        test_parse_for(BigEndian, Class::ELF32, VersionIndex { 0: 0x0001 });
+        test_parse_for(BigEndian, Class::ELF32, VersionIndex(0x0001));
     }
 
     #[test]
     fn parse_verndx64_lsb() {
-        test_parse_for(LittleEndian, Class::ELF64, VersionIndex { 0: 0x0100 });
+        test_parse_for(LittleEndian, Class::ELF64, VersionIndex(0x0100));
     }
 
     #[test]
     fn parse_verndx64_msb() {
-        test_parse_for(BigEndian, Class::ELF64, VersionIndex { 0: 0x0001 });
+        test_parse_for(BigEndian, Class::ELF64, VersionIndex(0x0001));
     }
 
     #[test]
@@ -1251,7 +1249,7 @@ mod parse_tests {
         let mut data = [0u8; ELFVERDEFSIZE];
         data[1] = 1;
         for n in 0..ELFVERDEFSIZE {
-            let buf = data.split_at(n).0.as_ref();
+            let buf = data.split_at(n).0;
             let mut offset: usize = 0;
             let error = VerDef::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
@@ -1293,7 +1291,7 @@ mod parse_tests {
         let mut data = [0u8; ELFVERDEFSIZE];
         data[1] = 1;
         for n in 0..ELFVERDEFSIZE {
-            let buf = data.split_at(n).0.as_ref();
+            let buf = data.split_at(n).0;
             let mut offset: usize = 0;
             let error = VerDef::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");
@@ -1422,7 +1420,7 @@ mod parse_tests {
         let mut data = [0u8; ELFVERNEEDSIZE];
         data[1] = 1;
         for n in 0..ELFVERNEEDSIZE {
-            let buf = data.split_at(n).0.as_ref();
+            let buf = data.split_at(n).0;
             let mut offset: usize = 0;
             let error = VerNeed::parse_at(BigEndian, Class::ELF32, &mut offset, buf)
                 .expect_err("Expected an error");
@@ -1462,7 +1460,7 @@ mod parse_tests {
         let mut data = [0u8; ELFVERNEEDSIZE];
         data[1] = 1;
         for n in 0..ELFVERNEEDSIZE {
-            let buf = data.split_at(n).0.as_ref();
+            let buf = data.split_at(n).0;
             let mut offset: usize = 0;
             let error = VerNeed::parse_at(BigEndian, Class::ELF64, &mut offset, buf)
                 .expect_err("Expected an error");

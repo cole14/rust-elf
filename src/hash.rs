@@ -163,7 +163,7 @@ impl ParseAt for u64 {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        Ok(endian.parse_u64_at(offset, data)?)
+        endian.parse_u64_at(offset, data)
     }
 
     #[inline]

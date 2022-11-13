@@ -2,7 +2,7 @@
 use crate::parse::ParseError;
 use core::str::from_utf8;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct StringTable<'data> {
     data: &'data [u8],
 }
@@ -13,7 +13,7 @@ impl<'data> StringTable<'data> {
     }
 
     pub fn get_raw(&self, offset: usize) -> Result<&'data [u8], ParseError> {
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             return Err(ParseError::BadOffset(offset as u64));
         };
 
@@ -32,12 +32,6 @@ impl<'data> StringTable<'data> {
     pub fn get(&self, offset: usize) -> Result<&'data str, ParseError> {
         let raw_data = self.get_raw(offset)?;
         Ok(from_utf8(raw_data)?)
-    }
-}
-
-impl<'data> Default for StringTable<'data> {
-    fn default() -> Self {
-        StringTable { data: &[] }
     }
 }
 

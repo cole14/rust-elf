@@ -232,7 +232,7 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingIterator<'data, E, P> {
 impl<'data, E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'data, E, P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             return None;
         }
 
@@ -269,7 +269,7 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
     }
 
     pub fn get(&self, index: usize) -> Result<P, ParseError> {
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             return Err(ParseError::BadOffset(index as u64));
         }
 
@@ -281,7 +281,7 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
             return Err(ParseError::BadOffset(index as u64));
         }
 
-        Ok(P::parse_at(self.endian, self.class, &mut start, self.data)?)
+        P::parse_at(self.endian, self.class, &mut start, self.data)
     }
 }
 
@@ -301,7 +301,7 @@ impl ParseAt for u32 {
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        Ok(endian.parse_u32_at(offset, data)?)
+        endian.parse_u32_at(offset, data)
     }
 
     #[inline]
@@ -353,7 +353,7 @@ pub fn test_parse_fuzz_too_short<E: EndianParse, P: ParseAt + core::fmt::Debug>(
     let size = P::size_for(class);
     let data = vec![0u8; size];
     for n in 0..size {
-        let buf = data.split_at(n).0.as_ref();
+        let buf = data.split_at(n).0;
         let mut offset: usize = 0;
         let error = P::parse_at(endian, class, &mut offset, buf).expect_err("Expected an error");
         assert!(

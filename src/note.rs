@@ -113,13 +113,13 @@ impl<'data> Note<'data> {
                 abi::NT_GNU_BUILD_ID => Ok(Note::GnuBuildId(NoteGnuBuildId(raw_desc))),
                 _ => Ok(Note::Unknown(NoteAny {
                     n_type: nhdr.n_type,
-                    name: name,
+                    name,
                     desc: raw_desc,
                 })),
             },
             _ => Ok(Note::Unknown(NoteAny {
                 n_type: nhdr.n_type,
-                name: name,
+                name,
                 desc: raw_desc,
             })),
         }
@@ -201,7 +201,7 @@ impl<'data, E: EndianParse> NoteIterator<'data, E> {
 impl<'data, E: EndianParse> Iterator for NoteIterator<'data, E> {
     type Item = Note<'data>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             return None;
         }
 
@@ -210,7 +210,7 @@ impl<'data, E: EndianParse> Iterator for NoteIterator<'data, E> {
             self.class,
             self.align,
             &mut self.offset,
-            &self.data,
+            self.data,
         )
         .ok()
     }

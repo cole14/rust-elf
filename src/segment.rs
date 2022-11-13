@@ -65,7 +65,7 @@ impl ParseAt for ProgramHeader {
             p_paddr,
             p_filesz,
             p_memsz,
-            p_flags: p_flags,
+            p_flags,
             p_align,
         })
     }

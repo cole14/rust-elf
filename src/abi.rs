@@ -1373,7 +1373,7 @@ pub const R_ARM_IRELATIVE: u32 = 160;
 
 /// Object file compatibility attributes
 pub const SHT_AARCH64_ATTRIBUTES: u32 = 0x70000003;
-pub const SHT_AARCH64_ATTRIBUTES_SECTION_NAME: &'static str = ".ARM.attributes";
+pub const SHT_AARCH64_ATTRIBUTES_SECTION_NAME: &str = ".ARM.attributes";
 
 /// Architecture compatibility information.
 ///
@@ -2147,7 +2147,7 @@ pub const EF_RISCV_RVE: u32 = 0x0008;
 pub const EF_RISCV_TSO: u32 = 0x0010;
 
 pub const SHT_RISCV_ATTRIBUTES: u32 = 0x70000003; // SHT_LOPROC + 3;
-pub const SHT_RISCV_ATTRIBUTES_SECTION_NAME: &'static str = ".riscv.attributes";
+pub const SHT_RISCV_ATTRIBUTES_SECTION_NAME: &str = ".riscv.attributes";
 
 pub const PT_RISCV_ATTRIBUTES: u32 = 0x70000003;
 

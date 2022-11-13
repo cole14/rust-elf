@@ -95,7 +95,7 @@ fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
         )));
     }
 
-    return Ok(());
+    Ok(())
 }
 
 pub fn parse_ident<E: EndianParse>(data: &[u8]) -> Result<(E, Class, u8, u8), ParseError> {
@@ -199,7 +199,7 @@ mod parse_tests {
             0,
             0,
         ];
-        verify_ident(&mut data.as_ref()).expect("Expected Ok result");
+        verify_ident(data.as_ref()).expect("Expected Ok result");
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -249,7 +249,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -276,7 +276,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -303,7 +303,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::BadMagic(_)),
             "Unexpected Error type found: {result}"
@@ -331,7 +331,7 @@ mod parse_tests {
             0,
             0,
         ];
-        let result = verify_ident(&mut data.as_ref()).expect_err("Expected an error");
+        let result = verify_ident(data.as_ref()).expect_err("Expected an error");
         assert!(
             matches!(result, ParseError::UnsupportedVersion((42, 1))),
             "Unexpected Error type found: {result}"
@@ -376,8 +376,8 @@ mod parse_tests {
         let tail = [0u8; ELF32_EHDR_TAILSIZE];
 
         for n in 0..ELF32_EHDR_TAILSIZE {
-            let buf = tail.split_at(n).0.as_ref();
-            let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
+            let buf = tail.split_at(n).0;
+            let result = FileHeader::parse_tail(ident, buf).expect_err("Expected an error");
             assert!(
                 matches!(result, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {result:?}"
@@ -424,7 +424,7 @@ mod parse_tests {
 
         for n in 0..ELF64_EHDR_TAILSIZE {
             let buf = tail.split_at(n).0;
-            let result = FileHeader::parse_tail(ident, &buf).expect_err("Expected an error");
+            let result = FileHeader::parse_tail(ident, buf).expect_err("Expected an error");
             assert!(
                 matches!(result, ParseError::SliceReadError(_)),
                 "Unexpected Error type found: {result:?}"

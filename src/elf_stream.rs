@@ -174,7 +174,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         &mut self,
     ) -> Result<(&Vec<SectionHeader>, Option<StringTable>), ParseError> {
         // It's Ok to have no section headers
-        if self.shdrs.len() == 0 {
+        if self.shdrs.is_empty() {
             return Ok((&self.shdrs, None));
         }
 
@@ -331,7 +331,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         &mut self,
         symtab_type: u32,
     ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
-        if self.shdrs.len() == 0 {
+        if self.shdrs.is_empty() {
             return Ok(None);
         }
 
@@ -385,7 +385,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// Get the .dynamic section/segment contents.
     pub fn dynamic(&mut self) -> Result<Option<DynamicTable<E>>, ParseError> {
         // If we have section headers, then look it up there
-        if self.shdrs.len() > 0 {
+        if !self.shdrs.is_empty() {
             if let Some(shdr) = self
                 .shdrs
                 .iter()
@@ -400,7 +400,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
                 )));
             }
         // Otherwise, look up the PT_DYNAMIC segment (if any)
-        } else if self.phdrs.len() > 0 {
+        } else if !self.phdrs.is_empty() {
             if let Some(phdr) = self
                 .phdrs
                 .iter()
@@ -427,7 +427,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// Returns an empty Option if the object does not use symbol versioning.
     pub fn symbol_version_table(&mut self) -> Result<Option<SymbolVersionTable<E>>, ParseError> {
         // No sections means no GNU symbol versioning sections, which is ok
-        if self.shdrs.len() == 0 {
+        if self.shdrs.is_empty() {
             return Ok(None);
         }
 

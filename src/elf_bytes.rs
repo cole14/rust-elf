@@ -576,7 +576,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// This is the segment's data as found in the file.
     pub fn segment_data(&self, phdr: &ProgramHeader) -> Result<&'data [u8], ParseError> {
         let (start, end) = phdr.get_file_data_range()?;
-        Ok(self.data.get_bytes(start..end)?)
+        self.data.get_bytes(start..end)
     }
 
     /// Get the segment's file data for a given [ProgramHeader], and interpret it as an
