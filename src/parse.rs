@@ -268,6 +268,10 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
         self.data.len() / P::size_for(self.class)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn get(&self, index: usize) -> Result<P, ParseError> {
         if self.data.is_empty() {
             return Err(ParseError::BadOffset(index as u64));
@@ -415,6 +419,19 @@ mod parsing_table_tests {
         let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
         let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
         assert_eq!(table.len(), 2);
+    }
+
+    #[test]
+    fn test_u32_table_is_empty() {
+        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.as_ref());
+        assert!(!table.is_empty());
+
+        let table = U32Table::new(LittleEndian, Class::ELF32, &[]);
+        assert!(table.is_empty());
+
+        let table = U32Table::new(LittleEndian, Class::ELF32, data.get(0..1).unwrap());
+        assert!(table.is_empty());
     }
 
     #[test]
