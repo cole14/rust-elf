@@ -298,24 +298,6 @@ impl<'data, E: EndianParse, P: ParseAt> IntoIterator for ParsingTable<'data, E, 
     }
 }
 
-impl ParseAt for u32 {
-    fn parse_at<E: EndianParse>(
-        endian: E,
-        _class: Class,
-        offset: &mut usize,
-        data: &[u8],
-    ) -> Result<Self, ParseError> {
-        endian.parse_u32_at(offset, data)
-    }
-
-    #[inline]
-    fn size_for(_class: Class) -> usize {
-        core::mem::size_of::<u32>()
-    }
-}
-
-pub type U32Table<'data, E> = ParsingTable<'data, E, u32>;
-
 // Simple convenience extension trait to wrap get() with .ok_or(SliceReadError)
 pub(crate) trait ReadBytesExt<'data> {
     fn get_bytes(self, range: Range<usize>) -> Result<&'data [u8], ParseError>;
@@ -331,7 +313,7 @@ impl<'data> ReadBytesExt<'data> for &'data [u8] {
 }
 
 #[cfg(test)]
-pub fn test_parse_for<E: EndianParse, P: ParseAt + core::fmt::Debug + PartialEq>(
+pub(crate) fn test_parse_for<E: EndianParse, P: ParseAt + core::fmt::Debug + PartialEq>(
     endian: E,
     class: Class,
     expected: P,
@@ -350,7 +332,7 @@ pub fn test_parse_for<E: EndianParse, P: ParseAt + core::fmt::Debug + PartialEq>
 }
 
 #[cfg(test)]
-pub fn test_parse_fuzz_too_short<E: EndianParse, P: ParseAt + core::fmt::Debug>(
+pub(crate) fn test_parse_fuzz_too_short<E: EndianParse, P: ParseAt + core::fmt::Debug>(
     endian: E,
     class: Class,
 ) {
@@ -395,6 +377,8 @@ mod parsing_table_tests {
     use crate::endian::{AnyEndian, BigEndian, LittleEndian};
 
     use super::*;
+
+    type U32Table<'data, E> = ParsingTable<'data, E, u32>;
 
     #[test]
     fn test_u32_validate_entsize() {

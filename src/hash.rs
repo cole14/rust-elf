@@ -3,9 +3,27 @@ use core::mem::size_of;
 
 use crate::endian::EndianParse;
 use crate::file::Class;
-use crate::parse::{ParseAt, ParseError, ParsingTable, ReadBytesExt, U32Table};
+use crate::parse::{ParseAt, ParseError, ParsingTable, ReadBytesExt};
 use crate::string_table::StringTable;
 use crate::symbol::{Symbol, SymbolTable};
+
+impl ParseAt for u32 {
+    fn parse_at<E: EndianParse>(
+        endian: E,
+        _class: Class,
+        offset: &mut usize,
+        data: &[u8],
+    ) -> Result<Self, ParseError> {
+        endian.parse_u32_at(offset, data)
+    }
+
+    #[inline]
+    fn size_for(_class: Class) -> usize {
+        core::mem::size_of::<u32>()
+    }
+}
+
+type U32Table<'data, E> = ParsingTable<'data, E, u32>;
 
 /// Header at the start of SysV Hash Table sections of type [SHT_HASH](crate::abi::SHT_HASH).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,7 +105,7 @@ impl<'data, E: EndianParse> SysVHashTable<'data, E> {
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
         // empty hash tables don't have any entries. This avoids a divde by zero in the modulus calculation
-        if self.buckets.len() == 0 {
+        if self.buckets.is_empty() {
             return Ok(None);
         }
 
@@ -239,7 +257,7 @@ impl<'data, E: EndianParse> GnuHashTable<'data, E> {
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
         // empty hash tables don't have any entries. This avoids a divde by zero in the modulus calculation
-        if self.buckets.len() == 0 {
+        if self.buckets.is_empty() {
             return Ok(None);
         }
 
