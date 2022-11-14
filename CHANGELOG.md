@@ -3,6 +3,61 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 
+## [0.7.0] - 2022-11-14
+
+### New Features
+
+- Add new ElfBytes type with better ergonomics for parsing from a &[u8]
+- Add GnuHashTable which interprets the contents of a SHT_GNU_HASH section
+- Add convenience method section_header_by_name to ElfBytes and ElfStream
+- Add GnuBuildIdNote and parsing for NT_GNU_BUILD_ID note contents
+- Add GnuAbiTagNote and parsing for NT_GNU_ABI_TAG note contents
+- Add ElfBytes::symbol_version_table() to get the GNU extension symbol version table.
+- Add ElfBytes::find_common_data() to efficiently discover common ELF structures
+- Add a new endian-aware integer parsing trait impl
+- Add ParsingTable.is_empty()
+- Add abi constants for powerpc and powerpc64
+- Add abi constants for RISC-V
+- Add abi constants for x86_64
+- Add abi constants for ARM32 and ARM64 (AARCH64)
+- Add abi constant for GNU-extension ELF note name ELF_NOTE_GNU
+- Add abi constant for PT_GNU_PROPERTY
+- Add abi constants for SHN_ABS and SHN_COMMON
+- Add elf::to_str::d_tag_to_str()
+- Add elf::to_str::note_abi_tag_os_to_str()
+
+### Changed Interfaces
+
+- Rename elf::File -> elf::ElfStream and make it specific to the Read + Seek interface
+- Rename gabi -> abi since it also includes extension constants
+- Make ELF structures generic across the new endian-aware integer parsing trait EndianParse
+- Refactor parsed Note type to be a typed enum
+- Rename ElfStream::dynamic_section() -> dynamic() to match ElfBytes
+- Change ElfStream::dynamic() to yield a DynamicTable just like in ElfBytes
+- Standardize ElfBytes' interfaces for the .dynamic contents to return a DynamicTable
+- Export the parsing utilities ParsingTable, ParsingIterator in the public interface
+- Refactor section_headers_with_strtab to work with files that have shdrs but no shstrtab
+- Remove redundant hash arg from SysVHashTable.find()
+- Expose Class in the public interface alongside FileHeader
+- Remove opinionated Display impl for file::Class
+- Remove section_data_as_symbol_table() from public ElfBytes interface
+- Change SymbolVersionTable::new() to take Options instead of Default-empty iterators
+- Change ElfStream to parse out the ProgramHeaders into an allocated vec as part of ElfStream::open_stream()
+- Change ElfStream to parse out the SectionHeaders into an allocated Vec as part of ElfStream::open_stream()
+
+### Bug Fixes
+
+- Properly parse program header table when ehdr.e_phnum > 0xffff
+- Fix OOM in ElfStream parsing when parsing corrupted files
+- Fix a divide by zero panic in SysVHashTable.find() for empty tables
+
+### Misc Improvements
+
+- Add more fuzz testing
+- Add some simple parsing smoke tests for the various sample architecture objects
+- Add sample object and testing with > 0xff00 section headers
+- Add a lot more doc comments to each of the modules
+
 ## [0.6.1] - 2022-11-05
 
 ### New Features
@@ -18,7 +73,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add ParsingTable.len() method to get the number of elements in the table
 - Add some note n_type constants for GNU extension notes.
 - Add default "to_str" feature to get &str for gabi constant names
-    
+
 ### Changed Interfaces
 
 - Change File::segments() to return a ParsingTable instead of just a ParsingIterator
@@ -31,7 +86,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Remove unhelpful SectionFlag wrapper type
 - Remove Display impl for FileHeader, SectionHeader, ProgramHeader, Symbol
 - Remove ParseError::UnsupportedElfVersion in favor of more general ParseError::UnsupportedVersion
-    
+
 ### Bug Fixes
 
 - Fix divide by zero panic when parsing a note with alignment of 0 (Error instead of panic)
@@ -60,7 +115,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add .dynamic section and segment parsing
 - Add .rel and .rela section parsing
 - Add File::section_headers_with_strtab to get both a header iter and strtab concurrently.
-    
+
 ### Changed Interfaces
 
 - The ReadBytesAt trait was changed to be implemented for an owned CachedReadBytes. This means that File::open_stream now expects to move-own the CachedReadBytes as opposed to taking a mutable reference.
@@ -74,6 +129,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Fix section header table parsing when ehdr.e_shnum > 0xff00
 
 ## [0.3.0] - 2022-10-20
-    
+
 ### New Features
 - Add a `no_std` option by fully moving the parser over to lazy zero-alloc parsing patterns.
