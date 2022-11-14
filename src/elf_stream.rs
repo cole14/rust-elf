@@ -1077,32 +1077,56 @@ mod interface_tests {
 
     #[test]
     fn symbol_version_table() {
-        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
+        let path = std::path::PathBuf::from("sample-objects/symver.x86_64.so");
         let io = std::fs::File::open(path).expect("Could not open file.");
         let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
         let vst = file
             .symbol_version_table()
             .expect("Failed to parse GNU symbol versions")
             .expect("Failed to find GNU symbol versions");
 
-        let req1 = vst
-            .get_requirement(1)
-            .expect("Failed to parse NEED")
-            .expect("Failed to find NEED");
-        assert_eq!(req1.file, "libc.so.6");
-        assert_eq!(req1.name, "GLIBC_2.2.5");
-        assert_eq!(req1.hash, 0x9691A75);
-
-        let req2 = vst
+        let req = vst
             .get_requirement(2)
             .expect("Failed to parse NEED")
             .expect("Failed to find NEED");
-        assert_eq!(req2.file, "libc.so.6");
-        assert_eq!(req2.name, "GLIBC_2.2.5");
-        assert_eq!(req2.hash, 0x9691A75);
+        assert_eq!(req.file, "libc.so.6");
+        assert_eq!(req.name, "GLIBC_2.2.5");
+        assert_eq!(req.hash, 0x9691A75);
 
-        let req3 = vst.get_requirement(3).expect("Failed to parse NEED");
-        assert!(req3.is_none());
+        let req = vst.get_requirement(3).expect("Failed to parse NEED");
+        assert!(req.is_none());
+
+        let req = vst.get_requirement(4).expect("Failed to parse NEED");
+        assert!(req.is_none());
+
+        let req = vst
+            .get_requirement(5)
+            .expect("Failed to parse NEED")
+            .expect("Failed to find NEED");
+        assert_eq!(req.file, "libc.so.6");
+        assert_eq!(req.name, "GLIBC_2.2.5");
+        assert_eq!(req.hash, 0x9691A75);
+
+        let def = vst
+            .get_definition(3)
+            .expect("Failed to parse DEF")
+            .expect("Failed to find DEF");
+        assert_eq!(def.hash, 0xC33237F);
+        assert_eq!(def.flags, 1);
+        assert!(!def.hidden);
+        let def_names: Vec<&str> = def.names.map(|res| res.expect("should parse")).collect();
+        assert_eq!(def_names, &["hello.so"]);
+
+        let def = vst
+            .get_definition(7)
+            .expect("Failed to parse DEF")
+            .expect("Failed to find DEF");
+        assert_eq!(def.hash, 0x1570B62);
+        assert_eq!(def.flags, 0);
+        assert!(def.hidden);
+        let def_names: Vec<&str> = def.names.map(|res| res.expect("should parse")).collect();
+        assert_eq!(def_names, &["HELLO_1.42"]);
     }
 
     #[test]
