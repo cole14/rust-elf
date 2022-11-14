@@ -152,7 +152,7 @@ pub mod symbol;
 pub mod to_str;
 
 pub mod endian;
-mod parse;
+pub mod parse;
 
 mod elf_bytes;
 pub use elf_bytes::CommonElfData;

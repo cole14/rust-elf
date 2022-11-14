@@ -1,3 +1,4 @@
+//! Utilities to drive safe and lazy parsing of ELF structures.
 use core::{marker::PhantomData, ops::Range};
 
 use crate::endian::EndianParse;
@@ -206,6 +207,7 @@ pub trait ParseAt: Sized {
     }
 }
 
+/// Lazy-parsing iterator which wraps bytes and parses out a `P: ParseAt` on each `next()`
 #[derive(Debug)]
 pub struct ParsingIterator<'data, E: EndianParse, P: ParseAt> {
     endian: E,
@@ -240,6 +242,8 @@ impl<'data, E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'data, E, P
     }
 }
 
+/// Lazy-parsing table which wraps bytes and parses out a `P: ParseAt` at a given index into
+/// the table on each `get()`.
 #[derive(Debug, Clone, Copy)]
 pub struct ParsingTable<'data, E: EndianParse, P: ParseAt> {
     endian: E,
@@ -259,6 +263,7 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
         }
     }
 
+    /// Get a lazy-parsing iterator for the table's bytes
     pub fn iter(&self) -> ParsingIterator<'data, E, P> {
         ParsingIterator::new(self.endian, self.class, self.data)
     }
@@ -268,10 +273,12 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingTable<'data, E, P> {
         self.data.len() / P::size_for(self.class)
     }
 
+    /// Returns whether the table is empty (contains zero elements).
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Parse the element at `index` in the table.
     pub fn get(&self, index: usize) -> Result<P, ParseError> {
         if self.data.is_empty() {
             return Err(ParseError::BadOffset(index as u64));
