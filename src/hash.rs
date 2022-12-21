@@ -257,7 +257,7 @@ impl<'data, E: EndianParse> GnuHashTable<'data, E> {
         strtab: &StringTable<'data>,
     ) -> Result<Option<(usize, Symbol)>, ParseError> {
         // empty hash tables don't have any entries. This avoids a divde by zero in the modulus calculation,
-        // and also avoids a potential overflow in the bloom filter calculation.
+        // and also avoids a potential division by zero panic in the bloom filter index calculation.
         if self.buckets.is_empty() || self.hdr.nbloom == 0 {
             return Ok(None);
         }
