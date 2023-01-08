@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 
+## [0.7.1] - 2023-01-08
+
+### Bug Fixes
+
+- Fix a divide by zero panic in GnuHashTable.find() for tables with nbloom = 0
+
 ## [0.7.0] - 2022-11-14
 
 ### New Features
