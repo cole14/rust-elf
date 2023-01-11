@@ -78,8 +78,30 @@ impl std::error::Error for ParseError {
             ParseError::Utf8Error(ref err) => Some(err),
             ParseError::TryFromSliceError(ref err) => Some(err),
             ParseError::TryFromIntError(ref err) => Some(err),
-            #[cfg(feature = "std")]
             ParseError::IOError(ref err) => Some(err),
+        }
+    }
+}
+
+#[cfg(all(feature = "nightly", not(feature = "std")))]
+impl core::error::Error for ParseError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match *self {
+            ParseError::BadMagic(_) => None,
+            ParseError::UnsupportedElfClass(_) => None,
+            ParseError::UnsupportedElfEndianness(_) => None,
+            ParseError::UnsupportedVersion(_) => None,
+            ParseError::BadOffset(_) => None,
+            ParseError::StringTableMissingNul(_) => None,
+            ParseError::BadEntsize(_) => None,
+            ParseError::UnexpectedSectionType(_) => None,
+            ParseError::UnexpectedSegmentType(_) => None,
+            ParseError::UnexpectedAlignment(_) => None,
+            ParseError::SliceReadError(_) => None,
+            ParseError::IntegerOverflow => None,
+            ParseError::Utf8Error(ref err) => Some(err),
+            ParseError::TryFromSliceError(ref err) => Some(err),
+            ParseError::TryFromIntError(ref err) => Some(err),
         }
     }
 }

@@ -133,6 +133,7 @@
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(all(feature = "nightly", not(feature = "std")), feature(error_in_core))]
 
 pub mod abi;
 

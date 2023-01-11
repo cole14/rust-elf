@@ -21,3 +21,4 @@ name = "elf"
 default = ["std", "to_str"]
 std = []
 to_str = []
+nightly = []
