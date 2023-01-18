@@ -140,6 +140,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add a `no_std` option by fully moving the parser over to lazy zero-alloc parsing patterns.
 
 <!-- next-url -->
+[0.7.1]: https://github.com/cole14/rust-elf/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cole14/rust-elf/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/cole14/rust-elf/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/cole14/rust-elf/compare/v0.5.0...v0.6.0
