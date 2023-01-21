@@ -21,4 +21,5 @@ name = "elf"
 default = ["std", "to_str"]
 std = []
 to_str = []
+# Enable for nightly feature(error_in_core) to impl core::error::Error on ParseError
 nightly = []
