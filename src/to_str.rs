@@ -27,7 +27,7 @@ pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
 pub fn e_osabi_to_string(e_osabi: u8) -> String {
     match e_osabi_to_str(e_osabi) {
         Some(s) => s.to_string(),
-        None => format!("e_osabi({:#x})", e_osabi),
+        None => format!("e_osabi({e_osabi:#x})"),
     }
 }
 
@@ -56,7 +56,7 @@ pub fn e_type_to_str(e_type: u16) -> Option<&'static str> {
 pub fn e_type_to_string(e_type: u16) -> String {
     match e_type_to_str(e_type) {
         Some(s) => s.to_string(),
-        None => format!("e_type({:#x})", e_type),
+        None => format!("e_type({e_type:#x})"),
     }
 }
 
@@ -447,7 +447,7 @@ pub fn e_machine_to_str(e_machine: u16) -> Option<&'static str> {
 pub fn e_machine_to_string(e_machine: u16) -> String {
     match e_machine_to_str(e_machine) {
         Some(s) => s.to_string(),
-        None => format!("e_machine({:#x})", e_machine),
+        None => format!("e_machine({e_machine:#x})"),
     }
 }
 
@@ -483,7 +483,7 @@ pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
 pub fn sh_type_to_string(sh_type: u32) -> String {
     match sh_type_to_str(sh_type) {
         Some(s) => s.to_string(),
-        None => format!("sh_type({:#x})", sh_type),
+        None => format!("sh_type({sh_type:#x})"),
     }
 }
 
@@ -495,7 +495,7 @@ pub fn p_flags_to_string(p_flags: u32) -> String {
             let x = if p_flags & abi::PF_X != 0 { "E" } else { " " };
             format!("{r}{w}{x}")
         }
-        false => format!("p_flags({:#x})", p_flags),
+        false => format!("p_flags({p_flags:#x})"),
     }
 }
 
@@ -520,7 +520,7 @@ pub fn p_type_to_str(p_type: u32) -> Option<&'static str> {
 pub fn p_type_to_string(p_type: u32) -> String {
     match p_type_to_str(p_type) {
         Some(s) => s.to_string(),
-        None => format!("p_type({:#x})", p_type),
+        None => format!("p_type({p_type:#x})"),
     }
 }
 
@@ -541,7 +541,7 @@ pub fn st_symtype_to_str(st_symtype: u8) -> Option<&'static str> {
 pub fn st_symtype_to_string(st_symtype: u8) -> String {
     match st_symtype_to_str(st_symtype) {
         Some(s) => s.to_string(),
-        None => format!("st_symtype({:#x})", st_symtype),
+        None => format!("st_symtype({st_symtype:#x})"),
     }
 }
 
@@ -558,7 +558,7 @@ pub fn st_bind_to_str(st_bind: u8) -> Option<&'static str> {
 pub fn st_bind_to_string(st_bind: u8) -> String {
     match st_bind_to_str(st_bind) {
         Some(s) => s.to_string(),
-        None => format!("st_bind({:#x})", st_bind),
+        None => format!("st_bind({st_bind:#x})"),
     }
 }
 
@@ -575,7 +575,7 @@ pub fn st_vis_to_str(st_vis: u8) -> Option<&'static str> {
 pub fn st_vis_to_string(st_vis: u8) -> String {
     match st_vis_to_str(st_vis) {
         Some(s) => s.to_string(),
-        None => format!("st_vis({:#x})", st_vis),
+        None => format!("st_vis({st_vis:#x})"),
     }
 }
 
