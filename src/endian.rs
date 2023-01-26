@@ -100,8 +100,7 @@ pub trait EndianParse: Clone + Copy + Default + PartialEq + Eq {
 /// An endian parsing type that can choose at runtime which byte order to parse integers as.
 /// This is useful for scenarios where a single compiled binary wants to dynamically
 /// interpret ELF files of any byte order.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum AnyEndian {
     /// Used for a little-endian ELF structures that have been parsed with AnyEndian
     #[default]
@@ -109,8 +108,6 @@ pub enum AnyEndian {
     /// Used for a big-endian ELF structures that have been parsed with AnyEndian
     Big,
 }
-
-
 
 /// A zero-sized type that always parses integers as if they're in little-endian order.
 /// This is useful for scenarios where a combiled binary knows it only wants to interpret
