@@ -5,7 +5,43 @@ use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type SectionHeaderTable<'data, E> = ParsingTable<'data, E, SectionHeader>;
 
+/// C-style 32-bit ELF Section Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf32_Shdr {
+    pub sh_name: u32,
+    pub sh_type: u32,
+    pub sh_flags: u32,
+    pub sh_addr: u32,
+    pub sh_offset: u32,
+    pub sh_size: u32,
+    pub sh_link: u32,
+    pub sh_info: u32,
+    pub sh_addralign: u32,
+    pub sh_entsize: u32,
+}
+
+/// C-style 64-bit ELF Section Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf64_Shdr {
+    pub sh_name: u32,
+    pub sh_type: u32,
+    pub sh_flags: u64,
+    pub sh_addr: u64,
+    pub sh_offset: u64,
+    pub sh_size: u64,
+    pub sh_link: u32,
+    pub sh_info: u32,
+    pub sh_addralign: u64,
+    pub sh_entsize: u64,
+}
+
 /// Encapsulates the contents of an ELF Section Header
+///
+/// This is a Rust-native type that represents a Section Header that is bit-width-agnostic.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SectionHeader {
     /// Section Name
