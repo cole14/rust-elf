@@ -40,7 +40,7 @@ pub const ELFMAG2: u8 = 0x4c;
 pub const ELFMAG3: u8 = 0x46;
 pub const ELFMAGIC: [u8; 4] = [ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3];
 
-/// ELFCLASS* define constants for e_ident[EI_CLASS]
+/// ELFCLASS* define constants for e_ident\[[EI_CLASS]\]
 
 /// Invalid ELF file class
 pub const ELFCLASSNONE: u8 = 0;
@@ -49,7 +49,7 @@ pub const ELFCLASS32: u8 = 1;
 /// 64-bit ELF file
 pub const ELFCLASS64: u8 = 2;
 
-/// ELFDATA* define constants for e_ident[EI_DATA]
+/// ELFDATA* define constants for e_ident\[[EI_DATA]\]
 
 /// Invalid ELF data format
 pub const ELFDATANONE: u8 = 0;
@@ -58,7 +58,7 @@ pub const ELFDATA2LSB: u8 = 1;
 /// 2's complement values, with the most significant byte occupying the lowest address.
 pub const ELFDATA2MSB: u8 = 2;
 
-/// ELFOSABI* define constants for e_ident[EI_OSABI]
+/// ELFOSABI* define constants for e_ident\[[EI_OSABI]\]
 
 /// No extensions or unspecified
 pub const ELFOSABI_NONE: u8 = 0;
