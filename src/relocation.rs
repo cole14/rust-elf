@@ -6,6 +6,24 @@ use crate::parse::{ParseAt, ParseError, ParsingIterator};
 pub type RelIterator<'data, E> = ParsingIterator<'data, E, Rel>;
 pub type RelaIterator<'data, E> = ParsingIterator<'data, E, Rela>;
 
+/// C-style 32-bit ELF Relocation definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf32_Rel {
+    pub r_offset: u32,
+    pub r_info: u32,
+}
+
+/// C-style 64-bit ELF Relocation definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf64_Rel {
+    pub r_offset: u64,
+    pub r_info: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rel {
     pub r_offset: u64,
@@ -49,6 +67,26 @@ impl ParseAt for Rel {
             Class::ELF64 => 16,
         }
     }
+}
+
+/// C-style 32-bit ELF Relocation (with addend) definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf32_Rela {
+    pub r_offset: u32,
+    pub r_info: u32,
+    pub r_addend: i32,
+}
+
+/// C-style 64-bit ELF Relocation (with addend) definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf64_Rela {
+    pub r_offset: u64,
+    pub r_info: u64,
+    pub r_addend: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
