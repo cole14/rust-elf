@@ -1137,27 +1137,27 @@ pub const DT_ARM_PREEMPTMAP: i64 = 0x70000002;
 
 /// no reloc
 pub const R_ARM_NONE: u32 = 0;
-/// Deprecated PC relative 26 bit branch. ((S + A) | T) – P
+/// Deprecated PC relative 26 bit branch. `((S + A) | T) – P`
 pub const R_ARM_PC24: u32 = 1;
-/// Direct 32 bit. (S + A) | T
+/// Direct 32 bit. `(S + A) | T`
 pub const R_ARM_ABS32: u32 = 2;
-/// PC relative 32 bit. ((S + A) | T) | – P
+/// PC relative 32 bit. `((S + A) | T) | – P`
 pub const R_ARM_REL32: u32 = 3;
-/// S + A – P
+/// `S + A – P`
 pub const R_ARM_LDR_PC_G0: u32 = 4;
-/// Direct 16 bit. S + A
+/// Direct 16 bit. `S + A`
 pub const R_ARM_ABS16: u32 = 5;
-/// Direct 12 bit. S + A
+/// Direct 12 bit. `S + A`
 pub const R_ARM_ABS12: u32 = 6;
-/// Direct & 0x7C (LDR, STR). S + A
+/// Direct & 0x7C `(LDR, STR). S + A`
 pub const R_ARM_THM_ABS5: u32 = 7;
-/// Direct 8 bit. S + A
+/// Direct 8 bit. `S + A`
 pub const R_ARM_ABS8: u32 = 8;
-/// ((S + A) | T) – B(S)
+/// `((S + A) | T) – B(S)`
 pub const R_ARM_SBREL32: u32 = 9;
-/// PC relative 24 bit (Thumb32 BL). ((S + A) | T) – P
+/// PC relative 24 bit (Thumb32 BL). `((S + A) | T) – P`
 pub const R_ARM_THM_CALL: u32 = 10;
-/// PC relative & 0x3FC (Thumb16 LDR, ADD, ADR). S + A – Pa
+/// PC relative & 0x3FC (Thumb16 LDR, ADD, ADR). `S + A – Pa`
 pub const R_ARM_THM_PC8: u32 = 11;
 pub const R_ARM_BREL_ADJ: u32 = 12;
 /// dynamic reloc
@@ -1170,33 +1170,33 @@ pub const R_ARM_XPC25: u32 = 15;
 pub const R_ARM_THM_XPC22: u32 = 16;
 /// ID of module containing symbol.
 pub const R_ARM_TLS_DTPMOD32: u32 = 17;
-/// Offset in TLS block. S + A – TLS
+/// Offset in TLS block. `S + A – TLS`
 pub const R_ARM_TLS_DTPOFF32: u32 = 18;
-/// Offset in static TLS block. S + A – Tp
+/// Offset in static TLS block. `S + A – Tp`
 pub const R_ARM_TLS_TPOFF32: u32 = 19;
 /// dynamic reloc Copy symbol at runtime.
 pub const R_ARM_COPY: u32 = 20;
-/// Create GOT entry. (S + A) | T
+/// Create GOT entry. `(S + A) | T`
 pub const R_ARM_GLOB_DAT: u32 = 21;
-/// Create PLT entry. (S + A) | T
+/// Create PLT entry. `(S + A) | T`
 pub const R_ARM_JUMP_SLOT: u32 = 22;
-/// Adjust by program base. B(S) + A
+/// Adjust by program base. `B(S) + A`
 pub const R_ARM_RELATIVE: u32 = 23;
-/// 32 bit offset to GOT. ((S + A) | T) – GOT_ORG
+/// 32 bit offset to GOT. `((S + A) | T) – GOT_ORG`
 pub const R_ARM_GOTOFF32: u32 = 24;
-/// 32 bit PC relative offset to GOT. B(S) + A – P
+/// 32 bit PC relative offset to GOT. `B(S) + A – P`
 pub const R_ARM_BASE_PREL: u32 = 25;
-/// 32 bit GOT entry. GOT(S) + A – GOT_ORG
+/// 32 bit GOT entry. `GOT(S) + A – GOT_ORG`
 pub const R_ARM_BASE_BREL: u32 = 26;
 /// Deprecated, 32 bit PLT address.
 pub const R_ARM_PLT32: u32 = 27;
-/// PC relative 24 bit (BL, BLX). ((S + A) | T) – P
+/// PC relative 24 bit (BL, BLX). `((S + A) | T) – P`
 pub const R_ARM_CALL: u32 = 28;
-/// PC relative 24 bit (B, BL<cond>). ((S + A) | T) – P
+/// PC relative 24 bit (B, BL{cond}). `((S + A) | T) – P`
 pub const R_ARM_JUMP24: u32 = 29;
-/// PC relative 24 bit (Thumb32 B.W). ((S + A) | T) – P
+/// PC relative 24 bit (Thumb32 B.W). `((S + A) | T) – P`
 pub const R_ARM_THM_JUMP24: u32 = 30;
-/// Adjust by program base. B(S) + A
+/// Adjust by program base. `B(S) + A`
 pub const R_ARM_BASE_ABS: u32 = 31;
 /// Obsolete.
 pub const R_ARM_ALU_PCREL_7_0: u32 = 32;
@@ -1211,163 +1211,163 @@ pub const R_ARM_ALU_SBREL_19_12: u32 = 36;
 /// Deprecated, prog. base relative.
 pub const R_ARM_ALU_SBREL_27_20: u32 = 37;
 pub const R_ARM_TARGET1: u32 = 38;
-/// Program base relative. ((S + A) | T) – B(S)
+/// Program base relative. `((S + A) | T) – B(S)`
 pub const R_ARM_SBREL31: u32 = 39;
 pub const R_ARM_V4BX: u32 = 40;
 pub const R_ARM_TARGET2: u32 = 41;
-/// 32 bit PC relative. ((S + A) | T) – P
+/// 32 bit PC relative. `((S + A) | T) – P`
 pub const R_ARM_PREL31: u32 = 42;
-/// Direct 16-bit (MOVW). (S + A) | T
+/// Direct 16-bit (MOVW). `(S + A) | T`
 pub const R_ARM_MOVW_ABS_NC: u32 = 43;
-/// Direct high 16-bit (MOVT). S + A
+/// Direct high 16-bit (MOVT). `S + A`
 pub const R_ARM_MOVT_ABS: u32 = 44;
-/// PC relative 16-bit (MOVW). ((S + A) | T) – P
+/// PC relative 16-bit (MOVW). `((S + A) | T) – P`
 pub const R_ARM_MOVW_PREL_NC: u32 = 45;
-/// PC relative (MOVT). S + A - P
+/// PC relative (MOVT). `S + A - P`
 pub const R_ARM_MOVT_PREL: u32 = 46;
-/// Direct 16 bit (Thumb32 MOVW). (S + A) | T
+/// Direct 16 bit (Thumb32 MOVW). `(S + A) | T`
 pub const R_ARM_THM_MOVW_ABS_NC: u32 = 47;
-/// Direct high 16 bit (Thumb32 MOVT). S + A
+/// Direct high 16 bit (Thumb32 MOVT). `S + A`
 pub const R_ARM_THM_MOVT_ABS: u32 = 48;
-/// PC relative 16 bit (Thumb32 MOVW). ((S + A) | T) – P
+/// PC relative 16 bit (Thumb32 MOVW). `((S + A) | T) – P`
 pub const R_ARM_THM_MOVW_PREL_NC: u32 = 49;
-/// PC relative high 16 bit (Thumb32 MOVT). S + A – P
+/// PC relative high 16 bit (Thumb32 MOVT). `S + A – P`
 pub const R_ARM_THM_MOVT_PREL: u32 = 50;
-/// PC relative 20 bit (Thumb32 B<cond>.W). ((S + A) | T) – P
+/// PC relative 20 bit (Thumb32 B{cond}.W). `((S + A) | T) – P`
 pub const R_ARM_THM_JUMP19: u32 = 51;
-/// PC relative X & 0x7E (Thumb16 CBZ, CBNZ). S + A – P
+/// PC relative X & 0x7E (Thumb16 CBZ, CBNZ). `S + A – P`
 pub const R_ARM_THM_JUMP6: u32 = 52;
-/// PC relative 12 bit (Thumb32 ADR.W). ((S + A) | T) – Pa
+/// PC relative 12 bit (Thumb32 ADR.W). `((S + A) | T) – Pa`
 pub const R_ARM_THM_ALU_PREL_11_0: u32 = 53;
-/// PC relative 12 bit (Thumb32 LDR{D,SB,H,SH}). S + A – Pa
+/// PC relative 12 bit (Thumb32 LDR{D,SB,H,SH}). `S + A – Pa`
 pub const R_ARM_THM_PC12: u32 = 54;
-/// Direct 32-bit. S + A
+/// Direct 32-bit. `S + A`
 pub const R_ARM_ABS32_NOI: u32 = 55;
-/// PC relative 32-bit. S + A - P
+/// PC relative 32-bit. `S + A - P`
 pub const R_ARM_REL32_NOI: u32 = 56;
-/// PC relative (ADD, SUB). ((S + A) | T) – P
+/// PC relative (ADD, SUB). `((S + A) | T) – P`
 pub const R_ARM_ALU_PC_G0_NC: u32 = 57;
-/// PC relative (ADD, SUB). ((S + A) | T) – P
+/// PC relative (ADD, SUB). `((S + A) | T) – P`
 pub const R_ARM_ALU_PC_G0: u32 = 58;
-/// PC relative (ADD, SUB). ((S + A) | T) – P
+/// PC relative (ADD, SUB). `((S + A) | T) – P`
 pub const R_ARM_ALU_PC_G1_NC: u32 = 59;
-/// PC relative (ADD, SUB). ((S + A) | T) – P
+/// PC relative (ADD, SUB). `((S + A) | T) – P`
 pub const R_ARM_ALU_PC_G1: u32 = 60;
-/// PC relative (ADD, SUB). ((S + A) | T) – P
+/// PC relative (ADD, SUB). `((S + A) | T) – P`
 pub const R_ARM_ALU_PC_G2: u32 = 61;
-/// PC relative (LDR,STR,LDRB,STRB). S + A – P
+/// PC relative (LDR,STR,LDRB,STRB). `S + A – P`
 pub const R_ARM_LDR_PC_G1: u32 = 62;
-/// PC relative (LDR,STR,LDRB,STRB). S + A – P
+/// PC relative (LDR,STR,LDRB,STRB). `S + A – P`
 pub const R_ARM_LDR_PC_G2: u32 = 63;
-/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). S + A – P
+/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). `S + A – P`
 pub const R_ARM_LDRS_PC_G0: u32 = 64;
-/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). S + A – P
+/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). `S + A – P`
 pub const R_ARM_LDRS_PC_G1: u32 = 65;
-/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). S + A – P
+/// PC relative (STR{D,H}, LDR{D,SB,H,SH}). `S + A – P`
 pub const R_ARM_LDRS_PC_G2: u32 = 66;
-/// PC relative (LDC, STC). S + A – P
+/// PC relative (LDC, STC). `S + A – P`
 pub const R_ARM_LDC_PC_G0: u32 = 67;
-/// PC relative (LDC, STC). S + A – P
+/// PC relative (LDC, STC). `S + A – P`
 pub const R_ARM_LDC_PC_G1: u32 = 68;
-/// PC relative (LDC, STC). S + A – P
+/// PC relative (LDC, STC). `S + A – P`
 pub const R_ARM_LDC_PC_G2: u32 = 69;
-/// Program base relative (ADD,SUB). ((S + A) | T) – B(S)
+/// Program base relative (ADD,SUB). `((S + A) | T) – B(S)`
 pub const R_ARM_ALU_SB_G0_NC: u32 = 70;
-/// Program base relative (ADD,SUB). ((S + A) | T) – B(S)
+/// Program base relative (ADD,SUB). `((S + A) | T) – B(S)`
 pub const R_ARM_ALU_SB_G0: u32 = 71;
-/// Program base relative (ADD,SUB). ((S + A) | T) – B(S)
+/// Program base relative (ADD,SUB). `((S + A) | T) – B(S)`
 pub const R_ARM_ALU_SB_G1_NC: u32 = 72;
-/// Program base relative (ADD,SUB). ((S + A) | T) – B(S)
+/// Program base relative (ADD,SUB). `((S + A) | T) – B(S)`
 pub const R_ARM_ALU_SB_G1: u32 = 73;
-/// Program base relative (ADD,SUB). ((S + A) | T) – B(S)
+/// Program base relative (ADD,SUB). `((S + A) | T) – B(S)`
 pub const R_ARM_ALU_SB_G2: u32 = 74;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDR_SB_G0: u32 = 75;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDR_SB_G1: u32 = 76;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDR_SB_G2: u32 = 77;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDRS_SB_G0: u32 = 78;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDRS_SB_G1: u32 = 79;
-/// Program base relative (LDR, STR, LDRB, STRB). S + A – B(S)
+/// Program base relative (LDR, STR, LDRB, STRB). `S + A – B(S)`
 pub const R_ARM_LDRS_SB_G2: u32 = 80;
-/// Program base relative (LDC,STC). S + A – B(S)
+/// Program base relative (LDC,STC). `S + A – B(S)`
 pub const R_ARM_LDC_SB_G0: u32 = 81;
-/// Program base relative (LDC,STC). S + A – B(S)
+/// Program base relative (LDC,STC). `S + A – B(S)`
 pub const R_ARM_LDC_SB_G1: u32 = 82;
-/// Program base relative (LDC,STC). S + A – B(S)
+/// Program base relative (LDC,STC). `S + A – B(S)`
 pub const R_ARM_LDC_SB_G2: u32 = 83;
-/// Program base relative 16 bit (MOVW). ((S + A) | T) – B(S)
+/// Program base relative 16 bit (MOVW). `((S + A) | T) – B(S)`
 pub const R_ARM_MOVW_BREL_NC: u32 = 84;
-/// Program base relative high 16 bit (MOVT). S + A – B(S)
+/// Program base relative high 16 bit (MOVT). `S + A – B(S)`
 pub const R_ARM_MOVT_BREL: u32 = 85;
-/// Program base relative 16 bit (MOVW). ((S + A) | T) – B(S)
+/// Program base relative 16 bit (MOVW). `((S + A) | T) – B(S)`
 pub const R_ARM_MOVW_BREL: u32 = 86;
-/// Program base relative 16 bit (Thumb32 MOVW). ((S + A) | T) – B(S)
+/// Program base relative 16 bit (Thumb32 MOVW). `((S + A) | T) – B(S)`
 pub const R_ARM_THM_MOVW_BREL_NC: u32 = 87;
-/// Program base relative high 16 bit (Thumb32 MOVT). S + A – B(S)
+/// Program base relative high 16 bit (Thumb32 MOVT). `S + A – B(S)`
 pub const R_ARM_THM_MOVT_BREL: u32 = 88;
-/// Program base relative 16 bit (Thumb32 MOVW). ((S + A) | T) – B(S)
+/// Program base relative 16 bit (Thumb32 MOVW). `((S + A) | T) – B(S)`
 pub const R_ARM_THM_MOVW_BREL: u32 = 89;
 pub const R_ARM_TLS_GOTDESC: u32 = 90;
 pub const R_ARM_TLS_CALL: u32 = 91;
 /// TLS relaxation.
 pub const R_ARM_TLS_DESCSEQ: u32 = 92;
 pub const R_ARM_THM_TLS_CALL: u32 = 93;
-/// PLT(S) + A
+/// `PLT(S) + A`
 pub const R_ARM_PLT32_ABS: u32 = 94;
-/// GOT entry. GOT(S) + A
+/// GOT entry. `GOT(S) + A`
 pub const R_ARM_GOT_ABS: u32 = 95;
-/// PC relative GOT entry. GOT(S) + A – P
+/// PC relative GOT entry. `GOT(S) + A – P`
 pub const R_ARM_GOT_PREL: u32 = 96;
-/// GOT entry relative to GOT origin (LDR). GOT(S) + A – GOT_ORG
+/// GOT entry relative to GOT origin (LDR). `GOT(S) + A – GOT_ORG`
 pub const R_ARM_GOT_BREL12: u32 = 97;
-/// 12 bit, GOT entry relative to GOT origin (LDR, STR). S + A – GOT_ORG
+/// 12 bit, GOT entry relative to GOT origin (LDR, STR). `S + A – GOT_ORG`
 pub const R_ARM_GOTOFF12: u32 = 98;
 pub const R_ARM_GOTRELAX: u32 = 99;
 pub const R_ARM_GNU_VTENTRY: u32 = 100;
 pub const R_ARM_GNU_VTINHERIT: u32 = 101;
-/// PC relative & 0xFFE (Thumb16 B). S + A – P
+/// PC relative & 0xFFE (Thumb16 B). `S + A – P`
 pub const R_ARM_THM_JUMP11: u32 = 102;
-/// PC relative & 0x1FE (Thumb16 B/B<cond>). S + A – P
+/// PC relative & 0x1FE (Thumb16 B/B{cond}). `S + A – P`
 pub const R_ARM_THM_JUMP8: u32 = 103;
-/// PC-rel 32 bit for global dynamic thread local data. GOT(S) + A – P
+/// PC-rel 32 bit for global dynamic thread local data. `GOT(S) + A – P`
 pub const R_ARM_TLS_GD32: u32 = 104;
-/// PC-rel 32 bit for local dynamic thread local data. GOT(S) + A – P
+/// PC-rel 32 bit for local dynamic thread local data. `GOT(S) + A – P`
 pub const R_ARM_TLS_LDM32: u32 = 105;
-/// 32 bit offset relative to TLS block. S + A – TLS
+/// 32 bit offset relative to TLS block. `S + A – TLS`
 pub const R_ARM_TLS_LDO32: u32 = 106;
-/// PC-rel 32 bit for GOT entry of static TLS block offset. GOT(S) + A – P
+/// PC-rel 32 bit for GOT entry of static TLS block offset. `GOT(S) + A – P`
 pub const R_ARM_TLS_IE32: u32 = 107;
-/// 32 bit offset relative to static TLS block. S + A – tp
+/// 32 bit offset relative to static TLS block. `S + A – tp`
 pub const R_ARM_TLS_LE32: u32 = 108;
-/// 12 bit relative to TLS block (LDR, STR). S + A – TLS
+/// 12 bit relative to TLS block (LDR, STR). `S + A – TLS`
 pub const R_ARM_TLS_LDO12: u32 = 109;
-/// 12 bit relative to static TLS block (LDR, STR). S + A – tp
+/// 12 bit relative to static TLS block (LDR, STR). `S + A – tp`
 pub const R_ARM_TLS_LE12: u32 = 110;
-/// 12 bit GOT entry relative to GOT origin (LDR). GOT(S) + A – GOT_ORG
+/// 12 bit GOT entry relative to GOT origin (LDR). `GOT(S) + A – GOT_ORG`
 pub const R_ARM_TLS_IE12GP: u32 = 111;
 /// Obsolete.
 pub const R_ARM_ME_TOO: u32 = 128;
 pub const R_ARM_THM_TLS_DESCSEQ16: u32 = 129;
 pub const R_ARM_THM_TLS_DESCSEQ32: u32 = 130;
-/// GOT entry relative to GOT origin, 12 bit (Thumb32 LDR). GOT(S) + A – GOT_ORG
+/// GOT entry relative to GOT origin, 12 bit (Thumb32 LDR). `GOT(S) + A – GOT_ORG`
 pub const R_ARM_THM_GOT_BREL12: u32 = 131;
-/// Static Thumb16 (S + A) | T
+/// Static Thumb16 `(S + A) | T`
 pub const R_ARM_THM_ALU_ABS_G0_NC: u32 = 132;
-/// Static Thumb16 S + A
+/// Static Thumb16 `S + A`
 pub const R_ARM_THM_ALU_ABS_G1_NC: u32 = 133;
-/// Static Thumb16 S + A
+/// Static Thumb16 `S + A`
 pub const R_ARM_THM_ALU_ABS_G2_NC: u32 = 134;
-/// Static Thumb16 S + A
+/// Static Thumb16 `S + A`
 pub const R_ARM_THM_ALU_ABS_G3: u32 = 135;
-/// Static Arm ((S + A) | T) – P
+/// Static Arm `((S + A) | T) – P`
 pub const R_ARM_THM_BF16: u32 = 136;
-/// Static Arm ((S + A) | T) – P
+/// Static Arm `((S + A) | T) – P`
 pub const R_ARM_THM_BF12: u32 = 137;
-/// Static Arm ((S + A) | T) – P
+/// Static Arm `((S + A) | T) – P`
 pub const R_ARM_THM_BF18: u32 = 138;
 pub const R_ARM_IRELATIVE: u32 = 160;
 
@@ -1404,7 +1404,7 @@ pub const GNU_PROPERTY_AARCH64_FEATURE_1_PAC: u32 = 0x2;
 pub const DT_AARCH64_BTI_PLT: i64 = 0x70000001;
 /// indicates PLTs enabled with Pointer Authentication.
 pub const DT_AARCH64_PAC_PLT: i64 = 0x70000003;
-/// must be present if there are R_<CLS>_JUMP_SLOT relocations that reference
+/// must be present if there are R_{CLS}_JUMP_SLOT relocations that reference
 /// symbols marked with the STO_AARCH64_VARIANT_PCS flag set in their st_other field
 pub const DT_AARCH64_VARIANT_PCS: i64 = 0x70000005;
 
@@ -1894,215 +1894,215 @@ pub const STO_PPC64_LOCAL_MASK: u8 = 7 << STO_PPC64_LOCAL_BIT;
 
 /// none
 pub const R_PPC64_NONE: u32 = 0;
-/// S + A
+/// `S + A`
 pub const R_PPC64_ADDR32: u32 = 1;
-/// (S + A) >> 2
+/// `(S + A) >> 2`
 pub const R_PPC64_ADDR24: u32 = 2;
-/// S + A
+/// `S + A`
 pub const R_PPC64_ADDR16: u32 = 3;
-/// #lo(S + A)
+/// `#lo(S + A)`
 pub const R_PPC64_ADDR16_LO: u32 = 4;
-/// #hi(S + A)
+/// `#hi(S + A)`
 pub const R_PPC64_ADDR16_HI: u32 = 5;
-/// #ha(S + A)
+/// `#ha(S + A)`
 pub const R_PPC64_ADDR16_HA: u32 = 6;
-/// (S + A) >> 2
+/// `(S + A) >> 2`
 pub const R_PPC64_ADDR14: u32 = 7;
-/// (S + A) >> 2
+/// `(S + A) >> 2`
 pub const R_PPC64_ADDR14_BRTAKEN: u32 = 8;
-/// (S + A) >> 2
+/// `(S + A) >> 2`
 pub const R_PPC64_ADDR14_BRNTAKEN: u32 = 9;
-/// (S + A - P) >> 2
+/// `(S + A - P) >> 2`
 pub const R_PPC64_REL24: u32 = 10;
-/// (S + A - P) >> 2
+/// `(S + A - P) >> 2`
 pub const R_PPC64_REL14: u32 = 11;
-/// (S + A - P) >> 2
+/// `(S + A - P) >> 2`
 pub const R_PPC64_REL14_BRTAKEN: u32 = 12;
-/// (S + A - P) >> 2
+/// `(S + A - P) >> 2`
 pub const R_PPC64_REL14_BRNTAKEN: u32 = 13;
-/// G
+/// `G`
 pub const R_PPC64_GOT16: u32 = 14;
-/// #lo(G)
+/// `#lo(G)`
 pub const R_PPC64_GOT16_LO: u32 = 15;
-/// #hi(G)
+/// `#hi(G)`
 pub const R_PPC64_GOT16_HI: u32 = 16;
-/// #ha(G)
+/// `#ha(G)`
 pub const R_PPC64_GOT16_HA: u32 = 17;
 /// none
 pub const R_PPC64_COPY: u32 = 19;
-/// S + A
+/// `S + A`
 pub const R_PPC64_GLOB_DAT: u32 = 20;
 /// see below
 pub const R_PPC64_JMP_SLOT: u32 = 21;
-/// B + A
+/// `B + A`
 pub const R_PPC64_RELATIVE: u32 = 22;
-/// S + A
+/// `S + A`
 pub const R_PPC64_UADDR32: u32 = 24;
-/// S + A
+/// `S + A`
 pub const R_PPC64_UADDR16: u32 = 25;
-/// S + A - P
+/// `S + A - P`
 pub const R_PPC64_REL32: u32 = 26;
-/// L
+/// `L`
 pub const R_PPC64_PLT32: u32 = 27;
-/// L - P
+/// `L - P`
 pub const R_PPC64_PLTREL32: u32 = 28;
-/// #lo(L)
+/// `#lo(L)`
 pub const R_PPC64_PLT16_LO: u32 = 29;
-/// #hi(L)
+/// `#hi(L)`
 pub const R_PPC64_PLT16_HI: u32 = 30;
-/// #ha(L)
+/// `#ha(L)`
 pub const R_PPC64_PLT16_HA: u32 = 31;
-/// R + A
+/// `R + A`
 pub const R_PPC64_SECTOFF: u32 = 33;
-/// #lo(R + A)
+/// `#lo(R + A)`
 pub const R_PPC64_SECTOFF_LO: u32 = 34;
-/// #hi(R + A)
+/// `#hi(R + A)`
 pub const R_PPC64_SECTOFF_HI: u32 = 35;
-/// #ha(R + A)
+/// `#ha(R + A)`
 pub const R_PPC64_SECTOFF_HA: u32 = 36;
-/// (S + A - P) >> 2
+/// `(S + A - P) >> 2`
 pub const R_PPC64_ADDR30: u32 = 37;
-/// S + A
+/// `S + A`
 pub const R_PPC64_ADDR64: u32 = 38;
-/// #higher(S + A)
+/// `#higher(S + A)`
 pub const R_PPC64_ADDR16_HIGHER: u32 = 39;
-/// #highera(S + A)
+/// `#highera(S + A)`
 pub const R_PPC64_ADDR16_HIGHERA: u32 = 40;
-/// #highest(S + A)
+/// `#highest(S + A)`
 pub const R_PPC64_ADDR16_HIGHEST: u32 = 41;
-/// #highesta(S + A)
+/// `#highesta(S + A)`
 pub const R_PPC64_ADDR16_HIGHESTA: u32 = 42;
-/// S + A
+/// `S + A`
 pub const R_PPC64_UADDR64: u32 = 43;
-/// S + A - P
+/// `S + A - P`
 pub const R_PPC64_REL64: u32 = 44;
-/// L
+/// `L`
 pub const R_PPC64_PLT64: u32 = 45;
-/// L - P
+/// `L - P`
 pub const R_PPC64_PLTREL64: u32 = 46;
-/// S + A - .TOC.
+/// `S + A - .TOC.`
 pub const R_PPC64_TOC16: u32 = 47;
-/// #lo(S + A - .TOC.)
+/// `#lo(S + A - .TOC.)`
 pub const R_PPC64_TOC16_LO: u32 = 48;
-/// #hi(S + A - .TOC.)
+/// `#hi(S + A - .TOC.)`
 pub const R_PPC64_TOC16_HI: u32 = 49;
-/// #ha(S + A - .TOC.)
+/// `#ha(S + A - .TOC.)`
 pub const R_PPC64_TOC16_HA: u32 = 50;
-/// .TOC.
+/// `.TOC.`
 pub const R_PPC64_TOC: u32 = 51;
-/// M
+/// `M`
 pub const R_PPC64_PLTGOT16: u32 = 52;
-/// #lo(M)
+/// `#lo(M)`
 pub const R_PPC64_PLTGOT16_LO: u32 = 53;
-/// #hi(M)
+/// `#hi(M)`
 pub const R_PPC64_PLTGOT16_HI: u32 = 54;
-/// #ha(M)
+/// `#ha(M)`
 pub const R_PPC64_PLTGOT16_HA: u32 = 55;
-/// (S + A) >> 2
+/// `(S + A) >> 2`
 pub const R_PPC64_ADDR16_DS: u32 = 56;
-/// #lo(S + A) >> 2
+/// `#lo(S + A) >> 2`
 pub const R_PPC64_ADDR16_LO_DS: u32 = 57;
-/// G >> 2
+/// `G >> 2`
 pub const R_PPC64_GOT16_DS: u32 = 58;
-/// #lo(G) >> 2
+/// `#lo(G) >> 2`
 pub const R_PPC64_GOT16_LO_DS: u32 = 59;
-/// #lo(L) >> 2
+/// `#lo(L) >> 2`
 pub const R_PPC64_PLT16_LO_DS: u32 = 60;
-/// (R + A) >> 2
+/// `(R + A) >> 2`
 pub const R_PPC64_SECTOFF_DS: u32 = 61;
-/// #lo(R + A) >> 2
+/// `#lo(R + A) >> 2`
 pub const R_PPC64_SECTOFF_LO_DS: u32 = 62;
-/// (S + A - .TOC.) >> 2
+/// `(S + A - .TOC.) >> 2`
 pub const R_PPC64_TOC16_DS: u32 = 63;
-/// #lo(S + A - .TOC.) >> 2
+/// `#lo(S + A - .TOC.) >> 2`
 pub const R_PPC64_TOC16_LO_DS: u32 = 64;
-/// M >> 2
+/// `M >> 2`
 pub const R_PPC64_PLTGOT16_DS: u32 = 65;
-/// #lo(M) >> 2
+/// `#lo(M) >> 2`
 pub const R_PPC64_PLTGOT16_LO_DS: u32 = 66;
 /// none
 pub const R_PPC64_TLS: u32 = 67;
-/// @dtpmod
+/// `@dtpmod`
 pub const R_PPC64_DTPMOD64: u32 = 68;
-/// @tprel
+/// `@tprel`
 pub const R_PPC64_TPREL16: u32 = 69;
-/// #lo(@tprel)
+/// `#lo(@tprel)`
 pub const R_PPC64_TPREL16_LO: u32 = 60;
-/// #hi(@tprel)
+/// `#hi(@tprel)`
 pub const R_PPC64_TPREL16_HI: u32 = 71;
-/// #ha(@tprel)
+/// `#ha(@tprel)`
 pub const R_PPC64_TPREL16_HA: u32 = 72;
-/// @tprel
+/// `@tprel`
 pub const R_PPC64_TPREL64: u32 = 73;
-/// @dtprel
+/// `@dtprel`
 pub const R_PPC64_DTPREL16: u32 = 74;
-/// #lo(@dtprel)
+/// `#lo(@dtprel)`
 pub const R_PPC64_DTPREL16_LO: u32 = 75;
-/// #hi(@dtprel)
+/// `#hi(@dtprel)`
 pub const R_PPC64_DTPREL16_HI: u32 = 76;
-/// #ha(@dtprel)
+/// `#ha(@dtprel)`
 pub const R_PPC64_DTPREL16_HA: u32 = 77;
-/// @dtprel
+/// `@dtprel`
 pub const R_PPC64_DTPREL64: u32 = 78;
-/// @got@tlsgd
+/// `@got@tlsgd`
 pub const R_PPC64_GOT_TLSGD16: u32 = 79;
-/// #lo(@got@tlsgd)
+/// `#lo(@got@tlsgd)`
 pub const R_PPC64_GOT_TLSGD16_LO: u32 = 80;
-/// #hi(@got@tlsgd)
+/// `#hi(@got@tlsgd)`
 pub const R_PPC64_GOT_TLSGD16_HI: u32 = 81;
-/// #ha(@got@tlsgd)
+/// `#ha(@got@tlsgd)`
 pub const R_PPC64_GOT_TLSGD16_HA: u32 = 82;
-/// @got@tlsld
+/// `@got@tlsld`
 pub const R_PPC64_GOT_TLSLD16: u32 = 83;
-/// #lo(@got@tlsld)
+/// `#lo(@got@tlsld)`
 pub const R_PPC64_GOT_TLSLD16_LO: u32 = 84;
-/// #hi(@got@tlsld)
+/// `#hi(@got@tlsld)`
 pub const R_PPC64_GOT_TLSLD16_HI: u32 = 85;
-/// #ha(@got@tlsld)
+/// `#ha(@got@tlsld)`
 pub const R_PPC64_GOT_TLSLD16_HA: u32 = 86;
-/// @got@tprel
+/// `@got@tprel`
 pub const R_PPC64_GOT_TPREL16_DS: u32 = 87;
-/// #lo(@got@tprel)
+/// `#lo(@got@tprel)`
 pub const R_PPC64_GOT_TPREL16_LO_DS: u32 = 88;
-/// #hi(@got@tprel)
+/// `#hi(@got@tprel)`
 pub const R_PPC64_GOT_TPREL16_HI: u32 = 89;
-/// #ha(@got@tprel)
+/// `#ha(@got@tprel)`
 pub const R_PPC64_GOT_TPREL16_HA: u32 = 90;
-/// @got@dtprel
+/// `@got@dtprel`
 pub const R_PPC64_GOT_DTPREL16_DS: u32 = 91;
-/// #lo(@got@dtprel)
+/// `#lo(@got@dtprel)`
 pub const R_PPC64_GOT_DTPREL16_LO_DS: u32 = 92;
-/// #hi(@got@dtprel)
+/// `#hi(@got@dtprel)`
 pub const R_PPC64_GOT_DTPREL16_HI: u32 = 93;
-/// #ha(@got@dtprel)
+/// `#ha(@got@dtprel)`
 pub const R_PPC64_GOT_DTPREL16_HA: u32 = 94;
-/// @tprel
+/// `@tprel`
 pub const R_PPC64_TPREL16_DS: u32 = 95;
-/// #lo(@tprel)
+/// `#lo(@tprel)`
 pub const R_PPC64_TPREL16_LO_DS: u32 = 96;
-/// #higher(@tprel)
+/// `#higher(@tprel)`
 pub const R_PPC64_TPREL16_HIGHER: u32 = 97;
-/// #highera(@tprel)
+/// `#highera(@tprel)`
 pub const R_PPC64_TPREL16_HIGHERA: u32 = 98;
-/// #highest(@tprel)
+/// `#highest(@tprel)`
 pub const R_PPC64_TPREL16_HIGHEST: u32 = 99;
-/// #highesta(@tprel)
+/// `#highesta(@tprel)`
 pub const R_PPC64_TPREL16_HIGHESTA: u32 = 100;
-/// @dtprel
+/// `@dtprel`
 pub const R_PPC64_DTPREL16_DS: u32 = 101;
-/// #lo(@dtprel)
+/// `#lo(@dtprel)`
 pub const R_PPC64_DTPREL16_LO_DS: u32 = 102;
-/// #higher(@dtprel)
+/// `#higher(@dtprel)`
 pub const R_PPC64_DTPREL16_HIGHER: u32 = 103;
-/// #highera(@dtprel)
+/// `#highera(@dtprel)`
 pub const R_PPC64_DTPREL16_HIGHERA: u32 = 104;
-/// #highest(@dtprel)
+/// `#highest(@dtprel)`
 pub const R_PPC64_DTPREL16_HIGHEST: u32 = 105;
-/// #highesta(@dtprel)
+/// `#highesta(@dtprel)`
 pub const R_PPC64_DTPREL16_HIGHESTA: u32 = 106;
-/// (sym+add)@tlsgd
+/// `(sym+add)@tlsgd`
 pub const R_PPC64_TLSGD: u32 = 107;
-/// (sym+add)@tlsld
+/// `(sym+add)@tlsld`
 pub const R_PPC64_TLSLD: u32 = 108;
 pub const R_PPC64_TOCSAVE: u32 = 109;
 pub const R_PPC64_ADDR16_HIGH: u32 = 110;
@@ -2115,13 +2115,13 @@ pub const R_PPC64_DTPREL16_HIGHA: u32 = 115;
 // GNU extension to support local ifunc.
 pub const R_PPC64_JMP_IREL: u32 = 247;
 pub const R_PPC64_IRELATIVE: u32 = 248;
-/// (sym+add-.)
+/// `(sym+add-.)`
 pub const R_PPC64_REL16: u32 = 249;
-/// (sym+add-.)@l
+/// `(sym+add-.)@l`
 pub const R_PPC64_REL16_LO: u32 = 250;
-/// (sym+add-.)@h
+/// `(sym+add-.)@h`
 pub const R_PPC64_REL16_HI: u32 = 251;
-/// (sym+add-.)@ha
+/// `(sym+add-.)@ha`
 pub const R_PPC64_REL16_HA: u32 = 252;
 
 //  ____  ___ ____   ____   __     __
@@ -2173,103 +2173,103 @@ pub const DT_RISCV_VARIANT_CC: i64 = 0x70000001;
 // TLSOFFSET TLS static block offset (relative to tp) for the object containing the symbol
 
 pub const R_RISCV_NONE: u32 = 0;
-/// 32-bit relocation: S + A
+/// 32-bit relocation: `S + A`
 pub const R_RISCV_32: u32 = 1;
-/// 64-bit relocation: S + A
+/// 64-bit relocation: `S + A`
 pub const R_RISCV_64: u32 = 2;
-/// Adjust a link address (A) to its load address: (B + A).
+/// Adjust a link address (A) to its load address: `(B + A).`
 pub const R_RISCV_RELATIVE: u32 = 3;
 /// Must be in executable; not allowed in shared library
 pub const R_RISCV_COPY: u32 = 4;
-/// Indicates the symbol associated with a PLT entry: S
+/// Indicates the symbol associated with a PLT entry: `S`
 pub const R_RISCV_JUMP_SLOT: u32 = 5;
-/// TLSMODULE
+/// `TLSMODULE`
 pub const R_RISCV_TLS_DTPMOD32: u32 = 6;
-/// TLSMODULE
+/// `TLSMODULE`
 pub const R_RISCV_TLS_DTPMOD64: u32 = 7;
-/// S + A - TLS_DTV_OFFSET
+/// `S + A - TLS_DTV_OFFSET`
 pub const R_RISCV_TLS_DTPREL32: u32 = 8;
-/// S + A - TLS_DTV_OFFSET
+/// `S + A - TLS_DTV_OFFSET`
 pub const R_RISCV_TLS_DTPREL64: u32 = 9;
-/// S + A + TLSOFFSET
+/// `S + A + TLSOFFSET`
 pub const R_RISCV_TLS_TPREL32: u32 = 10;
-/// S + A + TLSOFFSET
+/// `S + A + TLSOFFSET`
 pub const R_RISCV_TLS_TPREL64: u32 = 11;
-/// 12-bit PC-relative branch offset S + A - P
+/// 12-bit PC-relative branch offset `S + A - P`
 pub const R_RISCV_BRANCH: u32 = 16;
-/// 20-bit PC-relative jump offset S + A - P
+/// 20-bit PC-relative jump offset `S + A - P`
 pub const R_RISCV_JAL: u32 = 17;
-/// Deprecated, please use CALL_PLT instead 32-bit PC-relative function call, macros call, tail: S + A - P
+/// Deprecated, please use CALL_PLT instead 32-bit PC-relative function call, macros call, tail: `S + A - P`
 pub const R_RISCV_CALL: u32 = 18;
-/// 32-bit PC-relative function call, macros call, tail (PIC): S + A - P
+/// 32-bit PC-relative function call, macros call, tail (PIC): `S + A - P`
 pub const R_RISCV_CALL_PLT: u32 = 19;
-/// High 20 bits of 32-bit PC-relative GOT access, %got_pcrel_hi(symbol): G + GOT + A - P
+/// High 20 bits of 32-bit PC-relative GOT access, %got_pcrel_hi(symbol): `G + GOT + A - P`
 pub const R_RISCV_GOT_HI20: u32 = 20;
 /// High 20 bits of 32-bit PC-relative TLS IE GOT access, macro la.tls.ie
 pub const R_RISCV_TLS_GOT_HI20: u32 = 21;
 /// High 20 bits of 32-bit PC-relative TLS GD GOT reference, macro la.tls.gd
 pub const R_RISCV_TLS_GD_HI20: u32 = 22;
-/// High 20 bits of 32-bit PC-relative reference, %pcrel_hi(symbol): S + A - P
+/// High 20 bits of 32-bit PC-relative reference, %pcrel_hi(symbol): `S + A - P`
 pub const R_RISCV_PCREL_HI20: u32 = 23;
-/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: S - P
+/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: `S - P`
 pub const R_RISCV_PCREL_LO12_I: u32 = 24;
-/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: S - P
+/// Low 12 bits of a 32-bit PC-relative, %pcrel_lo(address of %pcrel_hi), the addend must be 0: `S - P`
 pub const R_RISCV_PCREL_LO12_S: u32 = 25;
-/// High 20 bits of 32-bit absolute address, %hi(symbol): S + A
+/// High 20 bits of 32-bit absolute address, %hi(symbol): `S + A`
 pub const R_RISCV_HI20: u32 = 26;
-/// Low 12 bits of 32-bit absolute address, %lo(symbol): S + A
+/// Low 12 bits of 32-bit absolute address, %lo(symbol): `S + A`
 pub const R_RISCV_LO12_I: u32 = 27;
-/// Low 12 bits of 32-bit absolute address, %lo(symbol): S + A
+/// Low 12 bits of 32-bit absolute address, %lo(symbol): `S + A`
 pub const R_RISCV_LO12_S: u32 = 28;
-/// High 20 bits of TLS LE thread pointer offset, %tprel_hi(symbol)
+/// High 20 bits of TLS LE thread pointer offset, `%tprel_hi(symbol)`
 pub const R_RISCV_TPREL_HI20: u32 = 29;
-/// Low 12 bits of TLS LE thread pointer offset, %tprel_lo(symbol)
+/// Low 12 bits of TLS LE thread pointer offset, `%tprel_lo(symbol)`
 pub const R_RISCV_TPREL_LO12_I: u32 = 30;
-/// Low 12 bits of TLS LE thread pointer offset, %tprel_lo(symbol)
+/// Low 12 bits of TLS LE thread pointer offset, `%tprel_lo(symbol)`
 pub const R_RISCV_TPREL_LO12_S: u32 = 31;
-/// TLS LE thread pointer usage, %tprel_add(symbol)
+/// TLS LE thread pointer usage, `%tprel_add(symbol)`
 pub const R_RISCV_TPREL_ADD: u32 = 32;
-/// 8-bit label addition: V + S + A
+/// 8-bit label addition: `V + S + A`
 pub const R_RISCV_ADD8: u32 = 33;
-/// 16-bit label addition: V + S + A
+/// 16-bit label addition: `V + S + A`
 pub const R_RISCV_ADD16: u32 = 34;
-/// 32-bit label addition: V + S + A
+/// 32-bit label addition: `V + S + A`
 pub const R_RISCV_ADD32: u32 = 35;
-/// 64-bit label addition: V + S + A
+/// 64-bit label addition: `V + S + A`
 pub const R_RISCV_ADD64: u32 = 36;
-/// 8-bit label subtraction: V - S - A
+/// 8-bit label subtraction: `V - S - A`
 pub const R_RISCV_SUB8: u32 = 37;
-/// 16-bit label subtraction: V - S - A
+/// 16-bit label subtraction: `V - S - A`
 pub const R_RISCV_SUB16: u32 = 38;
-/// 32-bit label subtraction: V - S - A
+/// 32-bit label subtraction: `V - S - A`
 pub const R_RISCV_SUB32: u32 = 39;
-/// 64-bit label subtraction: V - S - A
+/// 64-bit label subtraction: `V - S - A`
 pub const R_RISCV_SUB64: u32 = 40;
 /// Alignment statement. The addend indicates the number of bytes occupied by
 /// nop instructions at the relocation offset. The alignment boundary is
 /// specified by the addend rounded up to the next power of two.
 pub const R_RISCV_ALIGN: u32 = 43;
-/// 8-bit PC-relative branch offset: S + A - P
+/// 8-bit PC-relative branch offset: `S + A - P`
 pub const R_RISCV_RVC_BRANCH: u32 = 44;
-/// 11-bit PC-relative jump offset: S + A - P
+/// 11-bit PC-relative jump offset: `S + A - P`
 pub const R_RISCV_RVC_JUMP: u32 = 45;
-/// High 6 bits of 18-bit absolute address: S + A
+/// High 6 bits of 18-bit absolute address: `S + A`
 pub const R_RISCV_RVC_LUI: u32 = 46;
 /// Instruction can be relaxed, paired with a normal relocation at the same address
 pub const R_RISCV_RELAX: u32 = 51;
-/// Local label subtraction: V - S - A
+/// Local label subtraction: `V - S - A`
 pub const R_RISCV_SUB6: u32 = 52;
-/// Local label assignment: S + A
+/// Local label assignment: `S + A`
 pub const R_RISCV_SET6: u32 = 53;
-/// Local label assignment: S + A
+/// Local label assignment: `S + A`
 pub const R_RISCV_SET8: u32 = 54;
-/// Local label assignment: S + A
+/// Local label assignment: `S + A`
 pub const R_RISCV_SET16: u32 = 55;
-/// Local label assignment: S + A
+/// Local label assignment: `S + A`
 pub const R_RISCV_SET32: u32 = 56;
-/// 32-bit PC relative: S + A - P
+/// 32-bit PC relative: `S + A - P`
 pub const R_RISCV_32_PCREL: u32 = 57;
-/// Relocation against a non-preemptible ifunc symbolifunc_resolver: (B + A)
+/// Relocation against a non-preemptible ifunc symbolifunc_resolver: `(B + A)`
 pub const R_RISCV_IRELATIVE: u32 = 58;
 
 //       ___   __      __   _  _
@@ -2303,34 +2303,34 @@ pub const SHT_X86_64_UNWIND: u32 = 0x70000001; // SHT_LOPROC + 1;
 // Z Represents the size of the symbol whose index resides in the relocation entry.
 
 pub const R_X86_64_NONE: u32 = 0;
-/// S + A
+/// `S + A`
 pub const R_X86_64_64: u32 = 1;
-/// S + A - P
+/// `S + A - P`
 pub const R_X86_64_PC32: u32 = 2;
-/// G + A
+/// `G + A`
 pub const R_X86_64_GOT32: u32 = 3;
-/// L + A - P
+/// `L + A - P`
 pub const R_X86_64_PLT32: u32 = 4;
 pub const R_X86_64_COPY: u32 = 5;
-/// S
+/// `S`
 pub const R_X86_64_GLOB_DAT: u32 = 6;
-/// S
+/// `S`
 pub const R_X86_64_JUMP_SLOT: u32 = 7;
-/// B + A
+/// `B + A`
 pub const R_X86_64_RELATIVE: u32 = 8;
-/// G + GOT + A - P
+/// `G + GOT + A - P`
 pub const R_X86_64_GOTPCREL: u32 = 9;
-/// S + A
+/// `S + A`
 pub const R_X86_64_32: u32 = 10;
-/// S + A
+/// `S + A`
 pub const R_X86_64_32S: u32 = 11;
-/// S + A
+/// `S + A`
 pub const R_X86_64_16: u32 = 12;
-/// S + A - P
+/// `S + A - P`
 pub const R_X86_64_PC16: u32 = 13;
-/// S + A
+/// `S + A`
 pub const R_X86_64_8: u32 = 14;
-/// S + A - P
+/// `S + A - P`
 pub const R_X86_64_PC8: u32 = 15;
 pub const R_X86_64_DTPMOD64: u32 = 16;
 pub const R_X86_64_DTPOFF64: u32 = 17;
@@ -2340,32 +2340,32 @@ pub const R_X86_64_TLSLD: u32 = 20;
 pub const R_X86_64_DTPOFF32: u32 = 21;
 pub const R_X86_64_GOTTPOFF: u32 = 22;
 pub const R_X86_64_TPOFF32: u32 = 23;
-/// S + A - P
+/// `S + A - P`
 pub const R_X86_64_PC64: u32 = 24;
-/// S + A - GOT
+/// `S + A - GOT`
 pub const R_X86_64_GOTOFF64: u32 = 25;
-/// GOT + A - P
+/// `GOT + A - P`
 pub const R_X86_64_GOTPC32: u32 = 26;
-/// G + A
+/// `G + A`
 pub const R_X86_64_GOT64: u32 = 27;
-/// G + GOT - P + A
+/// `G + GOT - P + A`
 pub const R_X86_64_GOTPCREL64: u32 = 28;
-/// GOT - P + A
+/// `GOT - P + A`
 pub const R_X86_64_GOTPC64: u32 = 29;
-/// L - GOT + A
+/// `L - GOT + A`
 pub const R_X86_64_PLTOFF64: u32 = 31;
-/// Z + A
+/// `Z + A`
 pub const R_X86_64_SIZE32: u32 = 32;
-/// Z + A
+/// `Z + A`
 pub const R_X86_64_SIZE64: u32 = 33;
 pub const R_X86_64_GOTPC32_TLSDESC: u32 = 34;
 pub const R_X86_64_TLSDESC_CALL: u32 = 35;
 pub const R_X86_64_TLSDESC: u32 = 36;
-/// indirect (B + A)
+/// `indirect (B + A)`
 pub const R_X86_64_IRELATIVE: u32 = 37;
-/// B + A
+/// `B + A`
 pub const R_X86_64_RELATIVE64: u32 = 38;
-/// G + GOT + A - P
+/// `G + GOT + A - P`
 pub const R_X86_64_GOTPCRELX: u32 = 41;
-/// G + GOT + A - P
+/// `G + GOT + A - P`
 pub const R_X86_64_REX_GOTPCRELX: u32 = 42;
