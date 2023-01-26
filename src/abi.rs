@@ -968,6 +968,111 @@ pub const ELF_NOTE_GNU: &str = "GNU";
 
 // Note header descriptor types constants (n_type)
 
+/// Contains copy of prstatus struct
+pub const NT_PRSTATUS: u64 = 1;
+/// Contains copy of fpregset struct
+pub const NT_PRFPREG: u64 = 2;
+/// Contains copy of fpregset struct
+pub const NT_FPREGSET: u64 = 2;
+/// Contains copy of prpsinfo struct
+pub const NT_PRPSINFO: u64 = 3;
+/// Contains copy of prxregset struct
+pub const NT_PRXREG: u64 = 4;
+/// Contains copy of task structure
+pub const NT_TASKSTRUCT: u64 = 4;
+/// String from sysinfo(SI_PLATFORM)
+pub const NT_PLATFORM: u64 = 5;
+/// Contains copy of auxv array
+pub const NT_AUXV: u64 = 6;
+/// Contains copy of gwindows struct
+pub const NT_GWINDOWS: u64 = 7;
+/// Contains copy of asrset struct
+pub const NT_ASRS: u64 = 8;
+/// Contains copy of pstatus struct
+pub const NT_PSTATUS: u64 = 10;
+/// Contains copy of psinfo struct
+pub const NT_PSINFO: u64 = 13;
+/// Contains copy of prcred struct
+pub const NT_PRCRED: u64 = 14;
+/// Contains copy of utsname struct
+pub const NT_UTSNAME: u64 = 15;
+/// Contains copy of lwpstatus struct
+pub const NT_LWPSTATUS: u64 = 16;
+/// Contains copy of lwpinfo struct
+pub const NT_LWPSINFO: u64 = 17;
+/// Contains copy of fprxregset struct
+pub const NT_PRFPXREG: u64 = 20;
+/// Contains copy of siginfo_t, size might increase
+pub const NT_SIGINFO: u64 = 0x53494749;
+/// Contains information about mapped files
+pub const NT_FILE: u64 = 0x46494c45;
+/// Contains copy of user_fxsr_struct
+pub const NT_PRXFPREG: u64 = 0x46e62b7f;
+/// /// PowerPC Altivec/VMX registers
+pub const NT_PPC_VMX: u64 = 0x100;
+/// PowerPC SPE/EVR registers
+pub const NT_PPC_SPE: u64 = 0x101;
+/// PowerPC VSX registers
+pub const NT_PPC_VSX: u64 = 0x102;
+/// Target Address Register
+pub const NT_PPC_TAR: u64 = 0x103;
+/// Program Priority Register
+pub const NT_PPC_PPR: u64 = 0x104;
+/// Data Stream Control Register
+pub const NT_PPC_DSCR: u64 = 0x105;
+/// Event Based Branch Registers
+pub const NT_PPC_EBB: u64 = 0x106;
+/// Performance Monitor Registers
+pub const NT_PPC_PMU: u64 = 0x107;
+/// TM checkpointed GPR Registers
+pub const NT_PPC_TM_CGPR: u64 = 0x108;
+/// TM checkpointed FPR Registers
+pub const NT_PPC_TM_CFPR: u64 = 0x109;
+/// TM checkpointed VMX Registers
+pub const NT_PPC_TM_CVMX: u64 = 0x10a;
+/// TM checkpointed VSX Registers
+pub const NT_PPC_TM_CVSX: u64 = 0x10b;
+/// TM Special Purpose Registers
+pub const NT_PPC_TM_SPR: u64 = 0x10c;
+/// TM checkpointed Target Address Register
+pub const NT_PPC_TM_CTAR: u64 = 0x10d;
+/// TM checkpointed Program Priority Register
+pub const NT_PPC_TM_CPPR: u64 = 0x10e;
+/// TM checkpointed Data Stream Control Register
+pub const NT_PPC_TM_CDSCR: u64 = 0x10f;
+/// Memory Protection Keys registers
+pub const NT_PPC_PKEY: u64 = 0x110;
+/// i386 TLS slots (struct user_desc)
+pub const NT_386_TLS: u64 = 0x200;
+/// x86 io permission bitmap (1=deny)
+pub const NT_386_IOPERM: u64 = 0x201;
+/// x86 extended state using xsave
+pub const NT_X86_XSTATE: u64 = 0x202;
+/// ARM VFP/NEON registers
+pub const NT_ARM_VFP: u64 = 0x400;
+/// ARM TLS register
+pub const NT_ARM_TLS: u64 = 0x401;
+/// ARM hardware breakpoint registers
+pub const NT_ARM_HW_BREAK: u64 = 0x402;
+/// ARM hardware watchpoint registers
+pub const NT_ARM_HW_WATCH: u64 = 0x403;
+/// ARM system call number
+pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
+/// ARM Scalable Vector Extension registers
+pub const NT_ARM_SVE: u64 = 0x405;
+/// ARM pointer authentication code masks
+pub const NT_ARM_PAC_MASK: u64 = 0x406;
+/// ARM pointer authentication address keys
+pub const NT_ARM_PACA_KEYS: u64 = 0x407;
+/// ARM pointer authentication generic key
+pub const NT_ARM_PACG_KEYS: u64 = 0x408;
+/// AArch64 tagged address control.
+pub const NT_ARM_TAGGED_ADDR_CTRL: u64 = 0x409;
+/// AArch64 pointer authentication enabled keys
+pub const NT_ARM_PAC_ENABLED_KEYS: u64 = 0x40a;
+/// Vmcore Device Dump Note
+pub const NT_VMCOREDD: u64 = 0x700;
+
 /// ABI information
 /// The descriptor consists of words:
 ///     word 0: OS descriptor
