@@ -5,6 +5,26 @@ use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type DynamicTable<'data, E> = ParsingTable<'data, E, Dyn>;
 
+/// C-style 32-bit ELF Dynamic section entry definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf32_Dyn {
+    pub d_tag: i32,
+    // union of both {d_val, d_ptr}
+    pub d_un: u32,
+}
+
+/// C-style 64-bit ELF Dynamic section entry definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[repr(C)]
+pub struct Elf64_Dyn {
+    pub d_tag: i64,
+    // union of both {d_val, d_ptr}
+    pub d_un: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
     pub d_tag: i64,
