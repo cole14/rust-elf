@@ -40,7 +40,7 @@ pub const ELFMAG2: u8 = 0x4c;
 pub const ELFMAG3: u8 = 0x46;
 pub const ELFMAGIC: [u8; 4] = [ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3];
 
-/// ELFCLASS* define constants for e_ident\[[EI_CLASS]\]
+// ELFCLASS* define constants for e_ident[EI_CLASS]
 
 /// Invalid ELF file class
 pub const ELFCLASSNONE: u8 = 0;
@@ -49,7 +49,7 @@ pub const ELFCLASS32: u8 = 1;
 /// 64-bit ELF file
 pub const ELFCLASS64: u8 = 2;
 
-/// ELFDATA* define constants for e_ident\[[EI_DATA]\]
+// ELFDATA* define constants for e_ident[EI_DATA]
 
 /// Invalid ELF data format
 pub const ELFDATANONE: u8 = 0;
@@ -58,7 +58,7 @@ pub const ELFDATA2LSB: u8 = 1;
 /// 2's complement values, with the most significant byte occupying the lowest address.
 pub const ELFDATA2MSB: u8 = 2;
 
-/// ELFOSABI* define constants for e_ident\[[EI_OSABI]\]
+// ELFOSABI* define constants for e_ident[EI_OSABI]
 
 /// No extensions or unspecified
 pub const ELFOSABI_NONE: u8 = 0;
@@ -100,9 +100,9 @@ pub const ELFOSABI_CLOUDABI: u8 = 17;
 pub const ELFOSABI_OPENVOS: u8 = 18;
 /// 64-255 Architecture-specific value range
 
-/// ET_* define constants for the ELF File Header's e_type field.
-/// Represented as Elf32_Half in Elf32_Ehdr and Elf64_Half in Elf64_Ehdr which
-/// are both are 2-byte unsigned integers with 2-byte alignment
+// ET_* define constants for the ELF File Header's e_type field.
+// Represented as Elf32_Half in Elf32_Ehdr and Elf64_Half in Elf64_Ehdr which
+// are both are 2-byte unsigned integers with 2-byte alignment
 
 /// No file type
 pub const ET_NONE: u16 = 0;
@@ -123,9 +123,9 @@ pub const ET_LOPROC: u16 = 0xff00;
 /// Processor-specific
 pub const ET_HIPROC: u16 = 0xffff;
 
-/// EM_* define constants for the ELF File Header's e_machine field.
-/// Represented as Elf32_Half in Elf32_Ehdr and Elf64_Half in Elf64_Ehdr which
-/// are both 2-byte unsigned integers with 2-byte alignment
+// EM_* define constants for the ELF File Header's e_machine field.
+// Represented as Elf32_Half in Elf32_Ehdr and Elf64_Half in Elf64_Ehdr which
+// are both 2-byte unsigned integers with 2-byte alignment
 
 /// No machine
 pub const EM_NONE: u16 = 0;
@@ -503,9 +503,9 @@ pub const EM_RISCV: u16 = 243;
 /// Linux BPF
 pub const EM_BPF: u16 = 247;
 
-/// EV_* define constants for the ELF File Header's e_version field.
-/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
-/// are both 4-byte unsigned integers with 4-byte alignment
+// EV_* define constants for the ELF File Header's e_version field.
+// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+// are both 4-byte unsigned integers with 4-byte alignment
 
 /// Invalid version
 pub const EV_NONE: u8 = 0;
@@ -519,9 +519,9 @@ pub const EV_CURRENT: u8 = 1;
 /// section header entry contains the value zero.
 pub const PN_XNUM: u16 = 0xffff;
 
-/// PF_* define constants for the ELF Program Header's p_flags field.
-/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
-/// are both 4-byte unsigned integers with 4-byte alignment
+// PF_* define constants for the ELF Program Header's p_flags field.
+// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+// are both 4-byte unsigned integers with 4-byte alignment
 
 pub const PF_NONE: u32 = 0;
 /// Executable program segment
@@ -535,9 +535,9 @@ pub const PF_MASKOS: u32 = 0x0ff00000;
 //  All bits included in the PF_MASKPROC mask are reserved for processor-specific semantics.
 pub const PF_MASKPROC: u32 = 0xf0000000;
 
-/// PT_* define constants for the ELF Program Header's p_type field.
-/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
-/// are both 4-byte unsigned integers with 4-byte alignment
+// PT_* define constants for the ELF Program Header's p_type field.
+// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+// are both 4-byte unsigned integers with 4-byte alignment
 
 /// Program header table entry unused
 pub const PT_NULL: u32 = 0;
@@ -576,9 +576,9 @@ pub const PT_LOPROC: u32 = 0x70000000;
 /// for processor-specific semantics.
 pub const PT_HIPROC: u32 = 0x7fffffff;
 
-/// SHT_* define constants for the ELF Section Header's p_type field.
-/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
-/// are both 4-byte unsigned integers with 4-byte alignment
+// SHT_* define constants for the ELF Section Header's p_type field.
+// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
+// are both 4-byte unsigned integers with 4-byte alignment
 
 /// Inactive section with undefined values
 pub const SHT_NULL: u32 = 0;
@@ -652,11 +652,11 @@ pub const SHN_ABS: u16 = 0xfff1;
 pub const SHN_COMMON: u16 = 0xfff2;
 pub const SHN_XINDEX: u16 = 0xffff;
 
-/// SHF_* define constants for the ELF Section Header's sh_flags field.
-/// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Xword in Elf64_Ehdr which
-/// are both 4-byte and 8-byte unsigned integers, respectively.
-/// All of the constants are < 32-bits, so we use a u32 to represent these in order
-/// to make working with them easier.
+// SHF_* define constants for the ELF Section Header's sh_flags field.
+// Represented as Elf32_Word in Elf32_Ehdr and Elf64_Xword in Elf64_Ehdr which
+// are both 4-byte and 8-byte unsigned integers, respectively.
+// All of the constants are < 32-bits, so we use a u32 to represent these in order
+// to make working with them easier.
 
 /// Empty flags
 pub const SHF_NONE: u32 = 0;
@@ -728,7 +728,7 @@ pub const SHF_MASKOS: u32 = 0x0ff00000;
 /// Masked bits are reserved for processor-specific semantics.
 pub const SHF_MASKPROC: u32 = 0xf0000000;
 
-/// STT_* define constants for the ELF Symbol's st_type (encoded in the st_info field).
+// STT_* define constants for the ELF Symbol's st_type (encoded in the st_info field).
 
 /// Unspecified symbol type
 pub const STT_NOTYPE: u8 = 0;
@@ -759,7 +759,7 @@ pub const STT_LOPROC: u8 = 13;
 /// for processor-specific semantics.
 pub const STT_HIPROC: u8 = 15;
 
-/// STB_* define constants for the ELF Symbol's st_bind (encoded in the st_info field).
+// STB_* define constants for the ELF Symbol's st_bind (encoded in the st_info field).
 
 /// Local symbols are not visible outside the object file containing their
 /// definition.  Local symbols of the same name may exist in multiple files
