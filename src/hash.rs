@@ -280,10 +280,14 @@ impl<'data, E: EndianParse> GnuHashTable<'data, E> {
             }
         };
 
+        // Check bloom filter for both hashes - symbol is present in the hash table IFF both bits are set.
         if filter & (1 << (hash % bloom_width)) == 0 {
             return Ok(None);
         }
-        if filter & (1 << ((hash >> self.hdr.nshift) % bloom_width)) == 0 {
+        let hash2 = hash
+            .checked_shr(self.hdr.nshift)
+            .ok_or(ParseError::IntegerOverflow)?;
+        if filter & (1 << (hash2 % bloom_width)) == 0 {
             return Ok(None);
         }
 
