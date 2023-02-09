@@ -2,18 +2,12 @@
 //!
 //! # Capabilities
 //!
-//! ### ✨ No unsafe code ✨
-//! With memory safety a core goal, this crate contains zero unsafe code blocks, so you
-//! can trust in rust's memory safety guarantees without also having to trust this
-//! library developer as having truly been "right" in why some unsafe block was safe. 💃
-//!
-//! Many of the other rust ELF parsers out there contain bits of unsafe code deep
-//! down or in dependencies to reinterpret/transmute byte contents as structures in
-//! order to drive zero-copy parsing. They're slick, and there's typically
-//! appropriate checking to validate the assumptions to make that unsafe code work,
-//! but nevertheless it introduces unsafe code blocks at the core of the parsers. This
-//! crate strives to serve as an alternate implementation with zero unsafe blocks, while
-//! also biasing for performance.
+//! ### ✨ Uses only safe interfaces ✨
+//! With memory safety a core goal, this crate contains zero unsafe code blocks
+//! of its own and only uses safe interface methods from core and std, so you can
+//! trust in rust's memory safety guarantees without also having to trust this
+//! library developer as having truly been "right" in why some unsafe block was
+//! safe. 💃
 //!
 //! Note: I'd love to see this crate be enhanced further once rust provides safe transmutes.
 //!
