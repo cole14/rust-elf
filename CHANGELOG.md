@@ -3,6 +3,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 
+## [0.7.2] - 2023-02-15
+
+### New Features
+
+- Implement core::error::Error for ParsingError accessible via a new non-default "nightly" cargo feature
+- Add abi constants for note descriptor types (n_type)
+- Add C-style struct definitions for various abi structs (Elf[32|64]_Ehdr etc). These aren't used by the parser, but are useful definitions for folks wanting to manually muck with elf bytes.
+
+### Bug Fixes
+
+- Fix an 'attempt to shift right with overflow' panic in the GnuHashTable if nshift is wider than the bloom filter word size
+
+### Misc Improvements
+
+- Add doc comments for EM_* abi constants
+- Tweak formatting and update language for various doc comments
+
 ## [0.7.1] - 2023-01-08
 
 ### Bug Fixes
@@ -140,6 +157,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add a `no_std` option by fully moving the parser over to lazy zero-alloc parsing patterns.
 
 <!-- next-url -->
+[0.7.2]: https://github.com/cole14/rust-elf/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/cole14/rust-elf/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cole14/rust-elf/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/cole14/rust-elf/compare/v0.6.0...v0.6.1
