@@ -93,7 +93,6 @@ Release-target compilation times on this developer's 2021 m1 macbook are sub-sec
 ```rust
 use elf::ElfBytes;
 use elf::endian::AnyEndian;
-use elf::hash::sysv_hash;
 use elf::note::Note;
 use elf::note::NoteGnuBuildId;
 use elf::section::SectionHeader;
@@ -121,7 +120,7 @@ assert_eq!(
 );
 
 // Find lazy-parsing types for the common ELF sections (we want .dynsym, .dynstr, .hash)
-let common = file.find_common_sections().expect("shdrs should parse");
+let common = file.find_common_data().expect("shdrs should parse");
 let (dynsyms, strtab) = (common.dynsyms.unwrap(), common.dynsyms_strs.unwrap());
 let hash_table = common.sysv_hash.unwrap();
 

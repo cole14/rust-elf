@@ -83,7 +83,6 @@
 //! ```
 //! use elf::ElfBytes;
 //! use elf::endian::AnyEndian;
-//! use elf::hash::sysv_hash;
 //! use elf::note::Note;
 //! use elf::note::NoteGnuBuildId;
 //! use elf::section::SectionHeader;
