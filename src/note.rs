@@ -352,7 +352,9 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 5,
                 name: abi::ELF_NOTE_GNU,
-                desc: &[2, 0, 0, 192, 4, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
+                desc: &[
+                    0x2, 0x0, 0x0, 0xc0, 0x4, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
+                ]
             })
         );
     }
@@ -394,7 +396,7 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 6,
                 name: "",
-                desc: &[32, 0],
+                desc: &[0x20, 0x0],
             })
         );
         assert_eq!(offset, 16);
@@ -418,7 +420,7 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 1,
                 name: "GN",
-                desc: &[01, 02, 03, 04],
+                desc: &[0x01, 0x02, 0x03, 0x04],
             })
         );
         assert_eq!(offset, 20);
@@ -442,7 +444,7 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 0x42,
                 name: abi::ELF_NOTE_GNU,
-                desc: &[01, 02],
+                desc: &[0x01, 0x02],
             })
         );
         assert_eq!(offset, 20);
@@ -465,7 +467,7 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 0x42,
                 name: "",
-                desc: &[0x20, 0],
+                desc: &[0x20, 0x0],
             })
         );
         assert_eq!(offset, 16);
