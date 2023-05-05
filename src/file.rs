@@ -384,8 +384,8 @@ mod parse_tests {
     fn test_parse_ehdr32_works() {
         let ident = (AnyEndian::Little, Class::ELF32, abi::ELFOSABI_LINUX, 7u8);
         let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
-        for n in 0..ELF64_EHDR_TAILSIZE {
-            tail[n] = n as u8;
+        for (n, elem) in tail.iter_mut().enumerate().take(ELF64_EHDR_TAILSIZE) {
+            *elem = n as u8;
         }
 
         assert_eq!(
@@ -431,8 +431,8 @@ mod parse_tests {
     fn test_parse_ehdr64_works() {
         let ident = (AnyEndian::Big, Class::ELF64, abi::ELFOSABI_LINUX, 7u8);
         let mut tail = [0u8; ELF64_EHDR_TAILSIZE];
-        for n in 0..ELF64_EHDR_TAILSIZE {
-            tail[n] = n as u8;
+        for (n, elem) in tail.iter_mut().enumerate().take(ELF64_EHDR_TAILSIZE) {
+            *elem = n as u8;
         }
 
         assert_eq!(

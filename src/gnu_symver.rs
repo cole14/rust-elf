@@ -1220,8 +1220,8 @@ mod parse_tests {
     #[test]
     fn parse_verdef32_lsb() {
         let mut data = [0u8; ELFVERDEFSIZE];
-        for n in 0..ELFVERDEFSIZE {
-            data[n] = n as u8;
+        for (n, elem) in data.iter_mut().enumerate().take(ELFVERDEFSIZE) {
+            *elem = n as u8;
         }
         data[0] = 1;
         data[1] = 0;
@@ -1263,8 +1263,8 @@ mod parse_tests {
     #[test]
     fn parse_verdef64_msb() {
         let mut data = [0u8; ELFVERDEFSIZE];
-        for n in 2..ELFVERDEFSIZE {
-            data[n] = n as u8;
+        for (n, elem) in data.iter_mut().enumerate().take(ELFVERDEFSIZE).skip(2) {
+            *elem = n as u8;
         }
         data[1] = 1;
 
@@ -1393,8 +1393,8 @@ mod parse_tests {
     #[test]
     fn parse_verneed32_lsb() {
         let mut data = [0u8; ELFVERNEEDSIZE];
-        for n in 0..ELFVERNEEDSIZE {
-            data[n] = n as u8;
+        for (n, elem) in data.iter_mut().enumerate().take(ELFVERNEEDSIZE) {
+            *elem = n as u8;
         }
         data[0] = 1;
         data[1] = 0;
@@ -1434,8 +1434,8 @@ mod parse_tests {
     #[test]
     fn parse_verneed64_msb() {
         let mut data = [0u8; ELFVERNEEDSIZE];
-        for n in 0..ELFVERNEEDSIZE {
-            data[n] = n as u8;
+        for (n, elem) in data.iter_mut().enumerate().take(ELFVERNEEDSIZE) {
+            *elem = n as u8;
         }
         data[1] = 1;
 

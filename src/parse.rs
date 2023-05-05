@@ -349,8 +349,8 @@ pub(crate) fn test_parse_for<E: EndianParse, P: ParseAt + core::fmt::Debug + Par
 ) {
     let size = P::size_for(class);
     let mut data = vec![0u8; size];
-    for n in 0..size {
-        data[n] = n as u8;
+    for (n, elem) in data.iter_mut().enumerate().take(size) {
+        *elem = n as u8;
     }
 
     let mut offset = 0;
