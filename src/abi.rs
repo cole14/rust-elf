@@ -787,7 +787,7 @@ pub const STB_LOPROC: u8 = 13;
 /// for processor-specific semantics.
 pub const STB_HIPROC: u8 = 15;
 
-/// STV_* define constants for the ELF Symbol's st_visibility (encoded in the st_other field).
+// STV_* define constants for the ELF Symbol's st_visibility (encoded in the st_other field).
 
 /// The visibility of symbols with the STV_DEFAULT attribute is as specified by
 /// the symbol's binding type.  That is, global and weak symbols are visible
@@ -1148,7 +1148,7 @@ pub const ELFCOMPRESS_LOPROC: u32 = 0x70000000;
 pub const ELFCOMPRESS_HIPROC: u32 = 0x7fffffff;
 
 /// GNU-extension notes have this name
-pub const ELF_NOTE_GNU: &str = "GNU";
+pub const ELF_NOTE_GNU: &[u8] = b"GNU\0";
 
 // Note header descriptor types constants (n_type)
 

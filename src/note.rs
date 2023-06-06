@@ -36,7 +36,6 @@ use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ReadBytesExt};
 use core::mem::size_of;
-use core::str::from_utf8;
 
 /// This enum contains parsed Note variants which can be matched on
 #[derive(Debug, PartialEq, Eq)]
@@ -68,12 +67,11 @@ impl<'data> Note<'data> {
         let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
 
         let name_start = *offset;
-        let name_size: usize = nhdr.n_namesz.saturating_sub(1).try_into()?;
+        let name_size: usize = nhdr.n_namesz.try_into()?;
         let name_end = name_start
             .checked_add(name_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let name_buf = data.get_bytes(name_start..name_end)?;
-        let name = from_utf8(name_buf)?;
+        let name = data.get_bytes(name_start..name_end)?;
         *offset = name_end;
 
         // skip over padding if needed to get back to 4-byte alignment
@@ -173,7 +171,7 @@ pub struct NoteGnuBuildId<'data>(pub &'data [u8]);
 #[derive(Debug, PartialEq, Eq)]
 pub struct NoteAny<'data> {
     pub n_type: u64,
-    pub name: &'data str,
+    pub name: &'data [u8],
     pub desc: &'data [u8],
 }
 
@@ -320,6 +318,7 @@ mod parse_tests {
         Note::parse_at(LittleEndian, Class::ELF64, 0, &mut offset, &data)
             .expect_err("Should have gotten an alignment error");
     }
+
     #[test]
     fn parse_note_with_8_byte_alignment() {
         // This is a .note.gnu.property section, which has been seen generated with 8-byte alignment
@@ -395,7 +394,7 @@ mod parse_tests {
             note,
             Note::Unknown(NoteAny {
                 n_type: 6,
-                name: "",
+                name: &[],
                 desc: &[0x20, 0x0],
             })
         );
@@ -419,7 +418,7 @@ mod parse_tests {
             note,
             Note::Unknown(NoteAny {
                 n_type: 1,
-                name: "GN",
+                name: b"GN\0",
                 desc: &[0x01, 0x02, 0x03, 0x04],
             })
         );
@@ -466,7 +465,7 @@ mod parse_tests {
             note,
             Note::Unknown(NoteAny {
                 n_type: 0x42,
-                name: "",
+                name: &[],
                 desc: &[0x20, 0x0],
             })
         );
@@ -490,6 +489,29 @@ mod parse_tests {
             Note::Unknown(NoteAny {
                 n_type: 0x42,
                 name: abi::ELF_NOTE_GNU,
+                desc: &[],
+            })
+        );
+        assert_eq!(offset, 16);
+    }
+
+    #[test]
+    fn parse_note_any_with_invalid_utf8_name() {
+        let data = [
+            0x04, 0x00, 0x00, 0x00, // namesz 4
+            0x00, 0x00, 0x00, 0x00, // descsz 0
+            0x42, 0x00, 0x00, 0x00, // type 42 (unknown)
+            0x47, 0xc3, 0x28, 0x00, // name G..\0 (dots are an invalid utf8 sequence)
+        ];
+
+        let mut offset = 0;
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 4, &mut offset, &data)
+            .expect("Failed to parse");
+        assert_eq!(
+            note,
+            Note::Unknown(NoteAny {
+                n_type: 0x42,
+                name: &[0x47, 0xc3, 0x28, 0x0],
                 desc: &[],
             })
         );
