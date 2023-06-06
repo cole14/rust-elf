@@ -36,6 +36,7 @@ use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ReadBytesExt};
 use core::mem::size_of;
+use core::str::from_utf8;
 
 /// This enum contains parsed Note variants which can be matched on
 #[derive(Debug, PartialEq, Eq)]
@@ -173,6 +174,14 @@ pub struct NoteAny<'data> {
     pub n_type: u64,
     pub name: &'data [u8],
     pub desc: &'data [u8],
+}
+
+impl<'data> NoteAny<'data> {
+    /// Parses the note's name bytes as a utf8 sequence, with any trailing NUL bytes removed
+    pub fn name_str(&self) -> Result<&str, ParseError> {
+        let name = from_utf8(self.name)?;
+        Ok(name.trim_end_matches('\0'))
+    }
 }
 
 #[derive(Debug)]
@@ -516,6 +525,27 @@ mod parse_tests {
             })
         );
         assert_eq!(offset, 16);
+    }
+
+    #[test]
+    fn name_str_works_for_note_any_with_valid_utf8_name() {
+        let note = NoteAny {
+            n_type: 1,
+            name: &[0x47, 0x4e, 0x55, 0x00],
+            desc: &[],
+        };
+        let name = note.name_str().expect("Failed to parse utf8");
+        assert_eq!(name, "GNU");
+    }
+
+    #[test]
+    fn name_str_errors_for_note_any_with_invalid_utf8_name() {
+        let note = NoteAny {
+            n_type: 1,
+            name: &[0x47, 0xc3, 0x28, 0x00],
+            desc: &[],
+        };
+        assert!(matches!(note.name_str(), Err(ParseError::Utf8Error(_))));
     }
 
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
