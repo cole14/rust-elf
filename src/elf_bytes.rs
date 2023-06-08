@@ -61,6 +61,7 @@ use crate::symbol::{Symbol, SymbolTable};
 ///     .collect();
 /// println!("There are {} PT_LOAD segments", all_load_phdrs.len());
 /// ```
+#[derive(Debug)]
 pub struct ElfBytes<'data, E: EndianParse> {
     pub ehdr: FileHeader<E>,
     data: &'data [u8],
@@ -142,7 +143,7 @@ fn find_phdrs<'data, E: EndianParse>(
 }
 
 /// This struct collects the common sections found in ELF objects
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CommonElfData<'data, E: EndianParse> {
     /// .symtab section
     pub symtab: Option<SymbolTable<'data, E>>,

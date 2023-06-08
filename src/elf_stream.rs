@@ -23,6 +23,7 @@ use crate::file::FileHeader;
 
 /// This type encapsulates the stream-oriented interface for parsing ELF objects from
 /// a `Read + Seek`.
+#[derive(Debug)]
 pub struct ElfStream<E: EndianParse, S: std::io::Read + std::io::Seek> {
     pub ehdr: FileHeader<E>,
     shdrs: Vec<SectionHeader>,
@@ -670,6 +671,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     }
 }
 
+#[derive(Debug)]
 struct CachingReader<R: Read + Seek> {
     reader: R,
     stream_len: u64,

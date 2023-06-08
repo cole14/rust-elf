@@ -14,6 +14,7 @@ pub struct SymbolRequirement<'data> {
     pub hidden: bool,
 }
 
+#[derive(Debug)]
 pub struct SymbolDefinition<'data, E: EndianParse> {
     pub hash: u32,
     pub flags: u16,
@@ -44,6 +45,7 @@ impl<'data, E: EndianParse> Iterator for SymbolNamesIterator<'data, E> {
     }
 }
 
+#[derive(Debug)]
 pub struct SymbolVersionTable<'data, E: EndianParse> {
     version_ids: VersionIndexTable<'data, E>,
 
