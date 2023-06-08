@@ -9,6 +9,7 @@ pub type SymbolTable<'data, E> = ParsingTable<'data, E, Symbol>;
 /// C-style 32-bit ELF Symbol definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Sym {
     pub st_name: u32,
@@ -22,6 +23,7 @@ pub struct Elf32_Sym {
 /// C-style 64-bit ELF Symbol definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Sym {
     pub st_name: u32,

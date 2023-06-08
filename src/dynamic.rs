@@ -8,6 +8,7 @@ pub type DynamicTable<'data, E> = ParsingTable<'data, E, Dyn>;
 /// C-style 32-bit ELF Dynamic section entry definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Dyn {
     pub d_tag: i32,
@@ -18,6 +19,7 @@ pub struct Elf32_Dyn {
 /// C-style 64-bit ELF Dynamic section entry definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Dyn {
     pub d_tag: i64,

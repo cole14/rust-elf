@@ -9,6 +9,7 @@ pub type RelaIterator<'data, E> = ParsingIterator<'data, E, Rela>;
 /// C-style 32-bit ELF Relocation definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Rel {
     pub r_offset: u32,
@@ -18,6 +19,7 @@ pub struct Elf32_Rel {
 /// C-style 64-bit ELF Relocation definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Rel {
     pub r_offset: u64,
@@ -72,6 +74,7 @@ impl ParseAt for Rel {
 /// C-style 32-bit ELF Relocation (with addend) definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Rela {
     pub r_offset: u32,
@@ -82,6 +85,7 @@ pub struct Elf32_Rela {
 /// C-style 64-bit ELF Relocation (with addend) definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Rela {
     pub r_offset: u64,

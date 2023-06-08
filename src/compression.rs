@@ -12,6 +12,7 @@ use crate::parse::{ParseAt, ParseError};
 /// C-style 32-bit ELF Compression Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Chdr {
     pub ch_type: u32,
@@ -22,6 +23,7 @@ pub struct Elf32_Chdr {
 /// C-style 64-bit ELF Compression Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Chdr {
     pub ch_type: u32,

@@ -8,6 +8,7 @@ pub type SegmentTable<'data, E> = ParsingTable<'data, E, ProgramHeader>;
 /// C-style 32-bit ELF Program Segment Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Phdr {
     pub p_type: u32,
@@ -23,6 +24,7 @@ pub struct Elf32_Phdr {
 /// C-style 64-bit ELF Program Segment Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Phdr {
     pub p_type: u32,

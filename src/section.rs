@@ -8,6 +8,7 @@ pub type SectionHeaderTable<'data, E> = ParsingTable<'data, E, SectionHeader>;
 /// C-style 32-bit ELF Section Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Shdr {
     pub sh_name: u32,
@@ -25,6 +26,7 @@ pub struct Elf32_Shdr {
 /// C-style 64-bit ELF Section Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Shdr {
     pub sh_name: u32,

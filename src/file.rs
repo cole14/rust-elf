@@ -13,6 +13,7 @@ pub enum Class {
 /// C-style 32-bit ELF File Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf32_Ehdr {
     pub e_ident: [u8; abi::EI_NIDENT],
@@ -34,6 +35,7 @@ pub struct Elf32_Ehdr {
 /// C-style 64-bit ELF File Header definition
 ///
 /// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Elf64_Ehdr {
     pub e_ident: [u8; abi::EI_NIDENT],
