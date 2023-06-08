@@ -107,7 +107,7 @@ impl core::error::Error for ParseError {
 }
 
 impl core::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             ParseError::BadMagic(ref magic) => {
                 write!(f, "Invalid Magic Bytes: {magic:X?}")

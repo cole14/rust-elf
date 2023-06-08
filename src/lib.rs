@@ -127,7 +127,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(all(feature = "nightly", not(feature = "std")), feature(error_in_core))]
-
+#![warn(rust_2018_idioms)]
 #![deny(missing_debug_implementations)]
 
 pub mod abi;
