@@ -173,7 +173,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// to a ranges in the file data that does not actually exist.
     pub fn section_headers_with_strtab(
         &mut self,
-    ) -> Result<(&Vec<SectionHeader>, Option<StringTable>), ParseError> {
+    ) -> Result<(&Vec<SectionHeader>, Option<StringTable<'_>>), ParseError> {
         // It's Ok to have no section headers
         if self.shdrs.is_empty() {
             return Ok((&self.shdrs, None));
@@ -315,7 +315,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn section_data_as_strtab(
         &mut self,
         shdr: &SectionHeader,
-    ) -> Result<StringTable, ParseError> {
+    ) -> Result<StringTable<'_>, ParseError> {
         if shdr.sh_type != abi::SHT_STRTAB {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -331,7 +331,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     fn get_symbol_table_of_type(
         &mut self,
         symtab_type: u32,
-    ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
+    ) -> Result<Option<(SymbolTable<'_, E>, StringTable<'_>)>, ParseError> {
         if self.shdrs.is_empty() {
             return Ok(None);
         }
@@ -370,7 +370,9 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// Get the symbol table (section of type SHT_SYMTAB) and its associated string table.
     ///
     /// The gABI specifies that ELF object files may have zero or one sections of type SHT_SYMTAB.
-    pub fn symbol_table(&mut self) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
+    pub fn symbol_table(
+        &mut self,
+    ) -> Result<Option<(SymbolTable<'_, E>, StringTable<'_>)>, ParseError> {
         self.get_symbol_table_of_type(abi::SHT_SYMTAB)
     }
 
@@ -379,12 +381,12 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// The gABI specifies that ELF object files may have zero or one sections of type SHT_DYNSYM.
     pub fn dynamic_symbol_table(
         &mut self,
-    ) -> Result<Option<(SymbolTable<E>, StringTable)>, ParseError> {
+    ) -> Result<Option<(SymbolTable<'_, E>, StringTable<'_>)>, ParseError> {
         self.get_symbol_table_of_type(abi::SHT_DYNSYM)
     }
 
     /// Get the .dynamic section/segment contents.
-    pub fn dynamic(&mut self) -> Result<Option<DynamicTable<E>>, ParseError> {
+    pub fn dynamic(&mut self) -> Result<Option<DynamicTable<'_, E>>, ParseError> {
         // If we have section headers, then look it up there
         if !self.shdrs.is_empty() {
             if let Some(shdr) = self
@@ -426,7 +428,9 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     ///
     /// This is a GNU extension and not all objects use symbol versioning.
     /// Returns an empty Option if the object does not use symbol versioning.
-    pub fn symbol_version_table(&mut self) -> Result<Option<SymbolVersionTable<E>>, ParseError> {
+    pub fn symbol_version_table(
+        &mut self,
+    ) -> Result<Option<SymbolVersionTable<'_, E>>, ParseError> {
         // No sections means no GNU symbol versioning sections, which is ok
         if self.shdrs.is_empty() {
             return Ok(None);
@@ -574,7 +578,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn section_data_as_rels(
         &mut self,
         shdr: &SectionHeader,
-    ) -> Result<RelIterator<E>, ParseError> {
+    ) -> Result<RelIterator<'_, E>, ParseError> {
         if shdr.sh_type != abi::SHT_REL {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -597,7 +601,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn section_data_as_relas(
         &mut self,
         shdr: &SectionHeader,
-    ) -> Result<RelaIterator<E>, ParseError> {
+    ) -> Result<RelaIterator<'_, E>, ParseError> {
         if shdr.sh_type != abi::SHT_RELA {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -624,7 +628,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn section_data_as_notes(
         &mut self,
         shdr: &SectionHeader,
-    ) -> Result<NoteIterator<E>, ParseError> {
+    ) -> Result<NoteIterator<'_, E>, ParseError> {
         if shdr.sh_type != abi::SHT_NOTE {
             return Err(ParseError::UnexpectedSectionType((
                 shdr.sh_type,
@@ -652,7 +656,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     pub fn segment_data_as_notes(
         &mut self,
         phdr: &ProgramHeader,
-    ) -> Result<NoteIterator<E>, ParseError> {
+    ) -> Result<NoteIterator<'_, E>, ParseError> {
         if phdr.p_type != abi::PT_NOTE {
             return Err(ParseError::UnexpectedSegmentType((
                 phdr.p_type,

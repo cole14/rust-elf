@@ -66,7 +66,10 @@ impl<'data, E: EndianParse> SymbolVersionTable<'data, E> {
         }
     }
 
-    pub fn get_requirement(&self, sym_idx: usize) -> Result<Option<SymbolRequirement>, ParseError> {
+    pub fn get_requirement(
+        &self,
+        sym_idx: usize,
+    ) -> Result<Option<SymbolRequirement<'_>>, ParseError> {
         let (verneeds, verneed_strs) = match self.verneeds {
             Some(verneeds) => verneeds,
             None => {
@@ -106,7 +109,7 @@ impl<'data, E: EndianParse> SymbolVersionTable<'data, E> {
     pub fn get_definition(
         &self,
         sym_idx: usize,
-    ) -> Result<Option<SymbolDefinition<E>>, ParseError> {
+    ) -> Result<Option<SymbolDefinition<'_, E>>, ParseError> {
         let (ref verdefs, ref verdef_strs) = match self.verdefs {
             Some(ref verdefs) => verdefs,
             None => {
