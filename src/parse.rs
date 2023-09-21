@@ -495,7 +495,7 @@ mod parsing_table_tests {
 
     #[test]
     fn test_u32_table_get_unaligned() {
-        let data = vec![0u8, 1, 2, 3, 4, 5, 6, 7];
+        let data = [0u8, 1, 2, 3, 4, 5, 6, 7];
         let table = U32Table::new(LittleEndian, Class::ELF32, data.get(1..).unwrap());
         assert!(matches!(table.get(0), Ok(0x04030201)));
     }
