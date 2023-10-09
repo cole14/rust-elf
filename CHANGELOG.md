@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 
+## [0.7.3] - 2023-10-09
+
+### New Features
+
+- Derive Debug on LittleEndian and BigEndian
+
+### Misc Improvements
+
+- Enable #![forbid(unsafe_code)]
+- Enable #![deny(missing_debug_implementations)]
+- Enable #![warn(rust_2018_idioms)]
+- Fix doc comment on file::Class
+- Fix README example so it compiles
+
 ## [0.7.2] - 2023-02-15
 
 ### New Features
@@ -157,6 +171,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add a `no_std` option by fully moving the parser over to lazy zero-alloc parsing patterns.
 
 <!-- next-url -->
+[0.7.3]: https://github.com/cole14/rust-elf/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/cole14/rust-elf/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/cole14/rust-elf/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/cole14/rust-elf/compare/v0.6.1...v0.7.0
