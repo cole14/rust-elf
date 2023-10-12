@@ -11,14 +11,23 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Build no_std
+      run: cargo build --no-default-features
+
+  msrv-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install MSRV
+        run: rustup update 1.62.1 && rustup default 1.62.1
+      - name: Test
+        run: cargo test --verbose
     - name: Build no_std
       run: cargo build --no-default-features
