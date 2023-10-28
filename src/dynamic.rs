@@ -34,11 +34,11 @@ pub struct Dyn {
 }
 
 impl Dyn {
-    pub fn d_val(self) -> u64 {
+    pub fn d_val(&self) -> u64 {
         self.d_un
     }
 
-    pub fn d_ptr(self) -> u64 {
+    pub fn d_ptr(&self) -> u64 {
         self.d_un
     }
 }
@@ -76,6 +76,16 @@ mod parse_tests {
     use super::*;
     use crate::endian::{BigEndian, LittleEndian};
     use crate::parse::{test_parse_for, test_parse_fuzz_too_short};
+
+    #[test]
+    fn test_d_val_and_d_ptr() {
+        let val = Dyn {
+            d_tag: 0x01,
+            d_un: 0x0102030405060708,
+        };
+        assert_eq!(val.d_ptr(), 0x0102030405060708);
+        assert_eq!(val.d_val(), 0x0102030405060708);
+    }
 
     #[test]
     fn parse_dyn32_lsb() {
