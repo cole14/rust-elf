@@ -68,13 +68,17 @@ impl<'data> Note<'data> {
         let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
 
         let name_start = *offset;
-        let name_size: usize = nhdr.n_namesz.saturating_sub(1).try_into()?;
-        let name_end = name_start
-            .checked_add(name_size)
+        let name_buf_size: usize = nhdr.n_namesz.saturating_sub(1).try_into()?;
+        let name_buf_end = name_start
+            .checked_add(name_buf_size)
             .ok_or(ParseError::IntegerOverflow)?;
-        let name_buf = data.get_bytes(name_start..name_end)?;
+        let name_buf = data.get_bytes(name_start..name_buf_end)?;
         let name = from_utf8(name_buf)?;
-        *offset = name_end;
+
+        // move forward for entire namesz, including the NUL byte we left out of our str
+        *offset = (*offset)
+            .checked_add(nhdr.n_namesz.try_into()?)
+            .ok_or(ParseError::IntegerOverflow)?;
 
         // skip over padding if needed to get back to 4-byte alignment
         if *offset % align > 0 {
@@ -357,6 +361,29 @@ mod parse_tests {
                 ]
             })
         );
+    }
+
+    #[test]
+    fn parse_note_with_8_byte_alignment_unaligned_namesz() {
+        let data = [
+            0x05, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // namesz 5, descsz 2
+            0x42, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x55, // type 42 (unknown), name GNUU
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // NUL + 7 pad for 8 alignment
+            0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // desc 0102 + 6 pad for alignment
+        ];
+
+        let mut offset = 0;
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 8, &mut offset, &data)
+            .expect("Failed to parse");
+        assert_eq!(
+            note,
+            Note::Unknown(NoteAny {
+                n_type: 0x42,
+                name: &"GNUU",
+                desc: &[0x01, 0x02],
+            })
+        );
+        assert_eq!(offset, 32);
     }
 
     #[test]
