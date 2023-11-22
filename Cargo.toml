@@ -1,6 +1,6 @@
 [package]
 name = "elf"
-version = "0.7.3"
+version = "0.8.0-dev"
 authors = ["Christopher Cole <chris.cole.09@gmail.com>"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/cole14/rust-elf/"
