@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 
+## [0.7.4] - 2023-11-22
+
+### Bug Fixes
+
+- Fix note parsing for notes with n_namesz == (align * x + 1)
+
 ## [0.7.3] - 2023-10-09
 
 ### New Features
@@ -171,6 +177,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 - Add a `no_std` option by fully moving the parser over to lazy zero-alloc parsing patterns.
 
 <!-- next-url -->
+[0.7.4]: https://github.com/cole14/rust-elf/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/cole14/rust-elf/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/cole14/rust-elf/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/cole14/rust-elf/compare/v0.7.0...v0.7.1
