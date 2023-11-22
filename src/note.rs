@@ -368,6 +368,29 @@ mod parse_tests {
     }
 
     #[test]
+    fn parse_note_with_8_byte_alignment_unaligned_namesz() {
+        let data = [
+            0x05, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // namesz 5, descsz 2
+            0x42, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x55, // type 42 (unknown), name GNUU
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // NUL + 7 pad for 8 alignment
+            0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // desc 0102 + 6 pad for alignment
+        ];
+
+        let mut offset = 0;
+        let note = Note::parse_at(LittleEndian, Class::ELF32, 8, &mut offset, &data)
+            .expect("Failed to parse");
+        assert_eq!(
+            note,
+            Note::Unknown(NoteAny {
+                n_type: 0x42,
+                name: b"GNUU\0",
+                desc: &[0x01, 0x02],
+            })
+        );
+        assert_eq!(offset, 32);
+    }
+
+    #[test]
     fn parse_note_for_elf64_expects_nhdr32() {
         let data = [
             0x04, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x47, 0x4e,
