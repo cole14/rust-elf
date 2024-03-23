@@ -829,12 +829,10 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 mod interface_tests {
     use super::*;
     use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
-    use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
     use crate::hash::sysv_hash;
     use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
     use crate::relocation::Rela;
-    use crate::segment::ProgramHeader;
 
     #[test]
     fn simultaenous_segments_parsing() {

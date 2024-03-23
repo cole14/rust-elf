@@ -263,7 +263,6 @@ impl ParseAt for NoteHeader {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use crate::abi;
     use crate::endian::{BigEndian, LittleEndian};
 
     #[test]

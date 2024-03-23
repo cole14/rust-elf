@@ -738,7 +738,6 @@ mod interface_tests {
     use crate::hash::SysVHashTable;
     use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
     use crate::relocation::Rela;
-    use crate::symbol::Symbol;
 
     #[test]
     fn test_open_stream() {
