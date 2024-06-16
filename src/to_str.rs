@@ -1,6 +1,12 @@
 //! Optional module for getting string representations of ELF constants
 use crate::abi;
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
+
 pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
     match e_osabi {
         abi::ELFOSABI_SYSV => Some("ELFOSABI_SYSV"),
@@ -24,6 +30,7 @@ pub fn e_osabi_to_str(e_osabi: u8) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn e_osabi_to_string(e_osabi: u8) -> String {
     match e_osabi_to_str(e_osabi) {
         Some(s) => s.to_string(),
@@ -53,6 +60,7 @@ pub fn e_type_to_str(e_type: u16) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn e_type_to_string(e_type: u16) -> String {
     match e_type_to_str(e_type) {
         Some(s) => s.to_string(),
@@ -444,6 +452,7 @@ pub fn e_machine_to_str(e_machine: u16) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn e_machine_to_string(e_machine: u16) -> String {
     match e_machine_to_str(e_machine) {
         Some(s) => s.to_string(),
@@ -480,6 +489,7 @@ pub fn sh_type_to_str(sh_type: u32) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn sh_type_to_string(sh_type: u32) -> String {
     match sh_type_to_str(sh_type) {
         Some(s) => s.to_string(),
@@ -487,6 +497,7 @@ pub fn sh_type_to_string(sh_type: u32) -> String {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn p_flags_to_string(p_flags: u32) -> String {
     match p_flags < 8 {
         true => {
@@ -517,6 +528,7 @@ pub fn p_type_to_str(p_type: u32) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn p_type_to_string(p_type: u32) -> String {
     match p_type_to_str(p_type) {
         Some(s) => s.to_string(),
@@ -538,6 +550,7 @@ pub fn st_symtype_to_str(st_symtype: u8) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn st_symtype_to_string(st_symtype: u8) -> String {
     match st_symtype_to_str(st_symtype) {
         Some(s) => s.to_string(),
@@ -555,6 +568,7 @@ pub fn st_bind_to_str(st_bind: u8) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn st_bind_to_string(st_bind: u8) -> String {
     match st_bind_to_str(st_bind) {
         Some(s) => s.to_string(),
@@ -572,6 +586,7 @@ pub fn st_vis_to_str(st_vis: u8) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "alloc")]
 pub fn st_vis_to_string(st_vis: u8) -> String {
     match st_vis_to_str(st_vis) {
         Some(s) => s.to_string(),

@@ -19,8 +19,9 @@ name = "elf"
 [dependencies]
 
 [features]
-default = ["std", "to_str"]
-std = []
+default = ["alloc" , "std", "to_str"]
+alloc = []
+std = ["alloc"]
 to_str = []
 # Enable for nightly feature(error_in_core) to impl core::error::Error on ParseError
 nightly = []

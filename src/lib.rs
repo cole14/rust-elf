@@ -131,6 +131,9 @@
 #![deny(missing_debug_implementations)]
 #![forbid(unsafe_code)]
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc;
+
 pub mod abi;
 
 pub mod compression;
