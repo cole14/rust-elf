@@ -63,9 +63,7 @@ impl<'data> Note<'data> {
             return Err(ParseError::UnexpectedAlignment(align));
         }
 
-        // It looks like clang and gcc emit 32-bit notes for 64-bit files, so we
-        // currently always parse all note headers as 32-bit.
-        let nhdr = NoteHeader::parse_at(endian, Class::ELF32, offset, data)?;
+        let nhdr = NoteHeader::parse_at(endian, _class, offset, data)?;
 
         let name_start = *offset;
         let name_size: usize = nhdr.n_namesz.try_into()?;
@@ -171,7 +169,7 @@ pub struct NoteGnuBuildId<'data>(pub &'data [u8]);
 /// how to parse into more specific types.
 #[derive(Debug, PartialEq, Eq)]
 pub struct NoteAny<'data> {
-    pub n_type: u64,
+    pub n_type: u32,
     pub name: &'data [u8],
     pub desc: &'data [u8],
 }
@@ -225,38 +223,33 @@ impl<'data, E: EndianParse> Iterator for NoteIterator<'data, E> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NoteHeader {
-    pub n_namesz: u64,
-    pub n_descsz: u64,
-    pub n_type: u64,
+    pub n_namesz: u32,
+    pub n_descsz: u32,
+    pub n_type: u32,
 }
 
 impl ParseAt for NoteHeader {
     fn parse_at<E: EndianParse>(
         endian: E,
-        class: Class,
+        _class: Class,
         offset: &mut usize,
         data: &[u8],
     ) -> Result<Self, ParseError> {
-        match class {
-            Class::ELF32 => Ok(NoteHeader {
-                n_namesz: endian.parse_u32_at(offset, data)? as u64,
-                n_descsz: endian.parse_u32_at(offset, data)? as u64,
-                n_type: endian.parse_u32_at(offset, data)? as u64,
-            }),
-            Class::ELF64 => Ok(NoteHeader {
-                n_namesz: endian.parse_u64_at(offset, data)?,
-                n_descsz: endian.parse_u64_at(offset, data)?,
-                n_type: endian.parse_u64_at(offset, data)?,
-            }),
-        }
+	/*
+	 * Elf32_Nhdr is three Elf32_Word and Elf64_Nhdr is three
+	 * Elf64_Word, but Elf32_Word and Elf64_Word are both u32. So
+	 * this means that they are identical.
+	 */
+        Ok(NoteHeader {
+            n_namesz: endian.parse_u32_at(offset, data)? as u32,
+            n_descsz: endian.parse_u32_at(offset, data)? as u32,
+            n_type: endian.parse_u32_at(offset, data)? as u32,
+        })
     }
 
     #[inline]
-    fn size_for(class: Class) -> usize {
-        match class {
-            Class::ELF32 => 12,
-            Class::ELF64 => 24,
-        }
+    fn size_for(_class: Class) -> usize {
+	12
     }
 }
 
@@ -338,9 +331,9 @@ mod parse_tests {
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
 
-        // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
-        // even though the gABI states that ELF64 files should contain 64-bit notes. Sometimes those notes are generated
-        // in sections with 4-byte alignment, and other times with 8-byte alignment, as specified by shdr.sh_addralign.
+	// Sometimes those notes are generated in sections with 4-byte
+	// alignment, and other times with 8-byte alignment, as
+	// specified by shdr.sh_addralign.
         //
         // See https://raw.githubusercontent.com/wiki/hjl-tools/linux-abi/linux-abi-draft.pdf
         // Excerpt:
@@ -398,8 +391,6 @@ mod parse_tests {
         ];
 
         let mut offset = 0;
-        // Even though the file class is ELF64, we parse it as a 32-bit struct. gcc/clang seem to output 32-bit notes
-        // even though the gABI states that ELF64 files should contain 64-bit notes.
         let note = Note::parse_at(LittleEndian, Class::ELF64, 4, &mut offset, &data)
             .expect("Failed to parse");
         assert_eq!(
@@ -599,32 +590,6 @@ mod parse_tests {
     }
 
     #[test]
-    fn parse_nhdr64_lsb() {
-        test_parse_for(
-            LittleEndian,
-            Class::ELF64,
-            NoteHeader {
-                n_namesz: 0x0706050403020100,
-                n_descsz: 0x0F0E0D0C0B0A0908,
-                n_type: 0x1716151413121110,
-            },
-        );
-    }
-
-    #[test]
-    fn parse_nhdr64_msb() {
-        test_parse_for(
-            BigEndian,
-            Class::ELF64,
-            NoteHeader {
-                n_namesz: 0x0001020304050607,
-                n_descsz: 0x08090A0B0C0D0E0F,
-                n_type: 0x1011121314151617,
-            },
-        );
-    }
-
-    #[test]
     fn parse_nhdr32_lsb_fuzz_too_short() {
         test_parse_fuzz_too_short::<_, NoteHeader>(LittleEndian, Class::ELF32);
     }
@@ -632,15 +597,5 @@ mod parse_tests {
     #[test]
     fn parse_nhdr32_msb_fuzz_too_short() {
         test_parse_fuzz_too_short::<_, NoteHeader>(BigEndian, Class::ELF32);
-    }
-
-    #[test]
-    fn parse_nhdr64_lsb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<_, NoteHeader>(LittleEndian, Class::ELF64);
-    }
-
-    #[test]
-    fn parse_nhdr64_msb_fuzz_too_short() {
-        test_parse_fuzz_too_short::<_, NoteHeader>(BigEndian, Class::ELF64);
     }
 }
