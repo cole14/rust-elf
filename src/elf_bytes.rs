@@ -9,7 +9,7 @@ use crate::gnu_symver::{
 use crate::hash::{GnuHashTable, SysVHashTable};
 use crate::note::NoteIterator;
 use crate::parse::{ParseAt, ParseError, ReadBytesExt};
-use crate::relocation::{RelIterator, RelaIterator};
+use crate::relocation::{RelIterator, RelaIterator, aps2, relr};
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::{ProgramHeader, SegmentTable};
 use crate::string_table::StringTable;
@@ -521,6 +521,71 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
         Ok(RelaIterator::new(
             self.ehdr.endianness,
             self.ehdr.class,
+            buf,
+        ))
+    }
+
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over no-addend relocations [Rel](crate::relocation::Rel)
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_ANDROID_REL]
+    pub fn section_date_as_android_rels(
+        &self,
+        shdr: &SectionHeader,
+    ) -> Result<aps2::AndroidRelIterator<'data>, ParseError> {
+        if shdr.sh_type != abi::SHT_ANDROID_REL{
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                abi::SHT_ANDROID_REL,
+            )));
+        }
+        let (buf, _) = self.section_data(shdr)?;
+        aps2::AndroidRelIterator::new(
+            self.ehdr.class,
+            buf,
+        )
+    }
+
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over relocations with addends [Rela](crate::relocation::Rela)
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_ANDROID_RELA]
+    pub fn section_date_as_android_relas(
+        &self,
+        shdr: &SectionHeader,
+    ) -> Result<aps2::AndroidRelaIterator<'data>, ParseError> {
+        if shdr.sh_type != abi::SHT_ANDROID_RELA{
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                abi::SHT_ANDROID_RELA,
+            )));
+        }
+        let (buf, _) = self.section_data(shdr)?;
+        aps2::AndroidRelaIterator::new(
+            self.ehdr.class,
+            buf,
+        )
+    }
+
+    /// Get the section data for a given [SectionHeader], and interpret it as an
+    /// iterator over offset-only relocations [Rela](crate::relocation::Rel)
+    ///
+    /// Returns a ParseError if the section is not of type [abi::SHT_ANDROID_RELR] or [abi::SHT_RELR]
+    pub fn section_date_as_relrs(
+        &self,
+        shdr: &SectionHeader,
+    ) -> Result<relr::RelativeRelocationIterator<'data, E>, ParseError> {
+        if shdr.sh_type != abi::SHT_ANDROID_RELR && shdr.sh_type != abi::SHT_RELR{
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                abi::SHT_RELR,
+            )));
+        }
+        let (buf, _) = self.section_data(shdr)?;
+        Ok(relr::RelativeRelocationIterator::new(
+            self.ehdr.e_machine,
+            self.ehdr.class,
+            self.ehdr.endianness,
             buf,
         ))
     }
