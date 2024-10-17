@@ -624,7 +624,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     ///
     /// Returns a [ParseError] if the
     /// [sh_type](SectionHeader#structfield.sh_type) is not
-    /// [SHT_RELA](abi::SHT_NOTE).
+    /// [SHT_NOTE](abi::SHT_NOTE).
     pub fn section_data_as_notes(
         &mut self,
         shdr: &SectionHeader,
@@ -652,7 +652,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     ///
     /// Returns a [ParseError] if the
     /// [p_type](ProgramHeader#structfield.p_type) is not
-    /// [PT_RELA](abi::PT_NOTE).
+    /// [PT_NOTE](abi::PT_NOTE).
     pub fn segment_data_as_notes(
         &mut self,
         phdr: &ProgramHeader,
