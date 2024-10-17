@@ -1192,7 +1192,7 @@ pub const NT_SIGINFO: u64 = 0x53494749;
 pub const NT_FILE: u64 = 0x46494c45;
 /// Contains copy of user_fxsr_struct
 pub const NT_PRXFPREG: u64 = 0x46e62b7f;
-/// /// PowerPC Altivec/VMX registers
+/// PowerPC Altivec/VMX registers
 pub const NT_PPC_VMX: u64 = 0x100;
 /// PowerPC SPE/EVR registers
 pub const NT_PPC_SPE: u64 = 0x101;
