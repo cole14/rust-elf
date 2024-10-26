@@ -219,7 +219,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
     /// let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
     /// let io = std::fs::File::open(path).expect("Could not open file.");
     /// let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
-
+    ///
     /// let shdr: SectionHeader = *file
     ///     .section_header_by_name(".note.ABI-tag")
     ///     .expect("section table should be parseable")
