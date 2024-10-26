@@ -98,7 +98,7 @@ pub const ELFOSABI_FENIXOS: u8 = 16;
 pub const ELFOSABI_CLOUDABI: u8 = 17;
 /// Stratus Technologies OpenVOS
 pub const ELFOSABI_OPENVOS: u8 = 18;
-/// 64-255 Architecture-specific value range
+// 64-255 Architecture-specific value range
 
 // ET_* define constants for the ELF File Header's e_type field.
 // Represented as Elf32_Half in Elf32_Ehdr and Elf64_Half in Elf64_Ehdr which
