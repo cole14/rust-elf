@@ -27,7 +27,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Cache fuzzy corpus
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: fuzz/corpus
         key: fuzz-corpus-${{ github.run_id }}
