@@ -391,7 +391,7 @@ impl<'data, E: EndianParse> VerDefAuxIterator<'data, E> {
     }
 }
 
-impl<'data, E: EndianParse> Iterator for VerDefAuxIterator<'data, E> {
+impl<E: EndianParse> Iterator for VerDefAuxIterator<'_, E> {
     type Item = VerDefAux;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.is_empty() || self.count == 0 {
@@ -628,7 +628,7 @@ impl<'data, E: EndianParse> VerNeedAuxIterator<'data, E> {
     }
 }
 
-impl<'data, E: EndianParse> Iterator for VerNeedAuxIterator<'data, E> {
+impl<E: EndianParse> Iterator for VerNeedAuxIterator<'_, E> {
     type Item = VerNeedAux;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.is_empty() || self.count == 0 {

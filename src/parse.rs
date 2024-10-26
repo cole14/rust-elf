@@ -253,7 +253,7 @@ impl<'data, E: EndianParse, P: ParseAt> ParsingIterator<'data, E, P> {
     }
 }
 
-impl<'data, E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'data, E, P> {
+impl<E: EndianParse, P: ParseAt> Iterator for ParsingIterator<'_, E, P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.is_empty() {

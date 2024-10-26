@@ -176,7 +176,7 @@ pub struct NoteAny<'data> {
     pub desc: &'data [u8],
 }
 
-impl<'data> NoteAny<'data> {
+impl NoteAny<'_> {
     /// Parses the note's name bytes as a utf8 sequence, with any trailing NUL bytes removed
     pub fn name_str(&self) -> Result<&str, ParseError> {
         let name = from_utf8(self.name)?;
