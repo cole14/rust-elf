@@ -6,7 +6,7 @@ use crate::file::Class;
 
 #[derive(Debug)]
 pub enum ParseError {
-    /// Returned when the ELF File Header's magic bytes weren't ELF's defined
+    /// Returned when magic bytes weren't as defined
     /// magic bytes
     BadMagic([u8; 4]),
     /// Returned when the ELF File Header's `e_ident[EI_CLASS]` wasn't one of the
@@ -57,6 +57,8 @@ pub enum ParseError {
     /// Returned when parsing an ELF structure out of an io stream encountered
     /// an io error.
     IOError(std::io::Error),
+    /// Returned when parsing an android.rel section and the r_addend field is not zero
+    UnexpectedRelocationAddend,
 }
 
 #[cfg(feature = "std")]
@@ -79,6 +81,7 @@ impl std::error::Error for ParseError {
             ParseError::TryFromSliceError(ref err) => Some(err),
             ParseError::TryFromIntError(ref err) => Some(err),
             ParseError::IOError(ref err) => Some(err),
+            ParseError::UnexpectedRelocationAddend => None,
         }
     }
 }
@@ -102,6 +105,7 @@ impl core::error::Error for ParseError {
             ParseError::Utf8Error(ref err) => Some(err),
             ParseError::TryFromSliceError(ref err) => Some(err),
             ParseError::TryFromIntError(ref err) => Some(err),
+            ParseError::UnexpectedRelocationAddend => None,
         }
     }
 }
@@ -168,6 +172,9 @@ impl core::fmt::Display for ParseError {
             ParseError::TryFromIntError(ref err) => err.fmt(f),
             #[cfg(feature = "std")]
             ParseError::IOError(ref err) => err.fmt(f),
+            ParseError::UnexpectedRelocationAddend => {
+                write!(f, "Unexpected r_addend in android.rel section")
+            }
         }
     }
 }
@@ -324,6 +331,228 @@ impl<'data, E: EndianParse, P: ParseAt> IntoIterator for ParsingTable<'data, E, 
 
     fn into_iter(self) -> Self::IntoIter {
         ParsingIterator::new(self.endian, self.class, self.data)
+    }
+}
+
+/// https://en.wikipedia.org/wiki/LEB128
+pub mod leb128{
+    use super::ParseError;
+
+    const CONTINUATION_BIT: u8 = 1 << 7; // 0x80
+    const VALUE_BITS: u8 = !CONTINUATION_BIT; // 0x7f
+    const SIGN_BIT: u8 = 1 << 6; // 0x40
+
+    macro_rules! parse_leb128 {
+        (i32) => {
+            parse_leb128!(1, int32, 32, i32);
+        };
+        (i64) => {
+            parse_leb128!(1, int64, 64, i64);
+        };
+
+        (1, $name:tt, $bits:literal, $rett: ty) => {
+            pub fn $name(buf: &[u8]) -> Result<($rett, usize), ParseError>{
+                let mut result = 0;
+                let (mut shift, mut offset) = (0, 0);
+
+                let mut b ;
+                loop {
+                    b = buf.get(offset).ok_or(ParseError::SliceReadError((offset, 1)))?;
+                    offset += 1;
+
+                    result |=  ((b&VALUE_BITS) as $rett) << shift;
+                    shift += 7;
+            
+                    if b & CONTINUATION_BIT == 0{
+                        break;
+                    }
+                }
+
+                if shift < $bits && b & SIGN_BIT != 0{
+                    result |= (!0 << shift);
+                }
+                Ok((result, offset))
+            }
+        };
+
+        (u32) => {
+            parse_leb128!(0, uint32, 32, u32);
+        };
+        (u64) => {
+            parse_leb128!(0, uint64, 64, u64);
+        };
+
+        (0, $name:tt, $bits:literal, $rett: ty) => {
+            pub fn $name(buf: &[u8]) -> Result<($rett, usize), ParseError>{
+                let mut result = 0;
+                let (mut shift, mut offset) = (0, 0);
+
+                loop{
+                    let b = buf.get(offset).ok_or(ParseError::SliceReadError((offset, 1)))?;
+                    offset += 1;
+
+                    result |= ((b & VALUE_BITS) as $rett) << shift;
+                    if b & CONTINUATION_BIT == 0{
+                        break;
+                    }
+                    shift += 7;
+                }
+                Ok((result, offset))
+            }
+        };
+    }
+
+    parse_leb128!{i32}
+    parse_leb128!{i64}
+    parse_leb128!{u32}
+    parse_leb128!{u64}
+}
+
+/// from https://android.googlesource.com/toolchain/mclinker/+/7cbf23dfd1f6021e76a4be5fd131d204c9b0c333/unittests/LEB128Test.cpp
+#[cfg(test)]
+mod leb128_tests {
+    use super::leb128::*;
+
+    #[test]
+    fn test_leb128_uint64(){
+        let data = [0, 0];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 0);
+        assert_eq!(offset, 1);
+
+        let data = [2, 0];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 2);
+        assert_eq!(offset, 1);
+
+        let data = [127, 0];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 127);
+        assert_eq!(offset, 1);
+
+        let data = [0x80, 1];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 128);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+1, 1];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 129);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+2, 1];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 130);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+57, 100];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 12857);
+        assert_eq!(offset, 2);
+
+        let data = [0x80, 0x7f];
+        let (result, offset) = uint64(&data).expect("Failed to parse");
+        assert_eq!(result, 16256);
+        assert_eq!(offset, 2);
+    }
+
+    #[test]
+    fn test_leb128_int64(){
+        let data = [0, 0];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, 0);
+        assert_eq!(offset, 1);
+
+        let data = [2, 0];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, 2);
+        assert_eq!(offset, 1);
+
+        let data = [0x7e, 0];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, -2);
+        assert_eq!(offset, 1);
+
+        let data = [0x80+127, 0];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, 127);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+1, 0x7f];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, -127);
+        assert_eq!(offset, 2);
+
+        let data = [0x80, 1];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, 128);
+        assert_eq!(offset, 2);
+
+        let data = [0x80, 0x7f];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, -128);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+1, 1];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, 129);
+        assert_eq!(offset, 2);
+
+        let data = [0x80+0x7f, 0x7e];
+        let (result, offset) = int64(&data).expect("Failed to parse");
+        assert_eq!(result, -129);
+        assert_eq!(offset, 2);
+    }
+
+    #[test]
+    fn test_leb128_uint32(){
+        let data = [0, 0];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 0);
+        assert_eq!(offset, 1);
+
+        let data = [1, 0];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 1);
+        assert_eq!(offset, 1);
+
+        let data = [0x80, 0x7f];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 16256);
+        assert_eq!(offset, 2);
+
+        let data = [0xb4, 0x07];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 0x3b4);
+        assert_eq!(offset, 2);
+
+        let data = [0x8c, 0x08];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 0x40c);
+        assert_eq!(offset, 2);
+
+        let data = [0xff, 0xff, 0xff, 0xff, 0xf];
+        let (result, offset) = uint32(&data).expect("Failed to parse");
+        assert_eq!(result, 0xffffffff);
+        assert_eq!(offset, 5);
+    }
+    
+    #[test]
+    fn test_leb128_int32(){
+        let data = [0, 0];
+        let (result, offset) = int32(&data).expect("Failed to parse");
+        assert_eq!(result, 0);
+        assert_eq!(offset, 1);
+
+        let data = [1, 0];
+        let (result, offset) = int32(&data).expect("Failed to parse");
+        assert_eq!(result, 1);
+        assert_eq!(offset, 1);
+
+        let data = [0x7f, 0];
+        let (result, offset) = int32(&data).expect("Failed to parse");
+        assert_eq!(result, -1);
+        assert_eq!(offset, 1);
     }
 }
 
