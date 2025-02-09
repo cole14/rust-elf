@@ -500,8 +500,12 @@ pub const EM_MOXIE: u16 = 223;
 pub const EM_AMDGPU: u16 = 224;
 /// RISC-V
 pub const EM_RISCV: u16 = 243;
+/// Lanai 32-bit processor
+pub const EM_LANAI: u16 = 244;
 /// Linux BPF
 pub const EM_BPF: u16 = 247;
+/// NEC SX-Aurora VE
+pub const EM_VE: u16 = 251;
 /// C-Sky
 pub const EM_CSKY: u16 = 252;
 /// LoongArch
