@@ -502,6 +502,12 @@ pub const EM_AMDGPU: u16 = 224;
 pub const EM_RISCV: u16 = 243;
 /// Linux BPF
 pub const EM_BPF: u16 = 247;
+/// C-Sky
+pub const EM_CSKY: u16 = 252;
+/// LoongArch
+pub const EM_LOONGARCH: u16 = 258;
+/// Fujitsu FR-V
+pub const EM_FRV: u16 = 0x5441;
 
 // EV_* define constants for the ELF File Header's e_version field.
 // Represented as Elf32_Word in Elf32_Ehdr and Elf64_Word in Elf64_Ehdr which
