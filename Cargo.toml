@@ -11,7 +11,7 @@ categories = ["no-std", "os", "embedded"]
 exclude = [".gitignore", "/.github", "/sample-objects"]
 readme = "README.md"
 edition = "2021"
-rust-version = "1.62.1"
+rust-version = "1.81.0"
 
 [lib]
 name = "elf"
@@ -23,5 +23,3 @@ default = ["alloc" , "std", "to_str"]
 alloc = []
 std = ["alloc"]
 to_str = []
-# Enable for nightly feature(error_in_core) to impl core::error::Error on ParseError
-nightly = []

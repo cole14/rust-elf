@@ -83,7 +83,7 @@ impl std::error::Error for ParseError {
     }
 }
 
-#[cfg(all(feature = "nightly", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 impl core::error::Error for ParseError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match *self {
