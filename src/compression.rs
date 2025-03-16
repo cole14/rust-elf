@@ -8,29 +8,7 @@
 use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError};
-
-/// C-style 32-bit ELF Compression Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf32_Chdr {
-    pub ch_type: u32,
-    pub ch_size: u32,
-    pub ch_addralign: u32,
-}
-
-/// C-style 64-bit ELF Compression Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf64_Chdr {
-    pub ch_type: u32,
-    pub ch_reserved: u32,
-    pub ch_size: u64,
-    pub ch_addralign: u64,
-}
+use crate::abi;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompressionHeader {
@@ -67,8 +45,8 @@ impl ParseAt for CompressionHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 12,
-            Class::ELF64 => 24,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Chdr>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Chdr>(),
         }
     }
 }

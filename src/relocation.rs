@@ -2,31 +2,10 @@
 use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ParsingIterator};
+use crate::abi;
 
 pub type RelIterator<'data, E> = ParsingIterator<'data, E, Rel>;
 pub type RelaIterator<'data, E> = ParsingIterator<'data, E, Rela>;
-
-/// C-style 32-bit ELF Relocation definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct Elf32_Rel {
-    pub r_offset: u32,
-    pub r_info: u32,
-}
-
-/// C-style 64-bit ELF Relocation definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct Elf64_Rel {
-    pub r_offset: u64,
-    pub r_info: u64,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rel {
@@ -67,34 +46,10 @@ impl ParseAt for Rel {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 8,
-            Class::ELF64 => 16,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Rel>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Rel>(),
         }
     }
-}
-
-/// C-style 32-bit ELF Relocation (with addend) definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct Elf32_Rela {
-    pub r_offset: u32,
-    pub r_info: u32,
-    pub r_addend: i32,
-}
-
-/// C-style 64-bit ELF Relocation (with addend) definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct Elf64_Rela {
-    pub r_offset: u64,
-    pub r_info: u64,
-    pub r_addend: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -141,8 +96,8 @@ impl ParseAt for Rela {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 12,
-            Class::ELF64 => 24,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Rela>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Rela>(),
         }
     }
 }
@@ -157,6 +112,7 @@ pub mod aps2 {
     use crate::relocation::{Rel, Rela};
 
     const MAGIC_PREFIX: [u8; 4] = [b'A', b'P', b'S', b'2'];
+    const MAGIC_PREFIX_LEN: usize = core::mem::size_of_val(&MAGIC_PREFIX);
 
     pub type AndroidRelIterator<'data> = ParsingIterator<'data, false>;
     pub type AndroidRelaIterator<'data> = ParsingIterator<'data, true>;
@@ -262,16 +218,16 @@ pub mod aps2 {
 
     impl<'data, const RELA: bool> ParsingIterator<'data, RELA> {
         pub fn new(class: Class, data: &'data [u8]) -> Result<Self, ParseError> {
-            if data.len() < 4 {
-                return Err(ParseError::SliceReadError((0, 4)));
+            if data.len() < MAGIC_PREFIX_LEN {
+                return Err(ParseError::SliceReadError((0, MAGIC_PREFIX_LEN)));
             }
-            if data[..4] != MAGIC_PREFIX {
+            if data[..MAGIC_PREFIX_LEN] != MAGIC_PREFIX {
                 return Err(ParseError::BadMagic([data[0], data[1], data[2], data[3]]));
             }
 
             let mut iter = Self {
                 class,
-                data: &data[4..],
+                data: &data[MAGIC_PREFIX_LEN..],
                 offset: 0,
 
                 relocation_index: 0,

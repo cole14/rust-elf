@@ -2,30 +2,9 @@
 use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ParsingTable};
+use crate::abi;
 
 pub type DynamicTable<'data, E> = ParsingTable<'data, E, Dyn>;
-
-/// C-style 32-bit ELF Dynamic section entry definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf32_Dyn {
-    pub d_tag: i32,
-    // union of both {d_val, d_ptr}
-    pub d_un: u32,
-}
-
-/// C-style 64-bit ELF Dynamic section entry definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf64_Dyn {
-    pub d_tag: i64,
-    // union of both {d_val, d_ptr}
-    pub d_un: u64,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dyn {
@@ -65,8 +44,8 @@ impl ParseAt for Dyn {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 8,
-            Class::ELF64 => 16,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Dyn>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Dyn>(),
         }
     }
 }

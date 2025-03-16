@@ -3299,3 +3299,246 @@ pub const R_CKCORE_RELATIVE: u32 = 9;
 //                 
 
 pub const R_VE_RELATIVE: u32 = 17;
+
+/// C-style 32-bit ELF File Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Ehdr {
+    pub e_ident: [u8; EI_NIDENT],
+    pub e_type: u16,
+    pub e_machine: u16,
+    pub e_version: u32,
+    pub e_entry: u32,
+    pub e_phoff: u32,
+    pub e_shoff: u32,
+    pub e_flags: u32,
+    pub e_ehsize: u16,
+    pub e_phentsize: u16,
+    pub e_phnum: u16,
+    pub e_shentsize: u16,
+    pub e_shnum: u16,
+    pub e_shstrndx: u16,
+}
+
+/// C-style 64-bit ELF File Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Ehdr {
+    pub e_ident: [u8; EI_NIDENT],
+    pub e_type: u16,
+    pub e_machine: u16,
+    pub e_version: u32,
+    pub e_entry: u64,
+    pub e_phoff: u64,
+    pub e_shoff: u64,
+    pub e_flags: u32,
+    pub e_ehsize: u16,
+    pub e_phentsize: u16,
+    pub e_phnum: u16,
+    pub e_shentsize: u16,
+    pub e_shnum: u16,
+    pub e_shstrndx: u16,
+}
+
+/// C-style 32-bit ELF Section Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Shdr {
+    pub sh_name: u32,
+    pub sh_type: u32,
+    pub sh_flags: u32,
+    pub sh_addr: u32,
+    pub sh_offset: u32,
+    pub sh_size: u32,
+    pub sh_link: u32,
+    pub sh_info: u32,
+    pub sh_addralign: u32,
+    pub sh_entsize: u32,
+}
+
+/// C-style 64-bit ELF Section Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Shdr {
+    pub sh_name: u32,
+    pub sh_type: u32,
+    pub sh_flags: u64,
+    pub sh_addr: u64,
+    pub sh_offset: u64,
+    pub sh_size: u64,
+    pub sh_link: u32,
+    pub sh_info: u32,
+    pub sh_addralign: u64,
+    pub sh_entsize: u64,
+}
+
+/// C-style 32-bit ELF Program Segment Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Phdr {
+    pub p_type: u32,
+    pub p_offset: u32,
+    pub p_vaddr: u32,
+    pub p_paddr: u32,
+    pub p_filesz: u32,
+    pub p_memsz: u32,
+    pub p_flags: u32,
+    pub p_align: u32,
+}
+
+/// C-style 64-bit ELF Program Segment Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Phdr {
+    pub p_type: u32,
+    pub p_flags: u32,
+    pub p_offset: u64,
+    pub p_vaddr: u64,
+    pub p_paddr: u64,
+    pub p_filesz: u64,
+    pub p_memsz: u64,
+    pub p_align: u64,
+}
+
+/// C-style 32-bit ELF Compression Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Chdr {
+    pub ch_type: u32,
+    pub ch_size: u32,
+    pub ch_addralign: u32,
+}
+
+/// C-style 64-bit ELF Compression Header definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Chdr {
+    pub ch_type: u32,
+    pub ch_reserved: u32,
+    pub ch_size: u64,
+    pub ch_addralign: u64,
+}
+
+/// C-style 32-bit ELF Dynamic section entry definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Dyn {
+    pub d_tag: i32,
+    // union of both {d_val, d_ptr}
+    pub d_un: u32,
+}
+
+/// C-style 64-bit ELF Dynamic section entry definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Dyn {
+    pub d_tag: i64,
+    // union of both {d_val, d_ptr}
+    pub d_un: u64,
+}
+
+/// C-style 32-bit ELF Relocation definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Rel {
+    pub r_offset: u32,
+    pub r_info: u32,
+}
+
+/// C-style 64-bit ELF Relocation definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Rel {
+    pub r_offset: u64,
+    pub r_info: u64,
+}
+
+/// C-style 32-bit ELF Relocation (with addend) definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Rela {
+    pub r_offset: u32,
+    pub r_info: u32,
+    pub r_addend: i32,
+}
+
+/// C-style 64-bit ELF Relocation (with addend) definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Rela {
+    pub r_offset: u64,
+    pub r_info: u64,
+    pub r_addend: i64,
+}
+
+/// C-style 32-bit ELF Symbol definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf32_Sym {
+    pub st_name: u32,
+    pub st_value: u32,
+    pub st_size: u32,
+    pub st_info: u8,
+    pub st_other: u8,
+    pub st_shndx: u32,
+}
+
+/// C-style 64-bit ELF Symbol definition
+///
+/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
+#[derive(Debug)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct Elf64_Sym {
+    pub st_name: u32,
+    pub st_info: u8,
+    pub st_other: u8,
+    pub st_shndx: u16,
+    pub st_value: u64,
+    pub st_size: u64,
+}
