@@ -2,40 +2,9 @@
 use crate::endian::EndianParse;
 use crate::file::Class;
 use crate::parse::{ParseAt, ParseError, ParsingTable};
+use crate::abi;
 
 pub type SegmentTable<'data, E> = ParsingTable<'data, E, ProgramHeader>;
-
-/// C-style 32-bit ELF Program Segment Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf32_Phdr {
-    pub p_type: u32,
-    pub p_offset: u32,
-    pub p_vaddr: u32,
-    pub p_paddr: u32,
-    pub p_filesz: u32,
-    pub p_memsz: u32,
-    pub p_flags: u32,
-    pub p_align: u32,
-}
-
-/// C-style 64-bit ELF Program Segment Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf64_Phdr {
-    pub p_type: u32,
-    pub p_flags: u32,
-    pub p_offset: u64,
-    pub p_vaddr: u64,
-    pub p_paddr: u64,
-    pub p_filesz: u64,
-    pub p_memsz: u64,
-    pub p_align: u64,
-}
 
 /// Encapsulates the contents of an ELF Program Header
 ///
@@ -105,8 +74,8 @@ impl ParseAt for ProgramHeader {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 32,
-            Class::ELF64 => 56,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Phdr>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Phdr>(),
         }
     }
 }
