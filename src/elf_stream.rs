@@ -646,6 +646,12 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         ))
     }
 
+    /// Read the segment data for the given [Segment](ProgramHeader).
+    pub fn segment_data(&mut self, phdr: &ProgramHeader) -> Result<&[u8], ParseError> {
+        let (start, end) = phdr.get_file_data_range()?;
+        self.reader.read_bytes(start, end)
+    }
+
     /// Read the segment data for the given
     /// [Segment](ProgramHeader) and interpret it in-place as a
     /// [NoteIterator](NoteIterator).
@@ -1051,6 +1057,32 @@ mod interface_tests {
     }
 
     #[test]
+    fn segment_data() {
+        let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
+        let phdrs = file.segments();
+        let note_phdr = phdrs[5];
+
+        let raw_notes = file
+            .segment_data(&note_phdr)
+            .expect("Failed to read notes segment");
+
+        // Generated with:
+        // $ dd if=sample-objects/basic.x86_64 bs=1 skip=$((0x21c)) count=$((0x44)) status=none \
+        //   | xxd -i
+        let expected = [
+            0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x47, 0x4e,
+            0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+            0x20, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x03, 0x00,
+            0x00, 0x00, 0x47, 0x4e, 0x55, 0x00, 0x77, 0x41, 0x9f, 0x0d, 0xa5, 0x10, 0x83, 0x0c,
+            0x57, 0xa7, 0xc8, 0xcc, 0xb0, 0xee, 0x85, 0x5f, 0xee, 0xd3, 0x76, 0xa3,
+        ];
+        assert_eq!(raw_notes, expected);
+    }
+
+    #[test]
     fn segment_data_as_notes() {
         let path = std::path::PathBuf::from("sample-objects/basic.x86_64");
         let io = std::fs::File::open(path).expect("Could not open file.");
@@ -1060,7 +1092,7 @@ mod interface_tests {
         let note_phdr = phdrs[5];
         let mut notes = file
             .segment_data_as_notes(&note_phdr)
-            .expect("Failed to read relas section");
+            .expect("Failed to read notes segment");
         assert_eq!(
             notes.next().expect("Failed to get first note"),
             Note::GnuAbiTag(NoteGnuAbiTag {
