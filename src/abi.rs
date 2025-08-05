@@ -3160,6 +3160,9 @@ pub const RSC_VENDOR_START: u32 = 128;
 /// End of the vendor specific resource types range
 pub const RSC_VENDOR_END: u32 = 512;
 
+/// Tells that the firmware does not care about the location of the resource
+pub const FW_RSC_ADDR_ANY: u32 = u32::MAX;
+
 /// None
 pub const RHF_NONE: u32 = 0x00000000;
 /// Use runtime loading shortcuts if possible

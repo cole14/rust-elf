@@ -1,3 +1,36 @@
+//! Parsing remoteproc resource_table: `.resource_table`
+//!
+//! Example for getting the trace information
+//! ```
+//! use elf::ElfBytes;
+//! use elf::endian::AnyEndian;
+//! use elf::note::Note;
+//! use elf::note::NoteGnuAbiTag;
+//! use elf::resource_table::FirmwareResource;
+//!
+//! let path = std::path::PathBuf::from("sample-objects/arm64-main-r5f0-0-fw.armhf");
+//! let file_data = std::fs::read(path).expect("Could not read file.");
+//! let slice = file_data.as_slice();
+//! let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+//!
+//! let shdr = file
+//!     .section_header_by_name(".resource_table")
+//!     .expect("section table should be parseable")
+//!     .expect("file should have a .resource_table section");
+//!
+//! let resource_table = file
+//!     .section_data_as_resource_table(&shdr)
+//!     .expect("Should be able to get .resource_table section data");
+//! let resources: Vec<_> = resource_table
+//!     .into_iter()
+//!     .collect();
+//! if let FirmwareResource::Trace(trace) = resources[1] {
+//!     assert_eq!(trace.da, 0xA0106080);
+//!     assert_eq!(trace.len, 0x1000);
+//!     let null_pos = trace.name.iter().position(|&c| c == 0).unwrap_or(trace.name.len());
+//!     assert_eq!(String::from_utf8_lossy(&trace.name[..null_pos]), "trace:r5fss0_0");
+//! }
+//! ```
 use crate::{
     abi::{RSC_CARVEOUT, RSC_VDEV, RSC_TRACE, RSC_DEVMEM}, endian::EndianParse, file::Class, parse::{ParseAt, ReadBytesExt}, ParseError
 };
@@ -139,7 +172,6 @@ pub enum FirmwareResource<'data, E: EndianParse> {
     Unknown(u32),
 }
 
-pub const FW_RSC_ADDR_ANY: u32 = u32::MAX;
 
 impl<'data, E: EndianParse> FirmwareResource<'data, E> {
     fn parse_at(

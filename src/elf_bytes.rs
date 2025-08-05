@@ -855,7 +855,7 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
-    use crate::abi::{SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
+    use crate::abi::{FW_RSC_ADDR_ANY, SHT_GNU_HASH, SHT_NOBITS, SHT_NOTE, SHT_NULL, SHT_REL, SHT_RELA, SHT_STRTAB};
     use crate::endian::AnyEndian;
     use crate::hash::sysv_hash;
     use crate::note::{Note, NoteGnuAbiTag, NoteGnuBuildId};
@@ -1229,7 +1229,7 @@ mod interface_tests {
 
     #[test]
     fn section_data_as_resource_table() {
-        use crate::resource_table::{FirmwareResource, FirmwareResourceVdevVring, FW_RSC_ADDR_ANY};
+        use crate::resource_table::{FirmwareResource, FirmwareResourceVdevVring};
         let path = std::path::PathBuf::from("sample-objects/arm64-main-r5f0-0-fw.armhf");
         let file_data = std::fs::read(path).expect("Could not read file.");
         let slice = file_data.as_slice();
@@ -1243,7 +1243,7 @@ mod interface_tests {
 
         let resource_table = file
             .section_data_as_resource_table(&shdr)
-            .expect("Failed to read note section");
+            .expect("Failed to read .resource_table section");
         
         let mut it = (&resource_table).into_iter();
         if let FirmwareResource::Vdev(vdev) = it.next().unwrap() {
