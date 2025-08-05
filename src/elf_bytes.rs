@@ -554,7 +554,9 @@ impl<'data, E: EndianParse> ElfBytes<'data, E> {
     /// Get the section data for a given [SectionHeader], and interpret it as a
     /// [ResourceTable](crate::resource_table::ResourceTable)
     ///
-    /// Returns a ParseError if the section is not of type [abi::SHT_PROGBITS]
+    /// Returns a [ParseError] if the
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
+    /// [SHT_PROGBITS](abi::SHT_PROGBITS).
     pub fn section_data_as_resource_table(
         &self,
         shdr: &SectionHeader,
