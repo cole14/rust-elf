@@ -668,12 +668,7 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         let (start, end) = shdr.get_data_range()?;
         let buf = self.reader.read_bytes(start, end)?;
         let mut offset = 0;
-        ResourceTable::parse_at(
-            self.ehdr.endianness,
-            self.ehdr.class,
-            &mut offset,
-            buf,
-        )
+        ResourceTable::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
     }
 
     /// Read the segment data for the given [Segment](ProgramHeader).
@@ -1156,7 +1151,7 @@ mod interface_tests {
         let resource_table = file
             .section_data_as_resource_table(&shdr)
             .expect("Failed to read .resource_table section");
-        
+
         let mut it = (&resource_table).into_iter();
         if let FirmwareResource::Vdev(vdev) = it.next().unwrap() {
             assert_eq!(vdev.id, 7);
@@ -1166,13 +1161,27 @@ mod interface_tests {
             let mut it = (&vdev).into_iter();
 
             let vdev_vring1 = it.next().unwrap();
-            assert_eq!(vdev_vring1,
-                FirmwareResourceVdevVring { da: FW_RSC_ADDR_ANY, align: 0x1000, num: 256, notify_id: 1, pa: 0 }
+            assert_eq!(
+                vdev_vring1,
+                FirmwareResourceVdevVring {
+                    da: FW_RSC_ADDR_ANY,
+                    align: 0x1000,
+                    num: 256,
+                    notify_id: 1,
+                    pa: 0
+                }
             );
 
             let vdev_vring2 = it.next().unwrap();
-            assert_eq!(vdev_vring2,
-                FirmwareResourceVdevVring { da: FW_RSC_ADDR_ANY, align: 0x1000, num: 256, notify_id: 2, pa: 0 }
+            assert_eq!(
+                vdev_vring2,
+                FirmwareResourceVdevVring {
+                    da: FW_RSC_ADDR_ANY,
+                    align: 0x1000,
+                    num: 256,
+                    notify_id: 2,
+                    pa: 0
+                }
             );
             assert!(it.next().is_none());
         } else {
@@ -1182,8 +1191,15 @@ mod interface_tests {
         if let FirmwareResource::Trace(trace) = it.next().unwrap() {
             assert_eq!(trace.da, 0xA0106080);
             assert_eq!(trace.len, 0x1000);
-            let null_pos = trace.name.iter().position(|&c| c == 0).unwrap_or(trace.name.len());
-            assert_eq!(String::from_utf8_lossy(&trace.name[..null_pos]), "trace:r5fss0_0");
+            let null_pos = trace
+                .name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(trace.name.len());
+            assert_eq!(
+                String::from_utf8_lossy(&trace.name[..null_pos]),
+                "trace:r5fss0_0"
+            );
         } else {
             panic!(".resource_table parsed incorrectly");
         }

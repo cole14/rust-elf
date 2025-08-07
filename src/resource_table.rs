@@ -32,7 +32,11 @@
 //! }
 //! ```
 use crate::{
-    abi::{RSC_CARVEOUT, RSC_VDEV, RSC_TRACE, RSC_DEVMEM}, endian::EndianParse, file::Class, parse::{ParseAt, ReadBytesExt}, ParseError
+    abi::{RSC_CARVEOUT, RSC_DEVMEM, RSC_TRACE, RSC_VDEV},
+    endian::EndianParse,
+    file::Class,
+    parse::{ParseAt, ReadBytesExt},
+    ParseError,
 };
 
 /// Firmware resource table header
@@ -102,10 +106,7 @@ impl<'data, E: EndianParse> ResourceTable<'data, E> {
         }
         Ok(resource_table)
     }
-    fn get(
-        &self,
-        entry: usize,
-    ) -> Result<FirmwareResource<'data, E>, ParseError> {
+    fn get(&self, entry: usize) -> Result<FirmwareResource<'data, E>, ParseError> {
         if entry >= self.num_resources as usize {
             return Err(ParseError::BadOffset(entry as u64));
         }
@@ -114,11 +115,13 @@ impl<'data, E: EndianParse> ResourceTable<'data, E> {
         let mut resource_offsets_offset: usize = entry * size_of::<u32>();
 
         // offset into the resource_entries
-        let mut resource_entry_offset = self.endian
-            .parse_u32_at(&mut resource_offsets_offset, self.resource_offsets)? as usize;
+        let mut resource_entry_offset = self
+            .endian
+            .parse_u32_at(&mut resource_offsets_offset, self.resource_offsets)?
+            as usize;
         // Subtract the header size
-        resource_entry_offset = resource_entry_offset
-            - ((size_of::<u32>() * 4) + self.resource_offsets.len()) as usize;
+        resource_entry_offset =
+            resource_entry_offset - ((size_of::<u32>() * 4) + self.resource_offsets.len()) as usize;
 
         FirmwareResource::parse_at(
             self.endian,
@@ -127,9 +130,7 @@ impl<'data, E: EndianParse> ResourceTable<'data, E> {
             self.resource_entries,
         )
     }
-    pub fn to_iter(
-        &'data self,
-    ) -> FirmwareResourceIterator<'data, E> {
+    pub fn to_iter(&'data self) -> FirmwareResourceIterator<'data, E> {
         FirmwareResourceIterator {
             idx: 0,
             resource_table: self,
@@ -172,7 +173,6 @@ pub enum FirmwareResource<'data, E: EndianParse> {
     Unknown(u32),
 }
 
-
 impl<'data, E: EndianParse> FirmwareResource<'data, E> {
     fn parse_at(
         endian: E,
@@ -191,30 +191,21 @@ impl<'data, E: EndianParse> FirmwareResource<'data, E> {
                     &data[..*offset + FirmwareResourceCarveout::size_for(class)],
                 )?,
             )),
-            RSC_DEVMEM => Ok(FirmwareResource::Devmem(
-                FirmwareResourceDevmem::parse_at(
-                    endian,
-                    class,
-                    offset,
-                    &data[..*offset + FirmwareResourceDevmem::size_for(class)],
-                )?
-            )),
-            RSC_TRACE => Ok(FirmwareResource::Trace(
-                FirmwareResourceTrace::parse_at(
-                    endian,
-                    class,
-                    offset,
-                    &data[..*offset + FirmwareResourceTrace::size_for(class)],
-                )?
-            )),
-            RSC_VDEV => Ok(FirmwareResource::Vdev(
-                FirmwareResourceVdev::parse_at(
-                    endian,
-                    class,
-                    offset,
-                    &data,
-                )?
-            )),
+            RSC_DEVMEM => Ok(FirmwareResource::Devmem(FirmwareResourceDevmem::parse_at(
+                endian,
+                class,
+                offset,
+                &data[..*offset + FirmwareResourceDevmem::size_for(class)],
+            )?)),
+            RSC_TRACE => Ok(FirmwareResource::Trace(FirmwareResourceTrace::parse_at(
+                endian,
+                class,
+                offset,
+                &data[..*offset + FirmwareResourceTrace::size_for(class)],
+            )?)),
+            RSC_VDEV => Ok(FirmwareResource::Vdev(FirmwareResourceVdev::parse_at(
+                endian, class, offset, &data,
+            )?)),
             _ => Ok(FirmwareResource::Unknown(resource_type)),
         }
     }
@@ -308,7 +299,6 @@ impl<'data> FirmwareResourceDevmem<'data> {
         })
     }
 }
-
 
 /// trace buffer declaration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -424,11 +414,13 @@ pub struct FirmwareResourceVdev<'data, E: EndianParse> {
     /// negotiated features that are supported by both sides.
     pub gfeatures: u32,
     /// A place holder where the host will indicate its virtio progress.
-    pub status: u8, 
+    pub status: u8,
     /// Indicates how many vrings are described in this vdev header
     pub num_of_vrings: u8,
     /// An array of num_of_vrings entries
     pub vrings: &'data [u8],
+    /// virtio config space for this vdev (which is specific to the vdev; for more info, read the virtio spec).
+    pub config: &'data [u8],
 
     /// Used to create the iterator later
     endian: E,
@@ -452,7 +444,14 @@ impl<'data, E: EndianParse> FirmwareResourceVdev<'data, E> {
         let num_of_vrings = endian.parse_u8_at(offset, data)?;
         let _reserved = endian.parse_u8_at(offset, data)?;
         let _reserved = endian.parse_u8_at(offset, data)?;
-        let vrings = data.get_bytes(*offset..*offset + (num_of_vrings as usize * FirmwareResourceVdevVring::size_for(class))  as usize)?;
+        let vrings = data.get_bytes(
+            *offset
+                ..*offset
+                    + (num_of_vrings as usize * FirmwareResourceVdevVring::size_for(class))
+                        as usize,
+        )?;
+        *offset = *offset + (num_of_vrings as usize * FirmwareResourceVdevVring::size_for(class));
+        let config = data.get_bytes(*offset..*offset + config_len as usize)?;
         *offset = *offset + config_len as usize;
         Ok(FirmwareResourceVdev {
             id,
@@ -462,22 +461,18 @@ impl<'data, E: EndianParse> FirmwareResourceVdev<'data, E> {
             num_of_vrings,
             status,
             vrings,
+            config,
             endian,
             class,
         })
     }
-    pub fn to_iter(
-        &'data self,
-    ) -> FirmwareResourceVdevVringIterator<'data, E> {
+    pub fn to_iter(&'data self) -> FirmwareResourceVdevVringIterator<'data, E> {
         FirmwareResourceVdevVringIterator {
             idx: 0,
             firmware_resource_vdev: self,
         }
     }
-    fn get(
-        &self,
-        entry: usize,
-    ) -> Result<FirmwareResourceVdevVring, ParseError> {
+    fn get(&self, entry: usize) -> Result<FirmwareResourceVdevVring, ParseError> {
         if entry >= self.num_of_vrings as usize {
             return Err(ParseError::BadOffset(entry as u64));
         }
@@ -487,7 +482,8 @@ impl<'data, E: EndianParse> FirmwareResourceVdev<'data, E> {
             self.endian,
             self.class,
             &mut offset,
-            &self.vrings[entry * FirmwareResourceVdevVring::size_for(self.class)..(entry + 1) * FirmwareResourceVdevVring::size_for(self.class)],
+            &self.vrings[entry * FirmwareResourceVdevVring::size_for(self.class)
+                ..(entry + 1) * FirmwareResourceVdevVring::size_for(self.class)],
         )
     }
 }
@@ -596,8 +592,9 @@ mod parse_tests {
         ];
         let mut offset = 0;
 
-        let resource_table = ResourceTable::parse_at(LittleEndian, Class::ELF32, &mut offset, &data)
-            .expect("Failed to parse");
+        let resource_table =
+            ResourceTable::parse_at(LittleEndian, Class::ELF32, &mut offset, &data)
+                .expect("Failed to parse");
 
         assert_eq!(resource_table.version, 1);
         assert_eq!(resource_table.num_resources, 1);

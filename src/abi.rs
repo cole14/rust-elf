@@ -3146,7 +3146,7 @@ pub const DT_MIPS_DIRECT: u32 = 0x70000032;
 /// The dynamic symbol entry of a callback function
 pub const DT_MIPS_RLD_OBJ_UPDATE: u32 = 0x70000033;
 
-// resource_type in FirmwareResource 
+// resource_type in FirmwareResource
 /// Request for allocation of a physically contiguous memory region.
 pub const RSC_CARVEOUT: u32 = 0;
 /// Request to iommu_map a memory-based peripheral.
