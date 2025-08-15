@@ -340,7 +340,7 @@ pub mod aps2 {
         }
     }
 
-    impl<'data> Iterator for ParsingIterator<'data, true> {
+    impl Iterator for ParsingIterator<'_, true> {
         type Item = Result<Rela, ParseError>;
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -362,7 +362,7 @@ pub mod aps2 {
         }
     }
 
-    impl<'data> Iterator for ParsingIterator<'data, false> {
+    impl Iterator for ParsingIterator<'_, false> {
         type Item = Result<Rel, ParseError>;
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -553,7 +553,7 @@ pub mod relr {
         }
     }
 
-    impl<'data, E: EndianParse> Iterator for RelativeRelocationIterator<'data, E> {
+    impl<E: EndianParse> Iterator for RelativeRelocationIterator<'_, E> {
         type Item = Rel;
 
         fn next(&mut self) -> Option<Self::Item> {
