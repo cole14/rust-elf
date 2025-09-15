@@ -1244,6 +1244,8 @@ pub const NT_386_TLS: u64 = 0x200;
 pub const NT_386_IOPERM: u64 = 0x201;
 /// x86 extended state using xsave
 pub const NT_X86_XSTATE: u64 = 0x202;
+/// XSAVE layout description
+pub const NT_X86_XSAVE_LAYOUT: u64 = 0x205;
 /// ARM VFP/NEON registers
 pub const NT_ARM_VFP: u64 = 0x400;
 /// ARM TLS register
