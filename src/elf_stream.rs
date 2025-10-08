@@ -679,6 +679,11 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
             buf,
         ))
     }
+
+    /// Releases the reader from the [ElfStream] struct
+    pub fn release(self) -> S {
+        self.reader.reader
+    }
 }
 
 #[derive(Debug)]
