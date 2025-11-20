@@ -10,50 +10,6 @@ pub enum Class {
     ELF64,
 }
 
-/// C-style 32-bit ELF File Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf32_Ehdr {
-    pub e_ident: [u8; abi::EI_NIDENT],
-    pub e_type: u16,
-    pub e_machine: u16,
-    pub e_version: u32,
-    pub e_entry: u32,
-    pub e_phoff: u32,
-    pub e_shoff: u32,
-    pub e_flags: u32,
-    pub e_ehsize: u16,
-    pub e_phentsize: u16,
-    pub e_phnum: u16,
-    pub e_shentsize: u16,
-    pub e_shnum: u16,
-    pub e_shstrndx: u16,
-}
-
-/// C-style 64-bit ELF File Header definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf64_Ehdr {
-    pub e_ident: [u8; abi::EI_NIDENT],
-    pub e_type: u16,
-    pub e_machine: u16,
-    pub e_version: u32,
-    pub e_entry: u64,
-    pub e_phoff: u64,
-    pub e_shoff: u64,
-    pub e_flags: u32,
-    pub e_ehsize: u16,
-    pub e_phentsize: u16,
-    pub e_phnum: u16,
-    pub e_shentsize: u16,
-    pub e_shnum: u16,
-    pub e_shstrndx: u16,
-}
-
 /// Encapsulates the contents of the ELF File Header
 ///
 /// The ELF File Header starts off every ELF file and both identifies the
@@ -118,8 +74,8 @@ pub struct FileHeader<E: EndianParse> {
     pub e_shstrndx: u16,
 }
 
-pub const ELF32_EHDR_TAILSIZE: usize = 36;
-pub const ELF64_EHDR_TAILSIZE: usize = 48;
+pub const ELF32_EHDR_TAILSIZE: usize = core::mem::size_of::<abi::Elf32_Ehdr>() - abi::EI_NIDENT;
+pub const ELF64_EHDR_TAILSIZE: usize = core::mem::size_of::<abi::Elf64_Ehdr>() - abi::EI_NIDENT;
 
 fn verify_ident(buf: &[u8]) -> Result<(), ParseError> {
     // Verify the magic number

@@ -6,34 +6,6 @@ use crate::parse::{ParseAt, ParseError, ParsingTable};
 
 pub type SymbolTable<'data, E> = ParsingTable<'data, E, Symbol>;
 
-/// C-style 32-bit ELF Symbol definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf32_Sym {
-    pub st_name: u32,
-    pub st_value: u32,
-    pub st_size: u32,
-    pub st_info: u8,
-    pub st_other: u8,
-    pub st_shndx: u32,
-}
-
-/// C-style 64-bit ELF Symbol definition
-///
-/// These C-style definitions are for users who want to implement their own ELF manipulation logic.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Elf64_Sym {
-    pub st_name: u32,
-    pub st_info: u8,
-    pub st_other: u8,
-    pub st_shndx: u16,
-    pub st_value: u64,
-    pub st_size: u64,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
     /// This member holds an index into the symbol table's string table,
@@ -145,8 +117,8 @@ impl ParseAt for Symbol {
     #[inline]
     fn size_for(class: Class) -> usize {
         match class {
-            Class::ELF32 => 16,
-            Class::ELF64 => 24,
+            Class::ELF32 => core::mem::size_of::<abi::Elf32_Sym>(),
+            Class::ELF64 => core::mem::size_of::<abi::Elf64_Sym>(),
         }
     }
 }
