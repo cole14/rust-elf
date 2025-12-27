@@ -3148,6 +3148,23 @@ pub const DT_MIPS_DIRECT: u32 = 0x70000032;
 /// The dynamic symbol entry of a callback function
 pub const DT_MIPS_RLD_OBJ_UPDATE: u32 = 0x70000033;
 
+// resource_type in FirmwareResource
+/// Request for allocation of a physically contiguous memory region.
+pub const RSC_CARVEOUT: u32 = 0;
+/// Request to iommu_map a memory-based peripheral.
+pub const RSC_DEVMEM: u32 = 1;
+/// Announces the availability of a trace buffer into which the remote processor will be writing logs.
+pub const RSC_TRACE: u32 = 2;
+/// Declare support for a virtio device, and serve as its virtio header.
+pub const RSC_VDEV: u32 = 3;
+/// Start of the vendor specific resource types range
+pub const RSC_VENDOR_START: u32 = 128;
+/// End of the vendor specific resource types range
+pub const RSC_VENDOR_END: u32 = 512;
+
+/// Tells that the firmware does not care about the location of the resource
+pub const FW_RSC_ADDR_ANY: u32 = u32::MAX;
+
 /// None
 pub const RHF_NONE: u32 = 0x00000000;
 /// Use runtime loading shortcuts if possible

@@ -13,6 +13,7 @@ use crate::gnu_symver::{
 use crate::note::NoteIterator;
 use crate::parse::{ParseAt, ParseError};
 use crate::relocation::{RelIterator, RelaIterator};
+use crate::resource_table::ResourceTable;
 use crate::section::{SectionHeader, SectionHeaderTable};
 use crate::segment::ProgramHeader;
 use crate::segment::SegmentTable;
@@ -646,6 +647,30 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         ))
     }
 
+    /// Read the section data for the given
+    /// [SectionHeader](SectionHeader) and interpret it in-place as a
+    /// [ResourceTable](crate::resource_table::ResourceTable)
+    ///
+    /// Returns a [ParseError] if the
+    /// [sh_type](SectionHeader#structfield.sh_type) is not
+    /// [SHT_PROGBITS](abi::SHT_PROGBITS).
+    pub fn section_data_as_resource_table(
+        &mut self,
+        shdr: &SectionHeader,
+    ) -> Result<ResourceTable<'_, E>, ParseError> {
+        if shdr.sh_type != abi::SHT_PROGBITS {
+            return Err(ParseError::UnexpectedSectionType((
+                shdr.sh_type,
+                abi::SHT_PROGBITS,
+            )));
+        }
+
+        let (start, end) = shdr.get_data_range()?;
+        let buf = self.reader.read_bytes(start, end)?;
+        let mut offset = 0;
+        ResourceTable::parse_at(self.ehdr.endianness, self.ehdr.class, &mut offset, buf)
+    }
+
     /// Read the segment data for the given [Segment](ProgramHeader).
     pub fn segment_data(&mut self, phdr: &ProgramHeader) -> Result<&[u8], ParseError> {
         let (start, end) = phdr.get_file_data_range()?;
@@ -744,6 +769,7 @@ impl<R: Read + Seek> CachingReader<R> {
 #[cfg(test)]
 mod interface_tests {
     use super::*;
+    use crate::abi::FW_RSC_ADDR_ANY;
     use crate::dynamic::Dyn;
     use crate::endian::AnyEndian;
     use crate::hash::SysVHashTable;
@@ -1115,6 +1141,73 @@ mod interface_tests {
             ]))
         );
         assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn section_data_as_resource_table() {
+        use crate::resource_table::{FirmwareResource, FirmwareResourceVdevVring};
+        let path = std::path::PathBuf::from("sample-objects/arm64-main-r5f0-0-fw.armhf");
+        let io = std::fs::File::open(path).expect("Could not open file.");
+        let mut file = ElfStream::<AnyEndian, _>::open_stream(io).expect("Open test1");
+
+        let shdrs = file.section_headers();
+        let shdr = shdrs[24];
+
+        let resource_table = file
+            .section_data_as_resource_table(&shdr)
+            .expect("Failed to read .resource_table section");
+
+        let mut it = (&resource_table).into_iter();
+        if let FirmwareResource::Vdev(vdev) = it.next().unwrap() {
+            assert_eq!(vdev.id, 7);
+            assert_eq!(vdev.notify_id, 0);
+            assert_eq!(vdev.dfeatures, 1);
+            assert_eq!(vdev.num_of_vrings, 2);
+            let mut it = (&vdev).into_iter();
+
+            let vdev_vring1 = it.next().unwrap();
+            assert_eq!(
+                vdev_vring1,
+                FirmwareResourceVdevVring {
+                    da: FW_RSC_ADDR_ANY,
+                    align: 0x1000,
+                    num: 256,
+                    notify_id: 1,
+                    pa: 0
+                }
+            );
+
+            let vdev_vring2 = it.next().unwrap();
+            assert_eq!(
+                vdev_vring2,
+                FirmwareResourceVdevVring {
+                    da: FW_RSC_ADDR_ANY,
+                    align: 0x1000,
+                    num: 256,
+                    notify_id: 2,
+                    pa: 0
+                }
+            );
+            assert!(it.next().is_none());
+        } else {
+            panic!(".resource_table parsed incorrectly");
+        }
+
+        if let FirmwareResource::Trace(trace) = it.next().unwrap() {
+            assert_eq!(trace.da, 0xA0106080);
+            assert_eq!(trace.len, 0x1000);
+            let null_pos = trace
+                .name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(trace.name.len());
+            assert_eq!(
+                String::from_utf8_lossy(&trace.name[..null_pos]),
+                "trace:r5fss0_0"
+            );
+        } else {
+            panic!(".resource_table parsed incorrectly");
+        }
     }
 
     #[test]

@@ -142,6 +142,7 @@ pub mod gnu_symver;
 pub mod hash;
 pub mod note;
 pub mod relocation;
+pub mod resource_table;
 pub mod section;
 pub mod segment;
 pub mod string_table;
