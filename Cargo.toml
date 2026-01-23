@@ -17,9 +17,15 @@ rust-version = "1.81.0"
 name = "elf"
 
 [dependencies]
+futures = { version = "0.3.31", optional = true }
+
+[dev-dependencies]
+futures-test = { version = "0.3.31" }
+async-fs = { version = "2.2.0" }
 
 [features]
 default = ["alloc" , "std", "to_str"]
 alloc = []
 std = ["alloc"]
 to_str = []
+async = ["dep:futures"]
