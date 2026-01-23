@@ -162,4 +162,9 @@ mod elf_stream;
 #[cfg(feature = "std")]
 pub use elf_stream::ElfStream;
 
+#[cfg(feature = "async")]
+mod elf_async_stream;
+#[cfg(feature = "async")]
+pub use elf_async_stream::ElfAsyncStream;
+
 pub use parse::ParseError;
