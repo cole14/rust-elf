@@ -12,6 +12,16 @@ impl<'data> StringTable<'data> {
         StringTable { data }
     }
 
+    #[cfg(feature = "std")]
+    pub fn get_cstr(&self, offset: usize) -> Result<&'data std::ffi::CStr, ParseError> {
+        let start = self
+            .data
+            .get(offset..)
+            .ok_or(ParseError::BadOffset(offset as u64))?;
+        std::ffi::CStr::from_bytes_until_nul(start)
+            .map_err(|_| ParseError::StringTableMissingNul(offset as u64))
+    }
+
     pub fn get_raw(&self, offset: usize) -> Result<&'data [u8], ParseError> {
         if self.data.is_empty() {
             return Err(ParseError::BadOffset(offset as u64));
@@ -57,6 +67,13 @@ mod tests {
     }
 
     #[test]
+    fn test_get_cstr_works() {
+        let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
+        let st = StringTable::new(&data);
+        assert_eq!(st.get_cstr(1).unwrap().to_bytes(), [0x45, 0x4c, 0x46]);
+    }
+
+    #[test]
     fn test_get_raw_works() {
         let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
         let st = StringTable::new(&data);
@@ -68,6 +85,17 @@ mod tests {
         let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
         let st = StringTable::new(&data);
         assert_eq!(st.get(1).unwrap(), "ELF");
+    }
+
+    #[test]
+    fn test_get_cstr_index_out_of_bounds_errors() {
+        let data = [0u8, 0x45, 0x4C, 0x46, 0u8];
+        let st = StringTable::new(&data);
+        let result = st.get_cstr(7);
+        assert!(
+            matches!(result, Err(ParseError::BadOffset(7))),
+            "Unexpected Error type found: {result:?}"
+        );
     }
 
     #[test]
@@ -88,6 +116,17 @@ mod tests {
         let result = st.get(7);
         assert!(
             matches!(result, Err(ParseError::BadOffset(7))),
+            "Unexpected Error type found: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_get_cstr_with_malformed_table_no_trailing_nul() {
+        let data = [0u8, 0x45, 0x4C, 0x46];
+        let st = StringTable::new(&data);
+        let result = st.get_cstr(1);
+        assert!(
+            matches!(result, Err(ParseError::StringTableMissingNul(1))),
             "Unexpected Error type found: {result:?}"
         );
     }
