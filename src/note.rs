@@ -225,6 +225,60 @@ impl<'data, E: EndianParse> Iterator for NoteIterator<'data, E> {
     }
 }
 
+/// An iterator over notes which reports parsing errors.
+///
+/// Unlike [`NoteIterator`], this iterator distinguishes malformed note data from
+/// the end of the notes. It yields the first parsing error once, then stops:
+/// parsing cannot reliably resume after a partially consumed note.
+///
+/// Use the section or segment data and its alignment to construct the iterator:
+/// ```
+/// use elf::{endian::LittleEndian, file::Class, note::ErroringNoteIterator};
+///
+/// let truncated_header = [0; 11];
+/// let mut notes = ErroringNoteIterator::new(
+///     LittleEndian, Class::ELF64, 4, &truncated_header,
+/// );
+/// assert!(notes.next().unwrap().is_err());
+/// assert!(notes.next().is_none());
+/// ```
+#[derive(Debug)]
+pub struct ErroringNoteIterator<'data, E: EndianParse> {
+    inner: NoteIterator<'data, E>,
+}
+
+impl<'data, E: EndianParse> ErroringNoteIterator<'data, E> {
+    pub fn new(endian: E, class: Class, align: usize, data: &'data [u8]) -> Self {
+        Self {
+            inner: NoteIterator::new(endian, class, align, data),
+        }
+    }
+}
+
+impl<'data, E: EndianParse> Iterator for ErroringNoteIterator<'data, E> {
+    type Item = Result<Note<'data>, ParseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.inner.offset >= self.inner.data.len() {
+            return None;
+        }
+
+        let result = Note::parse_at(
+            self.inner.endian,
+            self.inner.class,
+            self.inner.align,
+            &mut self.inner.offset,
+            self.inner.data,
+        );
+        if result.is_err() {
+            self.inner.offset = self.inner.data.len();
+        }
+        Some(result)
+    }
+}
+
+impl<E: EndianParse> core::iter::FusedIterator for ErroringNoteIterator<'_, E> {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NoteHeader {
     pub n_namesz: u64,
@@ -266,6 +320,86 @@ impl ParseAt for NoteHeader {
 mod parse_tests {
     use super::*;
     use crate::endian::{BigEndian, LittleEndian};
+
+    #[test]
+    fn erroring_notes_empty() {
+        let mut notes = ErroringNoteIterator::new(LittleEndian, Class::ELF32, 4, &[]);
+        assert!(notes.next().is_none());
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn erroring_notes_valid_then_end() {
+        for endian in [
+            crate::endian::AnyEndian::Little,
+            crate::endian::AnyEndian::Big,
+        ] {
+            for class in [Class::ELF32, Class::ELF64] {
+                // Zero-sized unknown notes have no name or description padding.
+                let data = [0; 24];
+                let mut notes = ErroringNoteIterator::new(endian, class, 4, &data);
+                for _ in 0..2 {
+                    assert_eq!(
+                        notes.next().unwrap().unwrap(),
+                        Note::Unknown(NoteAny {
+                            n_type: 0,
+                            name: &[],
+                            desc: &[]
+                        }),
+                    );
+                }
+                assert!(notes.next().is_none());
+                assert!(notes.next().is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn erroring_notes_truncated_header() {
+        for len in 1..12 {
+            let data = [0; 11];
+            let mut notes = ErroringNoteIterator::new(LittleEndian, Class::ELF64, 4, &data[..len]);
+            assert!(notes.next().unwrap().is_err());
+            assert!(notes.next().is_none());
+            assert!(notes.next().is_none());
+        }
+    }
+
+    #[test]
+    fn erroring_notes_valid_then_truncated() {
+        let data = [0; 13];
+        let mut notes = ErroringNoteIterator::new(LittleEndian, Class::ELF32, 4, &data);
+        assert!(notes.next().unwrap().is_ok());
+        assert!(notes.next().unwrap().is_err());
+        assert!(notes.next().is_none());
+    }
+
+    #[test]
+    fn erroring_notes_stops_after_bad_name_or_description() {
+        for field in [0, 4] {
+            let mut data = [0; 24];
+            // A failed header advances the offset to 12, where another valid
+            // zero-sized note would otherwise allow iteration to resume.
+            data[field] = 100;
+            let mut notes = ErroringNoteIterator::new(LittleEndian, Class::ELF32, 4, &data);
+            assert!(notes.next().unwrap().is_err());
+            assert!(notes.next().is_none());
+            assert!(notes.next().is_none());
+        }
+    }
+
+    #[test]
+    fn erroring_notes_reports_invalid_known_note() {
+        let data = [
+            4, 0, 0, 0, // namesz
+            0, 0, 0, 0, // descsz: ABI tag requires 16 bytes
+            1, 0, 0, 0, // NT_GNU_ABI_TAG
+            b'G', b'N', b'U', 0,
+        ];
+        let mut notes = ErroringNoteIterator::new(LittleEndian, Class::ELF32, 4, &data);
+        assert!(notes.next().unwrap().is_err());
+        assert!(notes.next().is_none());
+    }
 
     #[test]
     fn parse_nt_gnu_abi_tag() {

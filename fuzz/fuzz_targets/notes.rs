@@ -2,7 +2,7 @@
 
 use elf::endian::NativeEndian;
 use elf::file::Class;
-use elf::note::{Note, NoteIterator};
+use elf::note::{ErroringNoteIterator, Note, NoteIterator};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -14,4 +14,7 @@ fuzz_target!(|data: &[u8]| {
 
     let iter = NoteIterator::new(NativeEndian, Class::ELF64, head[0] as usize, tail);
     let _: Vec<Note> = iter.collect();
+
+    let iter = ErroringNoteIterator::new(NativeEndian, Class::ELF64, head[0] as usize, tail);
+    let _: Vec<_> = iter.collect();
 });
