@@ -680,6 +680,25 @@ impl<E: EndianParse, S: std::io::Read + std::io::Seek> ElfStream<E, S> {
         ))
     }
 
+    /// Borrows the underlying stream.
+    ///
+    /// Its current position is an implementation detail of the parser and may
+    /// change when data is read through this [ElfStream].
+    pub fn inner_stream(&self) -> &S {
+        &self.reader.reader
+    }
+
+    /// Mutably borrows the underlying stream, allowing data to be read directly
+    /// into caller-provided buffers without populating the parser's cache.
+    ///
+    /// Seek to the desired offset before reading. Subsequent parser reads seek
+    /// as needed, so the stream position does not need to be restored.
+    /// Do not modify the stream's contents or length: parsed headers, cached data,
+    /// and the stream length recorded when opening the file are not refreshed.
+    pub fn inner_stream_mut(&mut self) -> &mut S {
+        &mut self.reader.reader
+    }
+
     /// Releases the reader from the [ElfStream] struct
     pub fn release(self) -> S {
         self.reader.reader
